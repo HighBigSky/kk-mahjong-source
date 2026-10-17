@@ -32,8 +32,8 @@ export function createRoomOrientation({onLayout = () => {}} = {}) {
     root.classList.toggle('in-room', inRoom);
     root.classList.toggle('landscape-rotated', rotated);
     stage?.classList.toggle('is-landscape', inRoom);
-    // 够宽的舞台（手机横屏）用铺满版式，接近方形或很窄的窗口回退正方形版式。
-    stage?.classList.toggle('is-wide', inRoom && availableWidth / availableHeight >= 1.72);
+    // Use the rotated stage ratio as well when the device remains portrait.
+    stage?.classList.toggle('is-wide', inRoom && Math.max(availableWidth, availableHeight) / Math.min(availableWidth, availableHeight) >= 1.72);
     root.style.setProperty('--stage-width', `${Math.max(availableWidth, availableHeight)}px`);
     root.style.setProperty('--stage-height', `${Math.min(availableWidth, availableHeight)}px`);
     root.style.setProperty('--stage-center-x', `${(viewport?.offsetLeft || 0) + safe.left + availableWidth / 2}px`);

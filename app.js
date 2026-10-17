@@ -654,9 +654,8 @@ function render() {
     const seat = game.players[player];
     const river = $(`#river-${player}`);
     // 牌河四边同尺寸同行数：上下各 6 列×2 行（12 张），左右各 3 列×2 行（6 张）。
-    // 铺满版式下上下牌河 10 列、左右 4 列；正方形版式仍是 6 列 / 3 列。
-    const wideTable = $('#game').classList.contains('is-wide');
-    const limit = player === 0 || player === 2 ? (wideTable ? 20 : 12) : (wideTable ? 8 : 6);
+    // 所有横屏尺寸保持同一上限，避免侧边牌河侵入中央罗盘。
+    const limit = player === 0 || player === 2 ? 12 : 6;
     const offset = Math.max(0, seat.discards.length - limit);
     setHTMLIfChanged(river, seat.discards.slice(offset).map((type, index) => tile(type, game.pendingDiscard?.from === player && index === seat.discards.length - offset - 1 ? 'last-discard' : '')).join(''));
     river.dataset.label = `${seats[player]} · ${seat.discards.length} 张${offset ? ' ›' : ''}`;
