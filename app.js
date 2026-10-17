@@ -156,13 +156,11 @@ function roomChanged() {
     if (!room || room.status === 'waiting') openModal('#room-dialog');
   }
   const lastEvent = game.events.at(-1);
-  if (!changedRound && lastEvent && lastSoundEvent !== lastEvent) {
-    playSound();
-    // 引擎日志格式固定为「某家打出某牌。」，出牌时同步读出牌名。
-    const discarded = /打出(.+?)。$/.exec(lastEvent);
-    if (discarded) speakTile(discarded[1]);
-  }
+  if (!changedRound && lastEvent && lastSoundEvent !== lastEvent) playSound();
   lastSoundEvent = lastEvent || '';
+  // 换房或换局后重新对齐朗读基线，避免把上一局/进房前的日志读出来。
+  if (changedRoom || changedRound) announcedEvents = -1;
+  announceDiscards();
   previousRoomCode = room?.code || null;
   previousVersion = room?.version ?? -1;
   previousRound = game.round;
@@ -258,12 +256,12 @@ function playSound(kind = 'tile') {
 
 // 出牌报牌名：用浏览器自带语音合成，零依赖。字牌单字容易听混，读全称。
 const SPEECH_NAMES = Object.freeze({ 中: '红中', 发: '发财', 白: '白板' });
+// 已读到的引擎日志条数：一个快照里可能同时带来好几条出牌，逐条读才不会漏。
+let announcedEvents = -1;
 
 function speakTile(name) {
   if (!preferences.sound || typeof speechSynthesis === 'undefined' || !name) return;
   try {
-    // 连续出牌时先掐掉上一句，避免读牌名越堆越晚。
-    speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(SPEECH_NAMES[name] || name);
     utterance.lang = 'zh-CN';
     utterance.rate = 1.15;
@@ -271,6 +269,20 @@ function speakTile(name) {
     utterance.volume = 1;
     speechSynthesis.speak(utterance);
   } catch { /* 没有语音合成的浏览器只保留提示音。 */ }
+}
+
+function announceDiscards() {
+  const events = game.events || [];
+  if (announcedEvents < 0 || events.length < announcedEvents) {
+    // 刚进房或刚开一局：只对齐基线，不把历史日志重读一遍。
+    announcedEvents = events.length;
+    return;
+  }
+  for (const event of events.slice(announcedEvents)) {
+    const discarded = /打出(.+?)。$/.exec(event);
+    if (discarded) speakTile(discarded[1]);
+  }
+  announcedEvents = events.length;
 }
 
 function syncSettings() {
