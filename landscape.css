@@ -219,10 +219,10 @@ html.in-room.landscape-rotated #game.is-landscape {
 #game.is-landscape .table .river-count { font-size:max(7px,calc(var(--table-unit) * 1.5)); padding:calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .6); }
 #game.is-landscape .table .table-center { left:calc(50% - var(--table-unit) * 8); top:calc(50% - var(--table-unit) * 9.5); width:calc(var(--table-unit) * 16); height:calc(var(--table-unit) * 16); }
 #game.is-landscape .table .table-center::before { inset:calc(var(--table-unit) * .8); }
-.is-landscape .table-dice { gap:calc(var(--table-unit) * 1.2); }
+.is-landscape .table-dice { gap:calc(var(--table-unit) * 1); }
 .is-landscape .table-die {
-  width:calc(var(--table-unit) * 6.6);
-  height:calc(var(--table-unit) * 6.6);
+  width:calc(var(--table-unit) * 5.2);
+  height:calc(var(--table-unit) * 5.2);
   padding:calc(var(--table-unit) * 1.15);
   border-width:calc(var(--table-unit) * .1);
   border-right-width:calc(var(--table-unit) * .1);
@@ -230,7 +230,7 @@ html.in-room.landscape-rotated #game.is-landscape {
   border-radius:calc(var(--table-unit) * 1);
   box-shadow:inset 0 calc(var(--table-unit) * -.45) calc(var(--table-unit) * .7) #b9a8824d,calc(var(--table-unit) * .2) calc(var(--table-unit) * .4) calc(var(--table-unit) * .7) #061e1780;
 }
-.is-landscape .table-die i { width:calc(var(--table-unit) * 1.3); height:calc(var(--table-unit) * 1.3); }
+.is-landscape .table-die i { width:calc(var(--table-unit) * 1.05); height:calc(var(--table-unit) * 1.05); }
 .is-landscape .table-die.is-key { outline-width:calc(var(--table-unit) * .2); outline-offset:calc(var(--table-unit) * .16); }
 /* 中央罗盘里的四个风位与座位卡上的风位重复，横屏让位给骰子；元素保留，竖屏入口仍可见。 */
 .is-landscape .table-center .direction { display:none; }
