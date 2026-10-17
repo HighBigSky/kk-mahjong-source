@@ -384,3 +384,35 @@ html.in-room .room-error { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),1
 @media(prefers-reduced-motion:reduce) {
   .is-landscape,.is-landscape *,html.in-room .modal { transition:none!important; animation:none!important; }
 }
+
+/* ===== 铺满版式（只在够宽的舞台启用，例如手机横屏 844x390） =====
+   舞台宽高比 >= 1.72 时由 src/ui/orientation.js 给 #game 加 .is-wide；
+   接近方形或很窄的窗口不加，继续用上面的正方形牌桌版式。 */
+html.in-room #game.is-landscape.is-wide { --board-width:calc(var(--stage-width) * .98); }
+html.in-room #game.is-landscape.is-wide .table { left:1%; top:12%; width:98%; height:calc(var(--stage-height) * .88); }
+/* 牌墙：上排居中收紧，左右两列推到两侧手牌内侧 */
+#game.is-landscape.is-wide .table .wall-stack[data-side="top"] { left:calc(50% - var(--table-unit) * 26.35 + var(--wall-stack-index) * var(--table-unit) * 3.1); }
+#game.is-landscape.is-wide .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 20); }
+#game.is-landscape.is-wide .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 30); }
+/* 三家暗手 */
+#game.is-landscape.is-wide .table .opponent-rack-top { left:0; right:0; }
+#game.is-landscape.is-wide .table .opponent-rack-top .backs,
+#game.is-landscape.is-wide .table .opponent-rack-top .bot-melds { justify-content:center; }
+#game.is-landscape.is-wide .table .opponent-rack-left { left:calc(var(--table-unit) * 16); }
+#game.is-landscape.is-wide .table .opponent-rack-right { right:calc(var(--table-unit) * 26); }
+/* 牌河：上下 10 列、左右 4 列 */
+#game.is-landscape.is-wide .table .river-top,
+#game.is-landscape.is-wide .table .river-bottom { left:50%; width:auto; transform:translateX(-50%); grid-template-columns:repeat(10,calc(var(--table-unit) * 5.2)); }
+#game.is-landscape.is-wide .table .river-left,
+#game.is-landscape.is-wide .table .river-right { grid-template-columns:repeat(4,calc(var(--table-unit) * 5.2)); }
+#game.is-landscape.is-wide .table .river-left { left:calc(var(--table-unit) * 25); }
+#game.is-landscape.is-wide .table .river-right { right:calc(var(--table-unit) * 34); }
+/* 左右座位卡贴到屏幕两侧（右家卡在操作列上方） */
+.is-landscape.is-wide .seat-left { left:1%; top:34%; }
+.is-landscape.is-wide .seat-right { right:1%; top:12%; }
+/* 操作按钮：右侧一列，宽度收窄、高度略降 */
+.is-landscape.is-wide .action-zone { right:1.2%; left:auto; width:calc(var(--ui-unit) * 24); max-width:none; transform:translateY(-50%); }
+.is-landscape.is-wide .action-button { height:calc(var(--ui-unit) * 9); }
+/* 提示文字放到桌面左下空白 */
+.is-landscape.is-wide .turn-message { left:2%; right:auto; width:22%; }
+.is-landscape.is-wide .last-event { left:2%; right:auto; width:22%; }
