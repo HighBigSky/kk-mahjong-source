@@ -14,8 +14,10 @@ html.in-room body { padding:0; }
 
 html.in-room #game.is-landscape {
   --ui-unit:calc(var(--stage-height) / 100);
-  --board-width:calc(var(--stage-width) * .72);
-  --board-height:calc(var(--stage-height) * .49);
+  /* 横屏也是四方牌桌：以高度为基准取正方形，横向居中。 */
+  --board-size:calc(var(--stage-height) * .56);
+  --board-width:var(--board-size);
+  --board-height:var(--board-size);
   --table-unit:calc(var(--board-height) / 70);
   --hand-width:calc(var(--ui-unit) * 8.3);
   --hand-height:calc(var(--ui-unit) * 11.6);
@@ -144,12 +146,12 @@ html.in-room.landscape-rotated #game.is-landscape {
   gap:calc(var(--ui-unit) * .7);
   border-radius:calc(var(--ui-unit) * 4) calc(var(--ui-unit) * 4) calc(var(--ui-unit) * 2) calc(var(--ui-unit) * 2);
 }
-.is-landscape .seat-left { left:2%; }
-.is-landscape .seat-right { right:2%; }
+.is-landscape .seat-left { left:calc(50% - var(--board-size) / 2 - var(--ui-unit) * 21); }
+.is-landscape .seat-right { right:calc(50% - var(--board-size) / 2 - var(--ui-unit) * 21); }
 
 /* The original wall model remains 17 fixed double stacks per side. Only its
    horizontal stride expands; its vertical stride follows the board height. */
-#game.is-landscape .table { left:14%; top:17.5%; width:var(--board-width); height:var(--board-height); }
+#game.is-landscape .table { left:calc(50% - var(--board-size) / 2); top:15.5%; width:var(--board-width); height:var(--board-height); }
 #game.is-landscape .table-border { inset:calc(var(--ui-unit) * 1.2); border-radius:calc(var(--ui-unit) * 2.4); }
 #game.is-landscape .table .opponent-rack { gap:calc(var(--table-unit) * .7); }
 #game.is-landscape .table .opponent-rack-top { top:calc(var(--table-unit) * 1.8); left:calc(var(--table-unit) * 4.5); right:calc(var(--table-unit) * 4.5); }
@@ -212,8 +214,10 @@ html.in-room.landscape-rotated #game.is-landscape {
 
 /* A broad hand strip has its own tile scale. Public groups stay to its left,
    with the incoming tile and all existing pointer targets kept intact. */
-.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { top:auto; bottom:7.5%; left:12%; width:78%; }
-.is-landscape .hand-heading,.is-landscape .hand-zone.has-melds .hand-heading { margin-bottom:calc(var(--ui-unit) * .4); transform:none; font-size:calc(var(--ui-unit) * 2.6); }
+.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { top:auto; bottom:7.5%; left:4%; width:92%; }
+/* 有副露时左侧要留出自己座位卡的位置 */
+.is-landscape .hand-zone.has-melds { left:11%; width:85%; }
+.is-landscape .hand-heading,.is-landscape .hand-zone.has-melds .hand-heading { margin-bottom:calc(var(--ui-unit) * .4); margin-left:calc(var(--ui-unit) * 12); transform:none; font-size:calc(var(--ui-unit) * 2.6); }
 .is-landscape .hand-heading>span { gap:calc(var(--ui-unit) * 1); }
 .is-landscape .hand-heading small { font-size:calc(var(--ui-unit) * 2.2); }
 .is-landscape .my-seat { width:calc(var(--ui-unit) * 3.6); height:calc(var(--ui-unit) * 3.6); font-size:calc(var(--ui-unit) * 2.5); border-radius:calc(var(--ui-unit) * .7); }
@@ -232,11 +236,11 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .player-rack .my-melds .tile { --tile-depth:calc(var(--ui-unit) * .4); --tile-side:calc(var(--ui-unit) * .14); }
 .is-landscape .player-rack .meld-label { bottom:calc(100% + var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.8); }
 .is-landscape .wild-marker,.is-landscape .red-kong-marker { top:calc(var(--ui-unit) * -.25); left:calc(var(--ui-unit) * -.2); min-width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.4); padding:0 calc(var(--ui-unit) * .15); border-radius:calc(var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.7); }
-.is-landscape .turn-message { top:69%; left:12%; width:32%; justify-content:flex-start; gap:calc(var(--ui-unit) * 1); font-size:calc(var(--ui-unit) * 2.7); letter-spacing:0; }
+.is-landscape .turn-message { top:56%; left:3%; width:26%; justify-content:flex-start; gap:calc(var(--ui-unit) * 1); font-size:calc(var(--ui-unit) * 2.7); letter-spacing:0; }
 .is-landscape #turn-text { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .is-landscape .turn-dot { width:calc(var(--ui-unit) * 1.3); height:calc(var(--ui-unit) * 1.3); }
-.is-landscape .last-event { top:73%; left:12%; width:32%; padding:0; text-align:left; font-size:calc(var(--ui-unit) * 2.05); letter-spacing:0; }
-.is-landscape .action-zone { top:67%; left:auto; right:24%; width:auto; max-width:48%; }
+.is-landscape .last-event { top:62%; left:3%; width:26%; padding:0; text-align:left; font-size:calc(var(--ui-unit) * 2.05); letter-spacing:0; }
+.is-landscape .action-zone { top:54%; left:calc(50% + var(--board-size) / 2 + var(--ui-unit) * 6); right:auto; width:auto; max-width:none; }
 .is-landscape .action-heading { display:none; }
 .is-landscape .action-buttons { gap:calc(var(--ui-unit) * 1.4); }
 .is-landscape .action-button { flex:0 0 calc(var(--ui-unit) * 9.6); width:calc(var(--ui-unit) * 9.6); height:calc(var(--ui-unit) * 9.4); border-radius:calc(var(--ui-unit) * 1.7); gap:calc(var(--ui-unit) * .2); }
