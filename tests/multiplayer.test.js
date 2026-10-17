@@ -479,3 +479,59 @@ test('expired in-memory rooms release capacity and invalidate previous identity 
   assert.throws(() => service.state(first.room.code, first.token), error => error.status === 404 && error.code === 'ROOM_NOT_FOUND');
   assert.match(service.create({ name: '新房主' }).room.code, /^\d{6}$/);
 });
+
+test('a player leaving after the round ends keeps everyone else scores and restores dealer rotation', async t => {
+  const h = await harness(t);
+  const room = await fourPlayers(h);
+  await room.start();
+  // 终止本局并写入可区分的积分，随后让一名玩家在结算后离房。
+  room.room.game.players.forEach((member, seat) => { member.score = 1000 + seat * 10; });
+  room.room.game._finishDraw('测试结算后离房');
+  h.service._changed(room.room);
+  await room.sync(room.room.version);
+  assert.equal((await h.api(`/api/rooms/${room.code}/leave`, { token: room.tokens[1], body: {} })).status, 200);
+  assert.equal(room.room.game, null);
+  assert.deepEqual(room.room.carry.scores, [1000, 1010, 1020, 1030]);
+  const replacement = await h.api(`/api/rooms/${room.code}/join`, { body: { name: '补位好友' } });
+  assert.equal(replacement.status, 201);
+  assert.equal(replacement.data.room.seat, 1, 'the replacement fills the same absolute seat');
+  room.tokens[1] = replacement.data.token;
+  room.streams[1] = await h.connect(room.code, room.tokens[1]);
+  await eventually(() => room.streams.every(stream => stream.latest.room.seats.every(seat => seat.connected)), 'four reconnected seats');
+  for (let player = 0; player < 4; player++) assert.equal((await room.request(player, 'ready', { ready: true })).status, 200);
+  const started = await room.request(0, 'start');
+  assert.equal(started.status, 200);
+  assert.equal(started.data.state.round, 2, 'the next game continues the round count');
+  assert.equal(started.data.state.dealer, 1, 'the dealer rotates instead of restarting from seat 0');
+  assert.deepEqual(started.data.state.players.map(member => member.score), [1000, 1000, 1020, 1030], 'the replacement starts at 1000 and others keep their scores');
+  assert.equal(room.room.carry, null);
+});
+
+test('the owner can remove an offline ghost seat and a departed owner can be removed by another player', async t => {
+  const h = await harness(t);
+  const created = await h.api('/api/rooms', { body: { name: '房主' } });
+  const code = created.data.room.code;
+  const guest = await h.api(`/api/rooms/${code}/join`, { body: { name: '离线好友' } });
+  const ownerStream = await h.connect(code, created.data.token);
+  // 未建立 SSE 的座位视为离线，房主可清除后重新邀请。
+  const removed = await h.api(`/api/rooms/${code}/removePlayer`, { token: created.data.token, body: { seat: 1 } });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.data.removed, true);
+  assert.equal(h.service.rooms.get(code).seats[1], null);
+  assert.equal((await h.api(`/api/rooms/${code}/state`, { token: guest.data.token })).status, 401);
+  const replacement = await h.api(`/api/rooms/${code}/join`, { body: { name: '补位好友' } });
+  assert.equal(replacement.status, 201);
+  assert.equal(replacement.data.room.seat, 1);
+  await h.connect(code, replacement.data.token);
+  assert.equal((await h.api(`/api/rooms/${code}/removePlayer`, { token: created.data.token, body: { seat: 1 } })).data.code, 'PLAYER_CONNECTED');
+  const second = await h.api(`/api/rooms/${code}/join`, { body: { name: '第二位好友' } });
+  assert.equal(second.status, 201);
+  assert.equal((await h.api(`/api/rooms/${code}/removePlayer`, { token: replacement.data.token, body: { seat: 2 } })).data.code, 'OWNER_ONLY');
+  // 房主自己关页后，其他真人可以移除该离线座位，避免等待房间永久卡死。
+  ownerStream.controller.abort();
+  await eventually(() => !h.service.rooms.get(code).seats[0].connected, 'owner marked offline');
+  const kickedOwner = await h.api(`/api/rooms/${code}/removePlayer`, { token: second.data.token, body: { seat: 0 } });
+  assert.equal(kickedOwner.status, 200);
+  assert.equal(h.service.rooms.get(code).owner, 1, 'ownership transfers to the next human seat');
+  assert.equal(h.service.rooms.get(code).seats[0], null);
+});

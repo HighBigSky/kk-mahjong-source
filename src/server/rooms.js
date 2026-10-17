@@ -54,6 +54,8 @@ export class RoomService {
     if (player < 0) fail(409, 'ROOM_FULL', '房间已满。');
     const seat = this._newSeat(name);
     room.seats[player] = seat;
+    // 新入座玩家使用初始积分，不继承该座位上一任玩家留下的分数。
+    if (room.carry) room.carry.scores[player] = 1000;
     this._changed(room);
     return { token:seat.token, ...this.snapshot(room, player) };
   }
@@ -63,8 +65,35 @@ export class RoomService {
     this._editBot(room, player, target);
     if (room.seats[target]) fail(409, 'SEAT_OCCUPIED', '该座位已经有人，请选择空位。');
     room.seats[target] = { ...this._newSeat(`人机${target + 1}`), token:null, bot:true, ready:true, connected:true };
+    // 人机补位同样从初始积分开始，避免继承已离开玩家的分数。
+    if (room.carry) room.carry.scores[target] = 1000;
     this._changed(room);
     return this.snapshot(room, player);
+  }
+
+  /** 房主移除已离线真人，用于释放关页后无法再用原 token 恢复的幽灵座位。 */
+  removePlayer(code, token, { seat: target } = {}) {
+    const {room, player} = this.authenticate(code, token);
+    if (!Number.isInteger(target) || target < 0 || target >= 4) fail(400, 'INVALID_SEAT', '请选择有效的座位。');
+    const targetSeat = room.seats[target];
+    if (!targetSeat) fail(404, 'SEAT_EMPTY', '该座位已经空出。');
+    if (targetSeat.bot) fail(409, 'IS_BOT', '人机座位请使用移除人机操作。');
+    if (targetSeat.connected) fail(409, 'PLAYER_CONNECTED', '只能移除已离线的玩家。');
+    // 房主可移除任何离线玩家；房主自己离线时，允许其他真人移除他，避免整房卡死。
+    if (room.owner !== player && target !== room.owner) fail(403, 'OWNER_ONLY', '仅房主可以移除离线玩家。');
+    if (room.game && room.game.phase.kind !== 'ended') fail(409, 'PLAYING', '对局进行中不能移除玩家。');
+    clearTimeout(targetSeat.disconnectTimer);
+    for (const stream of targetSeat.streams) stream.end();
+    room.seats[target] = null;
+    if (!room.seats.some(member => member && !member.bot)) { this._dispose(room); return { removed:true }; }
+    if (room.owner === target) room.owner = room.seats.findIndex(member => member && !member.bot);
+    if (room.game) {
+      // 已结束对局被清空时沿用离房逻辑：保留积分和局数，并让真人重新准备。
+      this._carryGame(room);
+      for (const member of room.seats) if (member) member.ready = !!member.bot;
+    }
+    this._changed(room);
+    return { removed:true, ...this.snapshot(room, player) };
   }
 
   removeBot(code, token, { seat: target } = {}) {
@@ -104,6 +133,7 @@ export class RoomService {
     if (room.game) fail(409, 'ALREADY_STARTED', '房间已经开局。');
     this._canStart(room);
     room.game = new MahjongGame({ seed:randomBytes(24).toString('hex'), names:room.seats.map(seat => seat.name), laizi:room.laizi });
+    this._restoreCarry(room);
     this._changed(room);
     return this.snapshot(room, player);
   }
@@ -146,7 +176,11 @@ export class RoomService {
     for (const stream of seat.streams) stream.end();
     if (!room.seats.some(member => member && !member.bot)) { this._dispose(room); return { left:true }; }
     if (room.owner === player) room.owner = room.seats.findIndex(member => member && !member.bot);
-    if (room.game) { room.game = null; for (const member of room.seats) if (member) { member.ready = !!member.bot; member.requests.clear(); } }
+    if (room.game) {
+      // 已结束对局被清空后，后续重建时仍要沿用积分和局数，避免离房导致整房重置。
+      this._carryGame(room);
+      for (const member of room.seats) if (member) { member.ready = !!member.bot; member.requests.clear(); }
+    }
     this._changed(room);
     return { left:true };
   }
@@ -254,6 +288,23 @@ export class RoomService {
       for (const stream of seat.streams) stream.end();
       seat.streams.clear();
       seat.requests.clear();
+    }
+  }
+  /** 清空已结束的对局前，暂存各绝对座位的积分与本局局数，供下一次开局恢复。 */
+  _carryGame(room) {
+    if (!room.game) return;
+    room.carry = {scores:room.game.players.map(member => member.score), round:room.game.round};
+    room.game = null;
+  }
+  /** 用暂存的积分和局数重建下一局；构造器已发过一局，重发一次才能正确推进局数与庄家。 */
+  _restoreCarry(room) {
+    const carry = room.carry;
+    if (!carry) return;
+    room.carry = null;
+    for (let seat = 0; seat < 4; seat++) room.game.players[seat].score = carry.scores[seat] ?? 1000;
+    if (Number.isInteger(carry.round) && carry.round > 0) {
+      room.game.round = carry.round;
+      room.game.newRound();
     }
   }
   _owner(room, player) { if (room.owner !== player) fail(403, 'OWNER_ONLY', '仅房主可以操作。'); }

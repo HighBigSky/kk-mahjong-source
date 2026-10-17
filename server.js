@@ -79,7 +79,7 @@ export function createServer({ roomService = new RoomService(), publicOrigin = p
           if (!/^application\/json(?:;|$)/i.test(request.headers['content-type'] || '')) throw new RoomError(415, 'JSON_REQUIRED', '请发送 JSON 请求。');
         }
         if (pathname === '/api/rooms' && request.method === 'POST') { json(response, 201, roomService.create(await bodyOf(request))); return; }
-        const match = /^\/api\/rooms\/(\d{6})\/(join|state|events|ready|start|next|action|leave|addBot|removeBot)$/.exec(pathname);
+        const match = /^\/api\/rooms\/(\d{6})\/(join|state|events|ready|start|next|action|leave|addBot|removeBot|removePlayer)$/.exec(pathname);
         if (!match) throw new RoomError(404, 'NOT_FOUND', '接口不存在。');
         const [, code, operation] = match;
         if (operation === 'events' && request.method === 'GET') { roomService.connect(code, url.searchParams.get('token'), response); return; }

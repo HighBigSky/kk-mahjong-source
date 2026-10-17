@@ -91,7 +91,7 @@ function updateRoom() {
     element.classList.toggle('is-ready', member.ready);
     element.classList.toggle('is-offline', member.occupied && !member.connected);
     element.classList.toggle('is-bot', Boolean(member.bot));
-    for (const [operation, label] of [['add', '添加人机'], ['remove', '移除人机']]) {
+    for (const [operation, label] of [['add', '添加人机'], ['remove', '移除人机'], ['kick', '移除离线']]) {
       let button = element.querySelector(`.room-bot-${operation}`);
       if (!button) {
         button = document.createElement('button');
@@ -101,14 +101,20 @@ function updateRoom() {
         button.textContent = label;
         element.append(button);
       }
-      button.hidden = !canManageBots || (operation === 'add' ? member.occupied : !member.bot);
+      // 离线真人只能由房主移除；房主自己离线时，其他真人可移除以解开卡住的房间。
+      const canKick = room.status !== 'playing' && member.occupied && !member.bot && !member.connected && index !== 0
+        && (room.owner === 0 || room.owner === index);
+      const show = operation === 'add' ? canManageBots && !member.occupied
+        : operation === 'remove' ? canManageBots && Boolean(member.bot) : canKick;
+      button.hidden = !show;
       button.disabled = busy || !connected;
-      button.setAttribute('aria-label', `${label}，${seats[index]}家座位`);
+      button.setAttribute('aria-label', `${operation === 'kick' ? '移除离线玩家' : label}，${seats[index]}家座位`);
     }
   }
   $('#room-status').textContent = !connected ? '连接中断，正在恢复原座位，请勿重复加入。'
     : room.paused ? '有好友离线，对局暂停等待重连。'
     : room.status === 'playing' ? '对局进行中，关闭此面板返回牌桌。'
+    : room.seats.some(member => member.occupied && !member.bot && !member.connected) ? '有好友离线，等待重连；离线座位可由房主移除。'
     : room.status === 'ended' ? '本局结束，房主可以开始下一局。'
     : canStart ? room.owner === 0 ? '全员准备好了，可以开始对局。' : '全员准备好了，等待房主开局。'
     : room.seats.every(seat => seat.occupied) ? '人机已自动准备，等待真人玩家准备。'
@@ -681,7 +687,8 @@ $('#room-members').addEventListener('click', event => {
   const button = event.target.closest('.room-bot-button');
   if (!button || button.disabled) return;
   const seat = Number(button.dataset.seat);
-  roomOperation(() => button.classList.contains('room-bot-add') ? network.addBot(seat) : network.removeBot(seat));
+  roomOperation(() => button.classList.contains('room-bot-kick') ? network.removePlayer(seat)
+    : button.classList.contains('room-bot-add') ? network.addBot(seat) : network.removeBot(seat));
 });
 $('#room-leave').addEventListener('click', () => roomOperation(() => network.leave()));
 $('#room-close').addEventListener('click', () => $('#room-dialog').close());

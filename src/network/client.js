@@ -107,12 +107,13 @@ export function createRoomClient({ onChange = () => {}, onError = () => {} } = {
   client.ready = ready => command('ready', {ready});
   client.start = () => command('start');
   // The browser shows its own seat at 0; room commands use absolute table seats.
-  const botCommand = (operation, seat) => {
+  const seatCommand = (operation, seat) => {
     if (!client.room || !Number.isInteger(seat) || seat < 0 || seat > 3) return Promise.reject(new Error('请选择有效的空位'));
     return command(operation, {seat:(client.room.seat + seat) % 4});
   };
-  client.addBot = seat => botCommand('addBot', seat);
-  client.removeBot = seat => botCommand('removeBot', seat);
+  client.addBot = seat => seatCommand('addBot', seat);
+  client.removeBot = seat => seatCommand('removeBot', seat);
+  client.removePlayer = seat => seatCommand('removePlayer', seat);
   client.next = () => command('next');
   client.leave = async () => {
     leaving = true;

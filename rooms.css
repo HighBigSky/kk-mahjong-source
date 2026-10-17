@@ -114,6 +114,7 @@
   white-space:nowrap;
 }
 .room-bot-remove { background:#13392f; color:#c7b996; }
+.room-bot-kick { background:#3a2f1f; color:#e0c08a; }
 .room-bot-button:focus-visible { outline:2px solid var(--gold-light); outline-offset:2px; }
 .room-play-controls { display:flex; gap:10px; }
 .room-play-controls>button { flex:1; }
