@@ -195,10 +195,13 @@ html.in-room.landscape-rotated #game.is-landscape {
 #game.is-landscape .table .river-top { top:calc(var(--table-unit) * 12.5); }
 #game.is-landscape .table .river-bottom { bottom:calc(var(--table-unit) * 7); }
 #game.is-landscape .table .river-top .tile,#game.is-landscape .table .river-bottom .tile { width:calc(var(--table-unit) * 4.5); height:calc(var(--table-unit) * 6.3); }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:36%; width:calc(var(--table-unit) * 8.2); grid-template-columns:repeat(2,calc(var(--table-unit) * 3.7)); grid-auto-rows:calc(var(--table-unit) * 5.2); max-height:calc(var(--table-unit) * 22.3); }
+/* 四边牌河统一牌张尺寸：上下两行六列、左右三列三行，
+   左右两家不再比上下两家小一圈（原来 3.7×5.2 对 4.5×6.3）。
+   左右牌河整块下移到 38%，避开上方两行牌河的四角。 */
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:38%; width:auto; grid-template-columns:repeat(3,calc(var(--table-unit) * 4.5)); grid-auto-rows:calc(var(--table-unit) * 6.3); max-height:calc(var(--table-unit) * 20); }
 #game.is-landscape .table .river-left { left:calc(var(--table-unit) * 10.7); }
 #game.is-landscape .table .river-right { right:calc(var(--table-unit) * 10.7); }
-#game.is-landscape .table .river-left .tile,#game.is-landscape .table .river-right .tile { width:calc(var(--table-unit) * 3.7); height:calc(var(--table-unit) * 5.2); }
+#game.is-landscape .table .river-left .tile,#game.is-landscape .table .river-right .tile { width:calc(var(--table-unit) * 4.5); height:calc(var(--table-unit) * 6.3); }
 #game.is-landscape .table .river .tile.last-discard { outline-width:calc(var(--table-unit) * .28); outline-offset:calc(var(--table-unit) * .12); }
 #game.is-landscape .table .river .tile.last-discard::after { bottom:calc(var(--table-unit) * .3); left:calc(50% - var(--table-unit) * .45); width:calc(var(--table-unit) * .9); height:calc(var(--table-unit) * .9); }
 #game.is-landscape .table .river::before { top:calc(var(--table-unit) * -2.6); font-size:max(7px,calc(var(--table-unit) * 1.9)); letter-spacing:0; }
