@@ -14,10 +14,10 @@ html.in-room body { padding:0; }
 
 html.in-room #game.is-landscape {
   --ui-unit:calc(var(--stage-height) / 100);
-  /* 横屏也是四方牌桌：以高度为基准取正方形，横向居中。
-     顶栏、底部栏压到最薄后，桌宽从 0.56 提到 0.70 个舞台高度，
-     桌上所有模型（牌河、牌墙、中央罗盘）随之整体放大。 */
-  --board-size:calc(var(--stage-height) * .70);
+  /* 横屏四方牌桌：以高度为基准取正方形，横向居中。
+     桌宽 0.75 个舞台高度（早先 0.56、0.70），桌上各处的牌同步放大到约 1.2 倍，
+     观感向手游麻将靠拢：牌大河大、中央罗盘缩小让位。 */
+  --board-size:calc(var(--stage-height) * .75);
   --board-width:var(--board-size);
   --board-height:var(--board-size);
   --table-unit:calc(var(--board-height) / 70);
@@ -41,14 +41,15 @@ html.in-room #game.is-landscape {
   --felt-thread-step:calc(var(--ui-unit) * .24);
   --compass-rim:calc(var(--table-unit) * .65);
   --compass-pointer:calc(var(--table-unit) * .65);
-  --public-tile-width:calc(var(--table-unit) * 2.4);
-  --public-tile-height:calc(var(--table-unit) * 3.35);
+  /* 三家暗手与对手副露：2.4×3.35 → 2.8×3.9 单位（+17%）。 */
+  --public-tile-width:calc(var(--table-unit) * 2.8);
+  --public-tile-height:calc(var(--table-unit) * 3.9);
   --public-tile-gap:calc(var(--table-unit) * .1);
   --public-group-gap:calc(var(--table-unit) * .35);
-  --self-public-tile-width:calc(var(--ui-unit) * 3.8);
-  --self-public-tile-height:calc(var(--ui-unit) * 5.3);
-  --wall-piece-width:calc(var(--table-unit) * 2.7);
-  --wall-piece-height:calc(var(--table-unit) * 3.78);
+  --self-public-tile-width:calc(var(--ui-unit) * 4.3);
+  --self-public-tile-height:calc(var(--ui-unit) * 6);
+  --wall-piece-width:calc(var(--table-unit) * 2.85);
+  --wall-piece-height:calc(var(--table-unit) * 3.99);
   --wall-stack-step:calc(var(--table-unit) * 2.9);
   --wall-stack-depth:calc(var(--table-unit) * .43);
   --wall-piece-radius:calc(var(--table-unit) * .3);
@@ -168,7 +169,7 @@ html.in-room.landscape-rotated #game.is-landscape {
 
 /* The original wall model remains 17 fixed double stacks per side. Only its
    horizontal stride expands; its vertical stride follows the board height. */
-#game.is-landscape .table { left:calc(50% - var(--board-size) / 2); top:12%; width:var(--board-width); height:var(--board-height); }
+#game.is-landscape .table { left:calc(50% - var(--board-size) / 2); top:9.8%; width:var(--board-width); height:var(--board-height); }
 #game.is-landscape .table-border { inset:calc(var(--ui-unit) * 1.2); border-radius:calc(var(--ui-unit) * 2.4); }
 #game.is-landscape .table .opponent-rack { gap:calc(var(--table-unit) * .7); }
 #game.is-landscape .table .opponent-rack-top { top:calc(var(--table-unit) * 1.8); left:calc(var(--table-unit) * 4.5); right:calc(var(--table-unit) * 4.5); }
@@ -183,7 +184,7 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .opponent-rack .back::before { inset:calc(var(--table-unit) * .35) calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .28); }
 .is-landscape .opponent-rack .wild-marker { display:none; }
 #game.is-landscape .table .wall-stack[data-side="bottom"] { left:calc(var(--table-unit) * 10.4 + var(--wall-stack-index) * var(--wall-horizontal-step)); bottom:calc(var(--table-unit) * 1.65); }
-#game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); top:calc(var(--table-unit) * 5.1); }
+#game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); top:calc(var(--table-unit) * 6.3); }
 #game.is-landscape .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + var(--wall-stack-index) * var(--wall-stack-step)); }
 #game.is-landscape .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + (16 - var(--wall-stack-index)) * var(--wall-stack-step)); }
 .is-landscape .wall-piece.back { border-width:calc(var(--table-unit) * .08); border-bottom-width:calc(var(--table-unit) * .25); }
@@ -197,30 +198,29 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .wall-stack[data-side="left"] .wall-piece.tile svg,.is-landscape .wall-stack[data-side="right"] .wall-piece.tile svg { width:calc(var(--wall-piece-width) - var(--table-unit) * .25); height:calc(var(--wall-piece-height) - var(--table-unit) * .08); }
 
 #game.is-landscape .table .river { gap:calc(var(--table-unit) * .5); min-height:calc(var(--table-unit) * 5.2); }
-#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:18%; width:64%; grid-template-columns:repeat(6,calc(var(--table-unit) * 4.5)); grid-auto-rows:calc(var(--table-unit) * 6.3); max-height:calc(var(--table-unit) * 13.1); }
-#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 12.5); }
-#game.is-landscape .table .river-bottom { bottom:calc(var(--table-unit) * 12.5); }
+/* 四边牌河统一牌张尺寸与行数，牌张放大到 5.2×7.28 单位（早先 4.5×6.3）：
+   上下各 6 列×2 行、左右各 3 列×2 行，围绕中央罗盘对称摆放。 */
+#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:18%; width:64%; grid-template-columns:repeat(6,calc(var(--table-unit) * 5.2)); grid-auto-rows:calc(var(--table-unit) * 7.28); max-height:calc(var(--table-unit) * 15.06); }
+#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 13); }
+#game.is-landscape .table .river-bottom { bottom:calc(var(--table-unit) * 10); }
 /* 下方牌河的计数文字放到牌河外沿（下方），四边牌河才对罗盘对称。 */
 #game.is-landscape .table .river.river-bottom::before { top:auto; bottom:calc(var(--table-unit) * -2.6); }
-#game.is-landscape .table .river-top .tile,#game.is-landscape .table .river-bottom .tile { width:calc(var(--table-unit) * 4.5); height:calc(var(--table-unit) * 6.3); }
-/* 四边牌河统一牌张尺寸与行数：上下各 6 列×2 行、左右各 3 列×2 行，
-   围绕中央罗盘对称摆放（罗盘上/下/左/右各留 0.4~0.8 单位）。
-   左右两家不再比上下两家小一圈，也不再比上下两家多一行。 */
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:50%; transform:translateY(-50%); width:auto; grid-template-columns:repeat(3,calc(var(--table-unit) * 4.5)); grid-auto-rows:calc(var(--table-unit) * 6.3); max-height:calc(var(--table-unit) * 13.1); }
-#game.is-landscape .table .river-left { left:calc(var(--table-unit) * 10.7); }
-#game.is-landscape .table .river-right { right:calc(var(--table-unit) * 10.7); }
-#game.is-landscape .table .river-left .tile,#game.is-landscape .table .river-right .tile { width:calc(var(--table-unit) * 4.5); height:calc(var(--table-unit) * 6.3); }
+#game.is-landscape .table .river-top .tile,#game.is-landscape .table .river-bottom .tile { width:calc(var(--table-unit) * 5.2); height:calc(var(--table-unit) * 7.28); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:calc(50% + var(--table-unit) * 1.5); transform:translateY(-50%); width:auto; grid-template-columns:repeat(3,calc(var(--table-unit) * 5.2)); grid-auto-rows:calc(var(--table-unit) * 7.28); max-height:calc(var(--table-unit) * 15.06); }
+#game.is-landscape .table .river-left { left:calc(var(--table-unit) * 9.6); }
+#game.is-landscape .table .river-right { right:calc(var(--table-unit) * 9.6); }
+#game.is-landscape .table .river-left .tile,#game.is-landscape .table .river-right .tile { width:calc(var(--table-unit) * 5.2); height:calc(var(--table-unit) * 7.28); }
 #game.is-landscape .table .river .tile.last-discard { outline-width:calc(var(--table-unit) * .28); outline-offset:calc(var(--table-unit) * .12); }
 #game.is-landscape .table .river .tile.last-discard::after { bottom:calc(var(--table-unit) * .3); left:calc(50% - var(--table-unit) * .45); width:calc(var(--table-unit) * .9); height:calc(var(--table-unit) * .9); }
 #game.is-landscape .table .river::before { top:calc(var(--table-unit) * -2.6); font-size:max(7px,calc(var(--table-unit) * 1.9)); letter-spacing:0; }
 #game.is-landscape .table .river-count { font-size:max(7px,calc(var(--table-unit) * 1.5)); padding:calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .6); }
-#game.is-landscape .table .table-center { left:calc(50% - var(--table-unit) * 9); top:calc(50% - var(--table-unit) * 9); width:calc(var(--table-unit) * 18); height:calc(var(--table-unit) * 18); }
+#game.is-landscape .table .table-center { left:calc(50% - var(--table-unit) * 8); top:calc(50% - var(--table-unit) * 6.5); width:calc(var(--table-unit) * 16); height:calc(var(--table-unit) * 16); }
 #game.is-landscape .table .table-center::before { inset:calc(var(--table-unit) * .8); }
 /* 牌桌正中央显示翻皮的两颗骰子（余牌已搬到顶栏金币右边）。 */
-.is-landscape .table-dice { gap:calc(var(--table-unit) * 1.3); }
+.is-landscape .table-dice { gap:calc(var(--table-unit) * 1.2); }
 .is-landscape .table-die {
-  width:calc(var(--table-unit) * 7.2);
-  height:calc(var(--table-unit) * 7.2);
+  width:calc(var(--table-unit) * 6.6);
+  height:calc(var(--table-unit) * 6.6);
   padding:calc(var(--table-unit) * 1.15);
   border-width:calc(var(--table-unit) * .1);
   border-right-width:calc(var(--table-unit) * .1);
