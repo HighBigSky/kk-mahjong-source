@@ -156,7 +156,12 @@ function roomChanged() {
     if (!room || room.status === 'waiting') openModal('#room-dialog');
   }
   const lastEvent = game.events.at(-1);
-  if (!changedRound && lastEvent && lastSoundEvent !== lastEvent) playSound();
+  if (!changedRound && lastEvent && lastSoundEvent !== lastEvent) {
+    playSound();
+    // 引擎日志格式固定为「某家打出某牌。」，出牌时同步读出牌名。
+    const discarded = /打出(.+?)。$/.exec(lastEvent);
+    if (discarded) speakTile(discarded[1]);
+  }
   lastSoundEvent = lastEvent || '';
   previousRoomCode = room?.code || null;
   previousVersion = room?.version ?? -1;
@@ -209,6 +214,15 @@ function specialTile(type) {
   return isSpecialGangTile(type, game.indicatorTile);
 }
 
+// 手牌角标只标「这是什么牌」，不标动作：红中、皮子、癞子分别标红/皮/癞，
+// 与副露区杠出实牌的标记一致；「只能单张杠出」的提示留给 title 与提示文字。
+function specialMarker(type) {
+  if (!specialTile(type)) return wildMarker(type);
+  return type === RED_DRAGON
+    ? '<span class="red-kong-marker" aria-hidden="true">红</span>'
+    : '<span class="pizi-marker" aria-hidden="true">皮</span>';
+}
+
 function heldSpecialName() {
   const hand = game.players[0].hand;
   return [hand.includes(RED_DRAGON) ? '红中' : '', game.indicatorTile !== null && hand.includes(game.indicatorTile) ? '皮子' : ''].filter(Boolean).join('、');
@@ -240,6 +254,23 @@ function playSound(kind = 'tile') {
       oscillator.start(start); oscillator.stop(start + .17);
     });
   } catch { /* Audio support is optional. */ }
+}
+
+// 出牌报牌名：用浏览器自带语音合成，零依赖。字牌单字容易听混，读全称。
+const SPEECH_NAMES = Object.freeze({ 中: '红中', 发: '发财', 白: '白板' });
+
+function speakTile(name) {
+  if (!preferences.sound || typeof speechSynthesis === 'undefined' || !name) return;
+  try {
+    // 连续出牌时先掐掉上一句，避免读牌名越堆越晚。
+    speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(SPEECH_NAMES[name] || name);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 1.15;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    speechSynthesis.speak(utterance);
+  } catch { /* 没有语音合成的浏览器只保留提示音。 */ }
 }
 
 function syncSettings() {
@@ -447,18 +478,21 @@ function render() {
   const handTileNodes = order.map(({ type, index }) => {
     const occurrence = handKeySeen.get(type) || 0;
     handKeySeen.set(type, occurrence + 1);
-    const key = `${type}:${occurrence}`;
+    const special = specialTile(type);
+    const wild = type === game.wildTile;
+    // 角标随本局皮子/癞子变化，缓存键必须带上这两个标记，否则换局后会留着上一局的角标。
+    const key = `${type}:${occurrence}:${special ? 'p' : ''}${wild ? 'w' : ''}`;
     let node = handNodes.get(key);
     if (!node) {
       node = document.createElement('button');
       node.dataset.key = key;
-      node.innerHTML = `${face(type)}${specialTile(type) ? '<span class="red-kong-marker" aria-hidden="true">杠</span>' : ''}${wildMarker(type)}`;
+      node.innerHTML = `${face(type)}${specialMarker(type)}`;
       handNodes.set(key, node);
     }
     node.dataset.index = String(index);
-    node.className = `tile ${specialTile(type) ? 'red-kong-tile' : ''} ${type === game.wildTile ? 'is-wild' : ''} ${index === separatedDrawnIndex ? 'drawn' : ''}`.trim();
-    node.setAttribute('aria-label', `${tileName(type)}${specialTile(type) ? '，只能杠出，不能打出' : ''}${type === game.wildTile ? '，癞子' : ''}${index === drawnIndex ? '，摸到的牌' : ''}`);
-    if (specialTile(type)) node.title = '只能单张杠出，从牌墙末端补摸一张牌';
+    node.className = `tile ${special ? 'red-kong-tile' : ''} ${wild ? 'is-wild' : ''} ${index === separatedDrawnIndex ? 'drawn' : ''}`.trim();
+    node.setAttribute('aria-label', `${tileName(type)}${special ? '，只能杠出，不能打出' : ''}${wild ? '，癞子' : ''}${index === drawnIndex ? '，摸到的牌' : ''}`);
+    if (special) node.title = '只能单张杠出，从牌墙末端补摸一张牌';
     else node.removeAttribute('title');
     return node;
   });

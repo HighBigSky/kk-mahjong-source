@@ -1492,5 +1492,5 @@ svg {
   .game .last-event { font-size:1.95cqw }
   .game .action-heading { font-size:1.9cqw }
   .game .laizi-summary>div>span:first-child { font-size:1.8cqw }
-  .game .wild-marker,.game .red-kong-marker { font-size:1.5cqw }
+  .game .wild-marker,.game .red-kong-marker,.game .pizi-marker { font-size:1.5cqw }
 }

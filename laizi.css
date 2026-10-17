@@ -31,7 +31,7 @@
 
 .tile.is-wild { border-top-color:#f2ce6b; }
 
-.wild-marker,.red-kong-marker {
+.wild-marker,.red-kong-marker,.pizi-marker {
   position:absolute;
   top:-.25cqw;
   left:-.2cqw;
@@ -54,6 +54,13 @@
 .red-kong-marker {
   background:#8f372d;
   color:#fff2bd;
+}
+
+/* 皮子用青绿底：与红中的「红」、癞子的「癞」一眼分开，也和副露区的「皮」标记同色。 */
+.pizi-marker {
+  background:#25604a;
+  border-color:#cfe0a8;
+  color:#f2f7d8;
 }
 
 .hand .tile.red-kong-tile:not(:disabled):hover {

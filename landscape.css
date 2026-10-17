@@ -242,7 +242,7 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .hand-zone .player-rack .my-melds { flex:none; width:auto; max-width:39%; height:calc(var(--ui-unit) * 13); min-height:0; padding:calc(var(--ui-unit) * 2.2) 0 calc(var(--ui-unit) * .15); gap:calc(var(--ui-unit) * 2.3) calc(var(--ui-unit) * .7); flex-wrap:wrap; align-content:flex-end; justify-content:flex-start; }
 .is-landscape .player-rack .my-melds .tile { --tile-depth:calc(var(--ui-unit) * .4); --tile-side:calc(var(--ui-unit) * .14); }
 .is-landscape .player-rack .meld-label { bottom:calc(100% + var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.8); }
-.is-landscape .wild-marker,.is-landscape .red-kong-marker { top:calc(var(--ui-unit) * -.25); left:calc(var(--ui-unit) * -.2); min-width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.4); padding:0 calc(var(--ui-unit) * .15); border-radius:calc(var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.7); }
+.is-landscape .wild-marker,.is-landscape .red-kong-marker,.is-landscape .pizi-marker { top:calc(var(--ui-unit) * -.25); left:calc(var(--ui-unit) * -.2); min-width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.4); padding:0 calc(var(--ui-unit) * .15); border-radius:calc(var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.7); }
 .is-landscape .turn-message { top:56%; left:3%; right:calc(50% + var(--board-size) / 2 + var(--ui-unit) * 2.5); width:auto; justify-content:flex-start; gap:calc(var(--ui-unit) * 1); font-size:min(calc(var(--ui-unit) * 2.7),1.4cqw); letter-spacing:0; }
 .is-landscape #turn-text { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .is-landscape .turn-dot { width:calc(var(--ui-unit) * 1.3); height:calc(var(--ui-unit) * 1.3); }
