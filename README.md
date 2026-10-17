@@ -98,6 +98,7 @@ npm start
 - `assets/avatar-1.svg` 至 `avatar-3.svg`：其他座位的默认头像。
 - `docs/设计规格.md`：UI 分层与用户提供的素材提示词。
 - `docs/联机部署.md`：公网、HTTPS、环境变量、Docker 与单实例运行约定。
+- `deploy/`：阿里云部署脚本与说明——`install.sh` 一键安装、`update.ps1` / `更新到服务器.cmd` 一键更新、`Caddyfile.example` 域名反代示例、`部署到阿里云轻量.md` 全流程文档。
 - `Dockerfile` / `.dockerignore`：零安装步骤的容器运行配置。
 - `output/game-preview-1080x1920.png`：1080×1920 界面预览（完成视觉验证后导出）。
 - `output/game-depth-preview-1080x1920.png`：半立体版本的 1080×1920 对局预览。
