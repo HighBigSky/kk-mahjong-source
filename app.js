@@ -195,8 +195,9 @@ function meldHTML(meld) {
 }
 
 function specialGangHTML(type, kind) {
-  const name = kind === 'redGang' ? '红中杠' : '皮子杠';
-  return `<div class="meld-group special-gang" data-kind="${kind}" aria-label="${name} ${tileName(type)}，已公开"><span class="meld-label" aria-hidden="true">${kind === 'redGang' ? '红' : '皮'}</span>${tile(type)}</div>`;
+  const name = kind === 'redGang' ? '红中杠' : kind === 'wildGang' ? '癞子杠' : '皮子杠';
+  const badge = kind === 'redGang' ? '红' : kind === 'wildGang' ? '癞' : '皮';
+  return `<div class="meld-group special-gang" data-kind="${kind}" aria-label="${name} ${tileName(type)}，已公开"><span class="meld-label" aria-hidden="true">${badge}</span>${tile(type)}</div>`;
 }
 
 function specialTile(type) {
@@ -481,11 +482,13 @@ function render() {
     river.setAttribute('role', 'button');
     river.tabIndex = 0;
     const piziGangs = seat.piziGangs || [];
+    const piziOnly = piziGangs.filter(tile => tile !== game.wildTile);
+    const wildOnly = piziGangs.filter(tile => tile === game.wildTile);
     const melds = $(`#melds-${player}`);
-    const publicGroups = [...seat.redGangs.map(type => specialGangHTML(type, 'redGang')), ...piziGangs.map(type => specialGangHTML(type, 'piziGang')), ...seat.melds.map(meldHTML)];
+    const publicGroups = [...seat.redGangs.map(type => specialGangHTML(type, 'redGang')), ...piziGangs.map(type => specialGangHTML(type, type === game.wildTile ? 'wildGang' : 'piziGang')), ...seat.melds.map(meldHTML)];
     setHTMLIfChanged(melds, publicGroups.join(''));
     melds.hidden = publicGroups.length === 0;
-    melds.setAttribute('aria-label', `${displayNames[player]}已公开的吃碰杠牌，红中杠${seat.redGangs.length}张，皮子杠${piziGangs.length}张，普通副露${seat.melds.length}组`);
+    melds.setAttribute('aria-label', `${displayNames[player]}已公开的吃碰杠牌，红中杠${seat.redGangs.length}张，皮子杠${piziOnly.length}张，癞子杠${wildOnly.length}张，普通副露${seat.melds.length}组`);
     const rack = $(`#rack-${player}`);
     rack.classList.toggle('has-melds', publicGroups.length > 0);
     rack.style.setProperty('--concealed-count', seat.hand.length);
@@ -495,8 +498,8 @@ function render() {
     $(`#dealer-${player}`).hidden = !active || game.dealer !== player;
     const redBadge = $(`#red-gangs-${player}`);
     redBadge.hidden = seat.redGangs.length + piziGangs.length === 0;
-    redBadge.textContent = [seat.redGangs.length ? `中×${seat.redGangs.length}` : '', piziGangs.length ? `皮×${piziGangs.length}` : ''].filter(Boolean).join(' ');
-    redBadge.title = `${displayNames[player]}已杠出红中 ${seat.redGangs.length} 张、皮子 ${piziGangs.length} 张，实牌公开摆在手牌旁`;
+    redBadge.textContent = [seat.redGangs.length ? `中×${seat.redGangs.length}` : '', piziOnly.length ? `皮×${piziOnly.length}` : '', wildOnly.length ? `癞×${wildOnly.length}` : ''].filter(Boolean).join(' ');
+    redBadge.title = `${displayNames[player]}已杠出红中 ${seat.redGangs.length} 张、皮子 ${piziOnly.length} 张、癞子 ${wildOnly.length} 张，实牌公开摆在手牌旁`;
     redBadge.setAttribute('aria-label', redBadge.title);
     $(`#opponent-${player}`).classList.toggle('is-active', active && game.current === player && game.phase.kind !== PHASE.ENDED);
     $(`#opponent-${player}`).classList.toggle('is-claiming', player === 0 && actions.pass);
@@ -509,7 +512,7 @@ function render() {
   }
   document.querySelectorAll('.direction').forEach(element => element.classList.toggle('active', active && Number(element.dataset.player) === game.current && game.phase.kind !== PHASE.ENDED));
 
-  const enabled = { chi: actions.chi.length > 0, peng: actions.peng, gang: actions.redGang || actions.piziGang || actions.gang || actions.concealedGangs.length > 0 || actions.addedGangs.length > 0, hu: actions.hu, pass: actions.pass };
+  const enabled = { chi: actions.chi.length > 0, peng: actions.peng, gang: actions.redGang || actions.piziGang || actions.wildGang || actions.gang || actions.concealedGangs.length > 0 || actions.addedGangs.length > 0, hu: actions.hu, pass: actions.pass };
   for (const [action, available] of Object.entries(enabled)) {
     const button = $(`#action-${action}`);
     button.disabled = !available;
@@ -520,7 +523,7 @@ function render() {
   $('#action-next').hidden = !canNextRound;
   $('#action-next').disabled = !nextRoundReady || network.busy;
   $('.action-zone').hidden = !(Object.values(enabled).some(Boolean) || canNextRound);
-  $('#action-gang').title = actions.redGang || actions.piziGang ? '可单张杠出红中或皮子，从墙尾补摸一张牌' : '杠牌';
+  $('#action-gang').title = actions.redGang || actions.piziGang || actions.wildGang ? '可单张杠出红中、皮子或癞子，从墙尾补摸一张牌' : '杠牌';
 
   updateTurnMessage(actions);
   $('#last-event').textContent = game.events.at(-1) || '好友同桌，支持添加人机';
@@ -578,6 +581,7 @@ function performAction(action) {
     const options = [
       ...(actions.redGang ? [{ tiles: [RED_DRAGON], label: '红中杠 · 补摸1张', action: 'redGang' }] : []),
       ...(actions.piziGang ? [{ tiles: [game.indicatorTile], label: '皮子杠 · 补摸1张', action: 'piziGang' }] : []),
+      ...(actions.wildGang ? [{ tiles: [game.wildTile], label: '癞子杠 · 补摸1张', action: 'wildGang' }] : []),
       ...actions.concealedGangs.map(type => ({ tiles: Array(4).fill(type), label: '暗杠', action: 'concealedGang', value: type })),
       ...actions.addedGangs.map(type => ({ tiles: Array(4).fill(type), label: '补杠', action: 'addedGang', value: type })),
     ];
@@ -724,7 +728,7 @@ document.querySelectorAll('.river').forEach((river, player) => {
     $('#history-description').textContent = `共 ${game.players[index].discards.length} 张，按出牌顺序排列。已被吃碰杠的牌不在牌河中。`;
     $('#history-tiles').innerHTML = game.players[index].discards.map(value => tile(value)).join('') || '<p class="empty-river">还没有出牌</p>';
     const seat = game.players[index];
-    const specialGangs = [...seat.redGangs, ...(seat.piziGangs || [])];
+    const specialGangs = [...seat.redGangs, ...(seat.piziGangs || []), ];
     $('#history-red-record').hidden = specialGangs.length === 0;
     $('#history-red-tiles').innerHTML = specialGangs.map(value => tile(value)).join('');
     openModal('#history-dialog');

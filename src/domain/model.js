@@ -11,7 +11,7 @@ export const PHASE = Object.freeze({
 
 export const ACTION = Object.freeze({
   DISCARD: 'discard', CHI: 'chi', PENG: 'peng', GANG: 'gang',
-  RED_GANG: 'redGang', PIZI_GANG: 'piziGang', HU: 'hu', PASS: 'pass',
+  RED_GANG: 'redGang', PIZI_GANG: 'piziGang', WILD_GANG: 'wildGang', HU: 'hu', PASS: 'pass',
 });
 
 /**
@@ -53,6 +53,7 @@ export const ACTION = Object.freeze({
  *          | {kind:'gang', player:PlayerId, tile:TileCode, mode:'exposed'|'concealed'|'added'}
  *          | {kind:'redGang', player:PlayerId}
  *          | {kind:'piziGang', player:PlayerId}
+ *          | {kind:'wildGang', player:PlayerId}
  *          | {kind:'hu', player:PlayerId, selfDraw:boolean}
  *          | {kind:'pass', player:PlayerId}} Action
  */
@@ -64,7 +65,7 @@ export const ACTION = Object.freeze({
 
 /**
  * The existing getActions result describes choices, rather than a submitted Action.
- * @typedef {{hu:boolean, peng:boolean, gang:boolean, redGang:boolean, piziGang:boolean, chi:TileCode[][],
+ * @typedef {{hu:boolean, peng:boolean, gang:boolean, redGang:boolean, piziGang:boolean, wildGang:boolean, chi:TileCode[][],
  *            pass:boolean, concealedGangs:TileCode[], addedGangs:TileCode[]}} AvailableActions
  */
 /** @typedef {AvailableActions} Actions */

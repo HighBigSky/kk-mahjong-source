@@ -371,7 +371,7 @@ export class RoomService {
         return {...base, mode:action.mode, tile};
       }
       case 'hu': return {...base, selfDraw:game.phase.kind === 'discard'};
-      case 'peng': case 'redGang': case 'piziGang': case 'pass': return base;
+      case 'peng': case 'redGang': case 'piziGang': case 'wildGang': case 'pass': return base;
     }
     fail(400, 'INVALID_ACTION', '操作格式无效。');
   }

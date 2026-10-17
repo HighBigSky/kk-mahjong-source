@@ -383,7 +383,7 @@ export function makeRandom(seed) {
 
 /** @returns {AvailableActions} */
 function emptyActions() {
-  return { hu: false, peng: false, gang: false, redGang: false, piziGang: false, chi: [], pass: false, concealedGangs: [], addedGangs: [] };
+  return { hu: false, peng: false, gang: false, redGang: false, piziGang: false, wildGang: false, chi: [], pass: false, concealedGangs: [], addedGangs: [] };
 }
 
 /** @param {AvailableActions} actions @returns {boolean} */
@@ -577,7 +577,9 @@ export class MahjongGame {
     actions.hu = this.lastDraw?.player === player && canWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile);
     if (this.wall.length > 0) {
       actions.redGang = counts[RED_DRAGON] > 0;
+      // 手上同时有皮子和癞子时先杠皮子；癞子只在没有皮子时才当皮子杠。
       actions.piziGang = this.indicatorTile !== null && counts[this.indicatorTile] > 0;
+      actions.wildGang = !actions.piziGang && this.wildTile !== null && counts[this.wildTile] > 0;
       if (seat.melds.length < 4) {
         actions.concealedGangs = counts.flatMap((count, tile) => count === COPIES_PER_TILE && !isSpecialGangTile(tile, this.indicatorTile) ? [tile] : []);
       }
@@ -635,6 +637,15 @@ export class MahjongGame {
         this._drawTile(player, true);
         return true;
       }
+      if (action.kind === ACTION.WILD_GANG && actions.wildGang && this.wildTile !== null) {
+        const seat = this.players[player];
+        removeTiles(seat.hand, [this.wildTile]);
+        seat.piziGangs.push(this.wildTile);
+        this.lastDraw = null;
+        this._log(`${seat.name}癞子杠${tileName(this.wildTile)}，补摸一张牌。`);
+        this._drawTile(player, true);
+        return true;
+      }
       if (action.kind === ACTION.GANG && (action.mode === 'concealed' || action.mode === 'added')) {
         const choices = action.mode === 'concealed' ? actions.concealedGangs : actions.addedGangs;
         if (!choices.includes(action.tile)) return false;
@@ -672,6 +683,7 @@ export class MahjongGame {
     if (kind === ACTION.HU) return this.applyAction(player, { kind: ACTION.HU, player, selfDraw: this.phase.kind === PHASE.DISCARD });
     if (kind === ACTION.RED_GANG) return this.applyAction(player, { kind: ACTION.RED_GANG, player });
     if (kind === ACTION.PIZI_GANG) return this.applyAction(player, { kind: ACTION.PIZI_GANG, player });
+    if (kind === ACTION.WILD_GANG) return this.applyAction(player, { kind: ACTION.WILD_GANG, player });
     if (kind === ACTION.PENG) return this.applyAction(player, { kind: ACTION.PENG, player });
     if (kind === ACTION.GANG) {
       if (!this.pendingDiscard) return false;
