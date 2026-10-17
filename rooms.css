@@ -124,8 +124,50 @@
 .connection[data-state="connecting"] i,.connection[data-state="reconnecting"] i { background:#d8b46d; }
 .connection[data-state="connected"] i { background:#a0c58d; }
 
+/* 开黑语音：顶部按钮、语音面板与座位说话高亮。 */
+.voice-button.is-active { color:#d9efc4; border-color:#9fc383; background:#214938; }
+.voice-button.is-muted { color:#e2b58f; border-color:#b58562; }
+.voice-modal {
+  width:min(88cqw,420px);
+  padding:clamp(20px,5.5cqw,30px);
+  background:linear-gradient(145deg,#315a3a26,transparent 55%),#153d30;
+  color:#d8e2cf;
+  font-size:clamp(12px,2.7cqw,15px);
+  line-height:1.55;
+}
+.voice-modal h2 { margin:8px 0 6px; color:#f2dfb5; font-size:clamp(24px,6cqw,30px); }
+.voice-modal .modal-lead { margin:0 0 8px; color:#e2cd9d; }
+.voice-participants { min-height:1.6em; margin:0 0 14px; color:#b5c2a7; font-size:clamp(11px,2.5cqw,13px); }
+.voice-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.voice-actions button {
+  flex:1 1 120px;
+  min-height:44px;
+  margin-top:0;
+  padding:9px 12px;
+  border-radius:8px;
+  font-size:clamp(13px,3cqw,16px);
+}
+.voice-note { margin:14px 0 0; color:#a9bc9f; font-size:clamp(11px,2.4cqw,13px); line-height:1.7; }
+.voice-error { margin:10px 0 0; padding:10px 12px; border:1px solid #b46a4f99; border-radius:8px; background:#62382a55; color:#ffceaf; }
+.player-seat.has-voice .portrait::after {
+  content:"";
+  position:absolute;
+  right:-.4cqw;
+  bottom:1.2cqw;
+  width:2.6cqw;
+  height:2.6cqw;
+  border:1.5px solid #173f31;
+  border-radius:50%;
+  background:#8ac99c;
+}
+.player-seat.is-speaking .portrait {
+  border-color:#f0d48d;
+  box-shadow:0 0 0 .6cqw #e7c97966,0 0 2.4cqw #e7c97999;
+}
+.player-seat.is-speaking .opponent-name { color:#f6e2ae; }
+
 @media(max-height:500px) {
-  .room-modal { padding:18px; max-height:calc(100dvh - 20px); }
-  .room-modal .modal-lead { margin-bottom:12px; }
+  .room-modal,.voice-modal { padding:18px; max-height:calc(100dvh - 20px); }
+  .room-modal .modal-lead,.voice-modal .modal-lead { margin-bottom:12px; }
   .room-separator { margin:14px 0 10px; }
 }

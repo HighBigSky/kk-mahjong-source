@@ -74,7 +74,7 @@ test('HTTP bot endpoints validate owner and seats, cannot remove humans, and nev
   assert.equal((await post(`${route}/removeBot`, { seat: 2 }, owner.token)).data.code, 'NOT_BOT');
   const added = await post(`${route}/addBot`, { seat: 2 }, owner.token);
   assert.equal(added.status, 200);
-  assert.deepEqual(added.data.room.seats[2], { name: '人机3', occupied: true, connected: true, ready: true, bot: true });
+  assert.deepEqual(added.data.room.seats[2], { name: '人机3', occupied: true, connected: true, voice: false, ready: true, bot: true });
   assert.equal(JSON.stringify(added.data).includes('token'), false);
   assert.equal(service.rooms.get(code).seats[2].token, null);
   assert.throws(() => service.authenticate(code, '0'.repeat(48)), error => error.code === 'UNAUTHORIZED');

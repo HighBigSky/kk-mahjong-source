@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RoomService, RoomError } from './src/server/rooms.js';
+import { createVoiceIceConfig } from './src/server/voice.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const mime = {'.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp'};
@@ -15,14 +16,14 @@ function json(response, status, body) {
   response.end(JSON.stringify(body));
 }
 function tokenOf(request) { return /^Bearer ([a-f0-9]{48})$/.exec(request.headers.authorization || '')?.[1]; }
-function bodyOf(request) {
+function bodyOf(request, maxSize = 8192) {
   return new Promise((resolve, reject) => {
     let size = 0, settled = false;
     const chunks = [];
     request.on('data', chunk => {
       if (settled) return;
       size += chunk.length;
-      if (size > 8192) {
+      if (size > maxSize) {
         settled = true; chunks.length = 0;
         reject(new RoomError(413, 'TOO_LARGE', '请求内容过长。'));
       } else chunks.push(chunk);
@@ -43,7 +44,7 @@ function bodyOf(request) {
 }
 
 /** Start with npm start, or import this factory for isolated integration tests. */
-export function createServer({ roomService = new RoomService(), publicOrigin = process.env.PUBLIC_ORIGIN || '' } = {}) {
+export function createServer({ roomService = new RoomService({ iceServers:createVoiceIceConfig() }), publicOrigin = process.env.PUBLIC_ORIGIN || '' } = {}) {
   const limits = new Map();
   const configuredOrigin = publicOrigin ? new URL(publicOrigin).origin : '';
   function checkLimit(remote, pathname, method) {
@@ -79,14 +80,17 @@ export function createServer({ roomService = new RoomService(), publicOrigin = p
           if (!/^application\/json(?:;|$)/i.test(request.headers['content-type'] || '')) throw new RoomError(415, 'JSON_REQUIRED', '请发送 JSON 请求。');
         }
         if (pathname === '/api/rooms' && request.method === 'POST') { json(response, 201, roomService.create(await bodyOf(request))); return; }
-        const match = /^\/api\/rooms\/(\d{6})\/(join|state|events|ready|start|next|action|leave|addBot|removeBot|removePlayer)$/.exec(pathname);
+        const match = /^\/api\/rooms\/(\d{6})\/(join|state|events|ready|start|next|action|leave|addBot|removeBot|removePlayer|voice|signal)$/.exec(pathname);
         if (!match) throw new RoomError(404, 'NOT_FOUND', '接口不存在。');
         const [, code, operation] = match;
         if (operation === 'events' && request.method === 'GET') { roomService.connect(code, url.searchParams.get('token'), response); return; }
         if (operation === 'state' && request.method === 'GET') { json(response, 200, roomService.state(code, tokenOf(request))); return; }
+        if (operation === 'voice' && request.method === 'GET') { json(response, 200, roomService.voiceConfig(code, tokenOf(request))); return; }
         if (request.method !== 'POST' || operation === 'events' || operation === 'state') throw new RoomError(405, 'METHOD_NOT_ALLOWED', '请求方法不支持。');
-        const body = await bodyOf(request);
-        const result = operation === 'join' ? roomService.join(code, body) : roomService[operation](code, tokenOf(request), body);
+        const body = await bodyOf(request, operation === 'signal' ? 24576 : 8192);
+        const result = operation === 'join' ? roomService.join(code, body)
+          : operation === 'voice' ? roomService.setVoice(code, tokenOf(request), body)
+          : roomService[operation](code, tokenOf(request), body);
         json(response, operation === 'join' ? 201 : 200, result);
         return;
       }

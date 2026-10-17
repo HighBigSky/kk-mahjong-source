@@ -1,0 +1,32 @@
+# coturn 示例配置（Debian/Ubuntu 通常安装到 /etc/turnserver.conf）
+#
+# 安装：apt install -y coturn
+# 启用：编辑 /etc/default/coturn，取消注释 TURNSERVER_ENABLED=1
+# 重启：systemctl restart coturn
+#
+# 安全组/防火墙至少放行：
+#   3478/UDP、3478/TCP
+#   49160-49200/UDP
+# 如使用 turns:，再放行 5349/TCP 并配置证书。
+
+listening-port=3478
+fingerprint
+lt-cred-mech
+
+# 短期凭证模式：与 Node 服务的 TURN_SECRET 保持一致。
+# 生成一个足够长的随机值，例如：openssl rand -hex 32
+use-auth-secret
+static-auth-secret=REPLACE_WITH_LONG_RANDOM_SECRET
+
+# 替换为你的域名和公网 IP。
+realm=mahjong.example.com
+external-ip=REPLACE_WITH_SERVER_PUBLIC_IP
+
+# 中继端口范围；需与云安全组和服务器防火墙一致。
+min-port=49160
+max-port=49200
+
+# 降低被滥用的风险。
+no-cli
+no-loopback-peers
+no-multicast-peers

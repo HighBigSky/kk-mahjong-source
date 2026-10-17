@@ -11,6 +11,7 @@ export function createRoomClient({ onChange = () => {}, onError = () => {} } = {
   let generation = 0;
   let leaving = false;
   let actions = emptyActions();
+  const signalListeners = new Set();
   const client = { room:null, status:'offline', busy:false, game:emptyState() };
   const changed = () => onChange(client);
   const save = () => { try { if (credentials) sessionStorage.setItem(SESSION_KEY, JSON.stringify(credentials)); else sessionStorage.removeItem(SESSION_KEY); } catch { /* Session storage is optional. */ } };
@@ -59,6 +60,14 @@ export function createRoomClient({ onChange = () => {}, onError = () => {} } = {
         client.status = 'connected';
         receive(envelope);
       } catch { onError('房间消息读取失败，请刷新重连'); }
+    });
+    // 语音信令和牌局快照分开处理：信令不触发牌桌重绘，也不改变房间版本。
+    source.addEventListener('signal', event => {
+      if (currentGeneration !== generation) return;
+      try {
+        const payload = JSON.parse(event.data);
+        for (const listener of signalListeners) listener(payload);
+      } catch { /* Ignore one malformed signaling message; the next one can still connect. */ }
     });
     source.onerror = () => {
       // Leaving revokes this token and closes SSE before the HTTP reply arrives.
@@ -115,6 +124,20 @@ export function createRoomClient({ onChange = () => {}, onError = () => {} } = {
   client.removeBot = seat => seatCommand('removeBot', seat);
   client.removePlayer = seat => seatCommand('removePlayer', seat);
   client.next = () => command('next');
+  client.voice = enabled => command('voice', {enabled});
+  client.voiceConfig = () => credentials
+    ? request(`/api/rooms/${credentials.code}/voice`)
+    : Promise.reject(new Error('请先加入房间'));
+  // 信令是高频短消息，不占用 busy，也不刷新牌局快照。
+  client.signal = async payload => {
+    if (!credentials) return false;
+    await request(`/api/rooms/${credentials.code}/signal`, payload);
+    return true;
+  };
+  client.onSignal = listener => {
+    signalListeners.add(listener);
+    return () => signalListeners.delete(listener);
+  };
   client.leave = async () => {
     leaving = true;
     try { const success = await command('leave'); if (success) reset(); return success; }

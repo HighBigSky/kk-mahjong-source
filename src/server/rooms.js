@@ -21,13 +21,15 @@ function rotate(items, viewer) { return Array.from({length:4}, (_, index) => ite
 
 /** Authoritative in-memory rooms. Human and computer turns use the same rules. */
 export class RoomService {
-  constructor({ disconnectGraceMs = 5000, roomTtlMs = 6 * 60 * 60 * 1000, maxRooms = 200, botDelayMs = 650, now = Date.now } = {}) {
+  constructor({ disconnectGraceMs = 5000, roomTtlMs = 6 * 60 * 60 * 1000, maxRooms = 200, botDelayMs = 650, now = Date.now,
+    iceServers = () => [] } = {}) {
     this.rooms = new Map();
     this.disconnectGraceMs = disconnectGraceMs;
     this.roomTtlMs = roomTtlMs;
     this.maxRooms = maxRooms;
     this.botDelayMs = botDelayMs;
     this.now = now;
+    this.iceServers = typeof iceServers === 'function' ? iceServers : () => iceServers;
     this.cleanupTimer = setInterval(() => this.cleanup(), 60000);
     this.cleanupTimer.unref();
   }
@@ -119,6 +121,54 @@ export class RoomService {
     return this.snapshot(room, player);
   }
 
+  /** 返回当前房间可用的 STUN/TURN 配置；TURN 短期凭证在每次请求时重新生成。 */
+  voiceConfig(code, token) {
+    this.authenticate(code, token);
+    return {iceServers:this.iceServers()};
+  }
+
+  /** 标记玩家是否已加入语音；状态变化会随房间快照同步给其他玩家。 */
+  setVoice(code, token, {enabled} = {}) {
+    const {room, player, seat} = this.authenticate(code, token);
+    if (typeof enabled !== 'boolean') fail(400, 'INVALID_VOICE', '语音状态必须是布尔值。');
+    if (enabled && !seat.connected) fail(409, 'PLAYER_DISCONNECTED', '连接恢复后才能开启语音。');
+    if (seat.voice !== enabled) { seat.voice = enabled; this._changed(room); }
+    return this.snapshot(room, player);
+  }
+
+  /** 转发 WebRTC SDP / ICE 信令；只允许同房间已开启语音的真人互相发送。 */
+  signal(code, token, {to, description, candidate} = {}) {
+    const {room, player, seat} = this.authenticate(code, token);
+    if (!Number.isInteger(to) || to < 1 || to > 3) fail(400, 'INVALID_SIGNAL_TARGET', '请选择有效的语音对象。');
+    const target = (player + to) % 4;
+    const targetSeat = room.seats[target];
+    if (!targetSeat || targetSeat.bot) fail(409, 'VOICE_UNAVAILABLE', '该座位没有可用的语音玩家。');
+    if (!targetSeat.connected) fail(409, 'VOICE_UNAVAILABLE', '对方已离线。');
+    if (!seat.voice || !targetSeat.voice) fail(409, 'VOICE_OFF', '双方都开启语音后才能连接。');
+    let payload;
+    if (description !== undefined) {
+      const type = description?.type;
+      const sdp = description?.sdp;
+      if (!['offer', 'answer'].includes(type) || typeof sdp !== 'string' || !sdp || sdp.length > 20000) {
+        fail(400, 'INVALID_SIGNAL', '语音协商内容无效。');
+      }
+      payload = {description:{type, sdp}};
+    } else if (candidate !== undefined) {
+      const value = candidate?.candidate;
+      if (typeof value !== 'string' || value.length > 2048) fail(400, 'INVALID_SIGNAL', '语音候选地址无效。');
+      /** @type {Record<string, unknown>} */
+      const copy = {candidate:value};
+      if (typeof candidate.sdpMid === 'string' || candidate.sdpMid === null) copy.sdpMid = candidate.sdpMid;
+      if (Number.isInteger(candidate.sdpMLineIndex) || candidate.sdpMLineIndex === null) copy.sdpMLineIndex = candidate.sdpMLineIndex;
+      if (typeof candidate.usernameFragment === 'string' || candidate.usernameFragment === null) copy.usernameFragment = candidate.usernameFragment;
+      payload = {candidate:copy};
+    } else fail(400, 'INVALID_SIGNAL', '语音信令内容为空。');
+    const from = relative(player, target);
+    for (const stream of targetSeat.streams) this._writeSignal(stream, {from, ...payload});
+    room.touched = this.now();
+    return {sent:true};
+  }
+
   ready(code, token, { ready } = {}) {
     const {room, player, seat} = this.authenticate(code, token);
     if (room.game?.phase.kind !== 'ended' && room.game) fail(409, 'PLAYING', '对局进行中不能更改准备状态。');
@@ -132,7 +182,7 @@ export class RoomService {
     this._owner(room, player);
     if (room.game) fail(409, 'ALREADY_STARTED', '房间已经开局。');
     this._canStart(room);
-    room.game = new MahjongGame({ seed:randomBytes(24).toString('hex'), names:room.seats.map(seat => seat.name), laizi:room.laizi, wildOwner:room.owner });
+    room.game = new MahjongGame({ seed:randomBytes(24).toString('hex'), names:room.seats.map(seat => seat.name), laizi:room.laizi });
     this._restoreCarry(room);
     this._changed(room);
     return this.snapshot(room, player);
@@ -211,7 +261,7 @@ export class RoomService {
       seat.streams.delete(response);
       if (this.rooms.get(code) !== room || room.seats[player] !== seat || seat.streams.size) return;
       seat.disconnectTimer = setTimeout(() => {
-        if (!seat.streams.size && room.seats[player] === seat) { seat.connected = false; this._changed(room); }
+        if (!seat.streams.size && room.seats[player] === seat) { seat.connected = false; seat.voice = false; this._changed(room); }
       }, this.disconnectGraceMs);
       seat.disconnectTimer.unref();
     });
@@ -225,7 +275,7 @@ export class RoomService {
       code:room.code, self:0, seat:viewer, owner:relative(room.owner, viewer), version:room.version,
       status:room.game ? room.game.phase.kind === 'ended' ? 'ended' : 'playing' : 'waiting',
       laizi:room.laizi, paused,
-      seats:rotate(room.seats, viewer).map(seat => ({name:seat?.name || '等待好友', occupied:!!seat, connected:!!seat?.connected, ready:!!seat?.ready, bot:!!seat?.bot})),
+      seats:rotate(room.seats, viewer).map(seat => ({name:seat?.name || '等待好友', occupied:!!seat, connected:!!seat?.connected, voice:!!seat?.voice, ready:!!seat?.ready, bot:!!seat?.bot})),
     };
     if (!room.game) return {room:roomView, state:null};
     const game = room.game;
@@ -271,7 +321,7 @@ export class RoomService {
     for (const room of this.rooms.values()) this._dispose(room);
   }
 
-  _newSeat(name) { return {name, token:randomBytes(24).toString('hex'), bot:false, ready:false, connected:false, streams:new Set(), requests:new Map(), disconnectTimer:null}; }
+  _newSeat(name) { return {name, token:randomBytes(24).toString('hex'), bot:false, ready:false, connected:false, voice:false, streams:new Set(), requests:new Map(), disconnectTimer:null}; }
   _room(code) {
     const room = CODE_PATTERN.test(code) ? this.rooms.get(code) : null;
     // Do not let a request revive an expired room between minute cleanup ticks.
@@ -285,6 +335,7 @@ export class RoomService {
     for (const seat of room.seats) if (seat) {
       clearTimeout(seat.disconnectTimer);
       seat.connected = false;
+      seat.voice = false;
       for (const stream of seat.streams) stream.end();
       seat.streams.clear();
       seat.requests.clear();
@@ -409,6 +460,8 @@ export class RoomService {
     room.botTimer.unref();
   }
   _write(response, snapshot) { if (response.destroyed || response.writableEnded) return; if (response.writableLength > 262144) { response.destroy(); return; } response.write(`event: state\ndata: ${JSON.stringify(snapshot)}\n\n`); }
+  /** 语音信令与牌局快照分开推送，避免信令触发客户端重绘牌桌。 */
+  _writeSignal(response, payload) { if (response.destroyed || response.writableEnded) return; if (response.writableLength > 262144) { response.destroy(); return; } response.write(`event: signal\ndata: ${JSON.stringify(payload)}\n\n`); }
   _command(game, player, action) {
     if (!action || typeof action !== 'object' || Array.isArray(action)) fail(400, 'INVALID_ACTION', '操作格式无效。');
     const base = {kind:action.kind, player};

@@ -1,5 +1,6 @@
 import { tileName, chooseDiscard, isSpecialGangTile, classifyWin } from './engine.js';
 import { createRoomClient } from './src/network/client.js';
+import { createVoiceChat } from './src/network/voice.js';
 import { RED_DRAGON } from './src/domain/tile.js';
 import { PHASE } from './src/domain/model.js';
 import { renderWall } from './src/network/wall-view.js';
@@ -15,6 +16,13 @@ const renderedHTML = new WeakMap();
 // 出牌/接牌时会闪一下白。复用后只有真正增减的牌才新建节点。
 const handNodes = new Map();
 const network = createRoomClient({ onChange:roomChanged, onError:roomError });
+const voice = createVoiceChat({
+  getIceServers: () => network.voiceConfig(),
+  sendSignal: payload => network.signal(payload),
+  onState: updateVoiceState,
+  onSpeaking: voiceSpeaking,
+});
+network.onSignal(payload => voice.handleSignal(payload));
 const game = network.game;
 const displayNames = ['你', '等待好友', '等待好友', '等待好友'];
 const avatars = ['assets/avatar-player.svg', 'assets/avatar-1.svg', 'assets/avatar-2.svg', 'assets/avatar-3.svg'];
@@ -35,6 +43,7 @@ let resultTimer = null;
 let actionNoticeTimer = null;
 let actionNoticeKey = null;
 let actionNoticeDeadline = 0;
+let voiceAnnouncing = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
 const roomOrientation = createRoomOrientation({onLayout:positionActionNotice});
 
@@ -54,6 +63,85 @@ function roomError(message) {
   $('#room-error').textContent = message;
   $('#room-error').hidden = false;
   toast(message);
+}
+
+/** 刷新语音面板与顶部按钮的文案、图标和可用状态。 */
+function updateVoiceState(state = voice.getState()) {
+  const room = network.room;
+  const button = $('#voice-btn');
+  button.disabled = !room;
+  button.classList.toggle('is-active', state.active);
+  button.classList.toggle('is-muted', state.active && state.muted);
+  button.querySelector('use').setAttribute('href', state.active && state.muted ? '#i-mic-off' : '#i-mic');
+  button.setAttribute('aria-label', state.active ? state.muted ? '语音已静音' : '语音已开启' : '开黑语音');
+  button.title = state.active ? state.muted ? '语音已静音' : '语音已开启' : '开黑语音';
+
+  $('#voice-status').textContent = state.starting ? '正在申请麦克风…'
+    : state.active ? state.muted ? '语音已开启 · 麦克风已静音' : '语音已开启' : '语音未开启';
+  $('#voice-start').hidden = state.active || state.starting;
+  $('#voice-start').disabled = state.starting || !room;
+  $('#voice-mute').hidden = !state.active;
+  $('#voice-mute').textContent = state.muted ? '取消静音' : '静音';
+  $('#voice-mute').setAttribute('aria-pressed', String(state.muted));
+  $('#voice-leave').hidden = !state.active;
+  $('#voice-leave').disabled = state.starting;
+  $('#voice-error').hidden = !state.error;
+  if (state.error) $('#voice-error').textContent = state.error;
+
+  if (!room) {
+    $('#voice-participants').textContent = '加入房间后可以开启语音';
+    return;
+  }
+  const names = [];
+  room.seats.forEach((seat, index) => {
+    if (seat.occupied && !seat.bot && seat.voice) names.push(index === 0 ? '你' : seat.name);
+  });
+  if (state.active && !names.includes('你')) names.unshift('你');
+  $('#voice-participants').textContent = names.length ? `语音中：${names.join('、')}` : '还没有人加入语音';
+}
+
+/** 把绝对座位映射到当前玩家视角的座位，并切换说话高亮。 */
+function voiceSpeaking(absoluteSeat, speaking) {
+  const room = network.room;
+  if (!room || !Number.isInteger(absoluteSeat)) return;
+  const relative = (absoluteSeat - room.seat + 4) % 4;
+  $(`#opponent-${relative}`)?.classList.toggle('is-speaking', Boolean(speaking));
+}
+
+/** 让服务端语音状态与本地麦克风状态保持一致，处理刷新或短暂断网后的残留。 */
+function syncVoicePresence(room) {
+  if (!room) {
+    if (voice.isActive() || voice.getState().starting) voice.stop();
+    return;
+  }
+  const self = room.seats[0];
+  if (voice.isActive() && !self.voice && !voiceAnnouncing) {
+    voiceAnnouncing = true;
+    network.voice(true).catch(() => {}).finally(() => { voiceAnnouncing = false; });
+  } else if (!voice.isActive() && self.voice && !voiceAnnouncing) {
+    voiceAnnouncing = true;
+    network.voice(false).catch(() => {}).finally(() => { voiceAnnouncing = false; });
+  }
+}
+
+async function startVoice() {
+  $('#voice-error').hidden = true;
+  try {
+    await voice.start(network.room);
+    await network.voice(true);
+    updateVoiceState();
+  } catch (error) {
+    const message = error?.message || '无法开启语音，请检查麦克风和网络后重试';
+    $('#voice-error').textContent = message;
+    $('#voice-error').hidden = false;
+    toast(message);
+  }
+}
+
+async function stopVoice() {
+  voice.stop();
+  updateVoiceState();
+  try { await network.voice(false); } catch { /* 离开房间时服务端会清理语音状态。 */ }
 }
 
 function updateRoom() {
@@ -166,6 +254,14 @@ function roomChanged() {
   previousRound = game.round;
   previousStatus = room?.status || 'waiting';
   updateRoom(); render();
+  // 语音在线状态随房间快照同步；本地麦克风状态与服务器状态互相校正。
+  for (let index = 0; index < 4; index++) {
+    const member = room?.seats[index];
+    $(`#opponent-${index}`).classList.toggle('has-voice', Boolean(member?.occupied && !member.bot && member.voice));
+  }
+  voice.sync(room);
+  syncVoicePresence(room);
+  updateVoiceState();
 }
 
 async function roomOperation(operation) {
@@ -806,6 +902,17 @@ $('#sound-btn').addEventListener('click', () => {
   preferences.sound = !preferences.sound; persist(); syncSettings(); playSound('select');
   toast(preferences.sound ? '音效已开启' : '音效已关闭');
 });
+$('#voice-btn').addEventListener('click', () => {
+  updateVoiceState();
+  openModal('#voice-dialog');
+});
+$('#voice-start').addEventListener('click', startVoice);
+$('#voice-mute').addEventListener('click', () => {
+  voice.toggleMuted();
+  updateVoiceState();
+});
+$('#voice-leave').addEventListener('click', stopVoice);
+window.addEventListener('beforeunload', () => voice.stop());
 $('#sound-setting').addEventListener('change', event => { preferences.sound = event.target.checked; persist(); syncSettings(); playSound('select'); });
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
 document.querySelectorAll('dialog').forEach(dialog => {
@@ -847,6 +954,7 @@ document.addEventListener('keydown', event => {
 // Only the requesting player's filtered server snapshot is present in this browser.
 window.mahjongGame = game;
 window.mahjongRoom = network;
+window.mahjongVoice = voice;
 window.renderMahjong = () => { selected = -1; hinted = -1; render(); };
 const invitedRoom = new URL(location.href).searchParams.get('room');
 if (/^\d{6}$/.test(invitedRoom || '')) $('#room-code').value = invitedRoom;
