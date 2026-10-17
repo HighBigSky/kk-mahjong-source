@@ -15,9 +15,9 @@ html.in-room body { padding:0; }
 html.in-room #game.is-landscape {
   --ui-unit:calc(var(--stage-height) / 100);
   /* 横屏四方牌桌：以高度为基准取正方形，横向居中。
-     桌宽 0.75 个舞台高度（早先 0.56、0.70），桌上各处的牌同步放大到约 1.2 倍，
-     观感向手游麻将靠拢：牌大河大、中央罗盘缩小让位。 */
-  --board-size:calc(var(--stage-height) * .75);
+     重做后桌宽 0.88 个舞台高度、下缘几乎贴到屏幕底部，自己的手牌压在牌桌下沿，
+     牌面比 0.75 版再放大 ~17%，观感向手游麻将靠拢。 */
+  --board-size:calc(var(--stage-height) * .88);
   --board-width:var(--board-size);
   --board-height:var(--board-size);
   --table-unit:calc(var(--board-height) / 70);
@@ -169,10 +169,10 @@ html.in-room.landscape-rotated #game.is-landscape {
 
 /* The original wall model remains 17 fixed double stacks per side. Only its
    horizontal stride expands; its vertical stride follows the board height. */
-#game.is-landscape .table { left:calc(50% - var(--board-size) / 2); top:9.8%; width:var(--board-width); height:var(--board-height); }
+#game.is-landscape .table { left:calc(50% - var(--board-size) / 2); top:12%; width:var(--board-width); height:var(--board-height); }
 #game.is-landscape .table-border { inset:calc(var(--ui-unit) * 1.2); border-radius:calc(var(--ui-unit) * 2.4); }
 #game.is-landscape .table .opponent-rack { gap:calc(var(--table-unit) * .7); }
-#game.is-landscape .table .opponent-rack-top { top:calc(var(--table-unit) * 1.8); left:calc(var(--table-unit) * 4.5); right:calc(var(--table-unit) * 4.5); }
+#game.is-landscape .table .opponent-rack-top { top:calc(var(--table-unit) * 1.1); left:calc(var(--table-unit) * 4.5); right:calc(var(--table-unit) * 4.5); }
 #game.is-landscape .table .opponent-rack-left,#game.is-landscape .table .opponent-rack-right { top:calc(var(--table-unit) * 6); bottom:calc(var(--table-unit) * 3.8); }
 #game.is-landscape .table .opponent-rack-left { left:calc(var(--table-unit) * .55); }
 #game.is-landscape .table .opponent-rack-right { right:calc(var(--table-unit) * .55); }
@@ -184,7 +184,9 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .opponent-rack .back::before { inset:calc(var(--table-unit) * .35) calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .28); }
 .is-landscape .opponent-rack .wild-marker { display:none; }
 #game.is-landscape .table .wall-stack[data-side="bottom"] { left:calc(var(--table-unit) * 10.4 + var(--wall-stack-index) * var(--wall-horizontal-step)); bottom:calc(var(--table-unit) * 1.65); }
-#game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); top:calc(var(--table-unit) * 6.3); }
+/* 下方牌墙让位给手牌：手牌压在牌桌下沿，下边这一排牌墙不再画（余牌数在顶栏）。 */
+#game.is-landscape .table .wall-stack[data-side="bottom"] { display:none; }
+#game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); top:calc(var(--table-unit) * 5.4); }
 #game.is-landscape .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + var(--wall-stack-index) * var(--wall-stack-step)); }
 #game.is-landscape .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + (16 - var(--wall-stack-index)) * var(--wall-stack-step)); }
 .is-landscape .wall-piece.back { border-width:calc(var(--table-unit) * .08); border-bottom-width:calc(var(--table-unit) * .25); }
@@ -201,12 +203,13 @@ html.in-room.landscape-rotated #game.is-landscape {
 /* 四边牌河统一牌张尺寸与行数，牌张放大到 5.2×7.28 单位（早先 4.5×6.3）：
    上下各 6 列×2 行、左右各 3 列×2 行，围绕中央罗盘对称摆放。 */
 #game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:18%; width:64%; grid-template-columns:repeat(6,calc(var(--table-unit) * 5.2)); grid-auto-rows:calc(var(--table-unit) * 7.28); max-height:calc(var(--table-unit) * 15.06); }
-#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 13); }
-#game.is-landscape .table .river-bottom { bottom:calc(var(--table-unit) * 10); }
-/* 下方牌河的计数文字放到牌河外沿（下方），四边牌河才对罗盘对称。 */
-#game.is-landscape .table .river.river-bottom::before { top:auto; bottom:calc(var(--table-unit) * -2.6); }
+#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 10); }
+#game.is-landscape .table .river-bottom { bottom:calc(var(--table-unit) * 13.1); }
+/* 牌桌加大后四边牌河与牌墙、手牌之间只剩几像素，计数文字无处安放：横屏统一不显示，
+   张数仍在 aria-label 与点开牌河的记录里。 */
+#game.is-landscape .table .river::before { display:none; }
 #game.is-landscape .table .river-top .tile,#game.is-landscape .table .river-bottom .tile { width:calc(var(--table-unit) * 5.2); height:calc(var(--table-unit) * 7.28); }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:calc(50% + var(--table-unit) * 1.5); transform:translateY(-50%); width:auto; grid-template-columns:repeat(3,calc(var(--table-unit) * 5.2)); grid-auto-rows:calc(var(--table-unit) * 7.28); max-height:calc(var(--table-unit) * 15.06); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:calc(var(--table-unit) * 26); transform:none; width:auto; grid-template-columns:repeat(3,calc(var(--table-unit) * 5.2)); grid-auto-rows:calc(var(--table-unit) * 7.28); max-height:calc(var(--table-unit) * 15.06); }
 #game.is-landscape .table .river-left { left:calc(var(--table-unit) * 9.6); }
 #game.is-landscape .table .river-right { right:calc(var(--table-unit) * 9.6); }
 #game.is-landscape .table .river-left .tile,#game.is-landscape .table .river-right .tile { width:calc(var(--table-unit) * 5.2); height:calc(var(--table-unit) * 7.28); }
@@ -214,9 +217,8 @@ html.in-room.landscape-rotated #game.is-landscape {
 #game.is-landscape .table .river .tile.last-discard::after { bottom:calc(var(--table-unit) * .3); left:calc(50% - var(--table-unit) * .45); width:calc(var(--table-unit) * .9); height:calc(var(--table-unit) * .9); }
 #game.is-landscape .table .river::before { top:calc(var(--table-unit) * -2.6); font-size:max(7px,calc(var(--table-unit) * 1.9)); letter-spacing:0; }
 #game.is-landscape .table .river-count { font-size:max(7px,calc(var(--table-unit) * 1.5)); padding:calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .6); }
-#game.is-landscape .table .table-center { left:calc(50% - var(--table-unit) * 8); top:calc(50% - var(--table-unit) * 6.5); width:calc(var(--table-unit) * 16); height:calc(var(--table-unit) * 16); }
+#game.is-landscape .table .table-center { left:calc(50% - var(--table-unit) * 8); top:calc(50% - var(--table-unit) * 9.5); width:calc(var(--table-unit) * 16); height:calc(var(--table-unit) * 16); }
 #game.is-landscape .table .table-center::before { inset:calc(var(--table-unit) * .8); }
-/* 牌桌正中央显示翻皮的两颗骰子（余牌已搬到顶栏金币右边）。 */
 .is-landscape .table-dice { gap:calc(var(--table-unit) * 1.2); }
 .is-landscape .table-die {
   width:calc(var(--table-unit) * 6.6);
