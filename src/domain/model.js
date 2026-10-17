@@ -79,7 +79,7 @@ export const ACTION = Object.freeze({
  */
 
 /** @typedef {{player:PlayerId, tile:TileCode, index:number, replacement:boolean}} LastDraw */
-/** @typedef {{seed?:unknown, names?:string[], laizi?:boolean, wildOwner?:PlayerId}} GameOptions */
+/** @typedef {{seed?:unknown, names?:string[], laizi?:boolean}} GameOptions */
 /** @typedef {{restart?:boolean, laizi?:boolean}} NewRoundOptions */
 
 /**

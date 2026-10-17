@@ -238,41 +238,8 @@ test('new rounds retain the optional mode, and explicit changes and restarts res
   game.newRound('enabled', { laizi: true });
   assert.equal(game.dealer, 2);
   assert.equal(game.laiziEnabled, true);
+  assert.equal(game.wall.length, 82);
   assertConservation(game);
-});
-
-test('the designated owner starts every round with all four wild tiles and everyone else with none', () => {
-  for (const wildOwner of [0, 1, 2, 3]) {
-    const game = new MahjongGame({ seed: `owner-wilds-${wildOwner}`, laizi: true, wildOwner });
-    assert.equal(game.wildOwner, wildOwner);
-    assert.ok(game.wildTile !== null);
-    for (let seat = 0; seat < 4; seat++) {
-      const wilds = game.players[seat].hand.filter(tile => tile === game.wildTile).length;
-      assert.equal(wilds, seat === wildOwner ? 4 : 0, `seat ${seat} wild count in round 1`);
-      assert.equal(game.players[seat].hand.length, game.dealer === seat ? 14 : 13, `seat ${seat} hand size in round 1`);
-    }
-    assertConservation(game);
-    // 轮庄后仍由同一房主席位保留 4 张癞子。
-    game.newRound(`owner-wilds-next-${wildOwner}`);
-    for (let seat = 0; seat < 4; seat++) {
-      const wilds = game.players[seat].hand.filter(tile => tile === game.wildTile).length;
-      assert.equal(wilds, seat === wildOwner ? 4 : 0, `seat ${seat} wild count in round 2`);
-    }
-    assertConservation(game);
-  }
-});
-
-test('the owner wild guarantee is ignored when laizi is disabled or no owner is designated', () => {
-  const disabled = new MahjongGame({ seed: 'owner-wilds-disabled', laizi: false, wildOwner: 2 });
-  assert.equal(disabled.wildTile, null);
-  assert.equal(disabled.wildOwner, 2);
-  assertConservation(disabled);
-  const random = new MahjongGame({ seed: 'owner-wilds-random', laizi: true });
-  assert.equal(random.wildOwner, null);
-  for (let seat = 0; seat < 4; seat++) {
-    assert.equal(random.players[seat].hand.length, random.dealer === seat ? 14 : 13);
-  }
-  assertConservation(random);
 });
 
 test('wildcards complete sequences at their beginning, middle, and end and can supply the pair', () => {

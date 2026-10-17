@@ -439,8 +439,6 @@ export class MahjongGame {
   indicatorTile = null;
   /** @type {TileCode|null} */
   wildTile = null;
-  /** @type {PlayerId|null} 起手固定获得全部 4 张癞子的座位（好友房为房主）。 */
-  wildOwner = null;
   /** @type {WallInfo} */
   wallInfo = { dice: [1, 1], indicatorPosition: null, tailDraws: 0 };
 
@@ -454,8 +452,6 @@ export class MahjongGame {
     }));
     this.round = 0;
     this.laiziEnabled = Boolean(options.laizi);
-    // 仅当调用方显式指定座位时启用“房主起手拿 4 张癞子”，独立引擎测试仍保持随机发牌。
-    this.wildOwner = isPlayerId(options.wildOwner) ? options.wildOwner : null;
     const seed = options.seed ?? `${Date.now()}-${Math.random()}`;
     this._random = makeRandom(seed);
     this._diceRandom = makeRandom(`dice:${String(seed)}`);
@@ -506,27 +502,8 @@ export class MahjongGame {
     for (const player of this.players) {
       player.hand = []; player.melds = []; player.redGangs = []; player.piziGangs = []; player.discards = [];
     }
-    // 房主起手固定拿走全部 4 张癞子：先从牌墙抽出，再随 13 张起手牌一起发给该座位。
-    // 这样总发牌数仍是 52 张，牌墙余量与 136 张守恒都不变。
-    /** @type {TileCode[]} */
-    let ownerWilds = [];
-    if (this.laiziEnabled && this.wildOwner !== null && this.wildTile !== null) {
-      for (let count = 0; count < COPIES_PER_TILE; count++) {
-        const index = this.wall.lastIndexOf(this.wildTile);
-        if (index < 0) break;
-        ownerWilds.push(/** @type {TileCode} */ (this.wall.splice(index, 1)[0]));
-      }
-      // 正常情况下必然能取满 4 张；若牌墙数据异常则退回随机发牌，避免少牌。
-      if (ownerWilds.length !== COPIES_PER_TILE) {
-        this.wall.push(...ownerWilds);
-        ownerWilds = [];
-      }
-    }
     for (let deal = 0; deal < 13; deal++) {
-      for (let player = 0; player < 4; player++) {
-        const guaranteed = player === this.wildOwner ? ownerWilds.shift() : undefined;
-        this.players[player].hand.push(guaranteed ?? /** @type {TileCode} */ (this.wall.pop()));
-      }
+      for (const player of this.players) player.hand.push(/** @type {TileCode} */ (this.wall.pop()));
     }
     for (const player of this.players) player.hand.sort((a, b) => a - b);
     this.current = this.dealer;
