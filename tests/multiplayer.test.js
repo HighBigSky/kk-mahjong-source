@@ -507,6 +507,28 @@ test('a player leaving after the round ends keeps everyone else scores and resto
   assert.equal(room.room.carry, null);
 });
 
+test('the room owner receives all four wild tiles in every round while other seats receive none', async t => {
+  const h = await harness(t);
+  const room = await fourPlayers(h, { laizi: true });
+  await room.start();
+  const check = () => {
+    const game = room.room.game;
+    assert.ok(game.wildTile !== null);
+    for (let seat = 0; seat < 4; seat++) {
+      const wilds = game.players[seat].hand.filter(tile => tile === game.wildTile).length;
+      assert.equal(wilds, seat === room.room.owner ? 4 : 0, `seat ${seat} wild count in round ${game.round}`);
+      assert.equal(game.players[seat].hand.length, game.dealer === seat ? 14 : 13);
+    }
+    assertInvariants(game);
+  };
+  check();
+  room.room.game._finishDraw('测试房主每局拿癞子');
+  h.service._changed(room.room);
+  await room.sync(room.room.version);
+  assert.equal((await room.request(0, 'next')).status, 200);
+  check();
+});
+
 test('the owner can remove an offline ghost seat and a departed owner can be removed by another player', async t => {
   const h = await harness(t);
   const created = await h.api('/api/rooms', { body: { name: '房主' } });

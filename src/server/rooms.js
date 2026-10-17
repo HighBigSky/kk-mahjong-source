@@ -132,7 +132,7 @@ export class RoomService {
     this._owner(room, player);
     if (room.game) fail(409, 'ALREADY_STARTED', '房间已经开局。');
     this._canStart(room);
-    room.game = new MahjongGame({ seed:randomBytes(24).toString('hex'), names:room.seats.map(seat => seat.name), laizi:room.laizi });
+    room.game = new MahjongGame({ seed:randomBytes(24).toString('hex'), names:room.seats.map(seat => seat.name), laizi:room.laizi, wildOwner:room.owner });
     this._restoreCarry(room);
     this._changed(room);
     return this.snapshot(room, player);
