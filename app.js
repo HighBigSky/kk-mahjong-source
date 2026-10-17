@@ -4,6 +4,10 @@ import { RED_DRAGON } from './src/domain/tile.js';
 import { PHASE } from './src/domain/model.js';
 import { renderWall } from './src/network/wall-view.js';
 import { createRoomOrientation } from './src/ui/orientation.js';
+import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
+
+// 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
+await loadTilesSprite();
 
 const $ = selector => document.querySelector(selector);
 const renderedHTML = new WeakMap();
@@ -172,7 +176,7 @@ function nickname() {
 }
 
 function face(type) {
-  return `<svg viewBox="0 0 60 84" aria-hidden="true"><use href="assets/tiles.svg#tile-${type}"></use></svg>`;
+  return `<svg viewBox="0 0 60 84" aria-hidden="true"><use href="${tileHref(type)}"></use></svg>`;
 }
 
 function tile(type, className = '') {
@@ -455,9 +459,14 @@ function render() {
     return node;
   });
   const handElement = $('#hand');
-  const currentHandNodes = [...handElement.children];
-  if (currentHandNodes.length !== handTileNodes.length || currentHandNodes.some((node, position) => node !== handTileNodes[position])) {
-    handElement.replaceChildren(...handTileNodes);
+  // 只做最小改动：删掉多余的牌、插入新增的牌，其余节点原地不动。
+  // 整块 replaceChildren 会把 14 张牌全部摘下再插回，<use> 需要重新解析，仍可能闪一帧。
+  const wantedHandNodes = new Set(handTileNodes);
+  for (const child of [...handElement.children]) if (!wantedHandNodes.has(child)) child.remove();
+  let handReference = handElement.firstChild;
+  for (const node of handTileNodes) {
+    if (node === handReference) { handReference = handReference.nextSibling; continue; }
+    handElement.insertBefore(node, handReference);
   }
   updateHandState();
 

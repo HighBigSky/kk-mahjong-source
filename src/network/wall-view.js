@@ -1,6 +1,7 @@
 // @ts-check
 import { tileName } from '../../engine.js';
 import { TOTAL_TILE_COUNT } from '../domain/tile.js';
+import { tileHref } from '../ui/tiles-sprite.js';
 
 /** @typedef {{ dice:number[], indicatorPosition:number|null, tailDraws:number }} WallInfo */
 /** @typedef {{ wall:{length:number}, wallInfo?:WallInfo|null, indicatorTile:number|null }} WallSnapshot */
@@ -154,7 +155,7 @@ export function renderWall(element, game) {
         const svg = document.createElementNS(SVG_NAMESPACE, 'svg');
         svg.setAttribute('viewBox', '0 0 60 84');
         const use = document.createElementNS(SVG_NAMESPACE, 'use');
-        use.setAttribute('href', `assets/tiles.svg#tile-${game.indicatorTile}`);
+        use.setAttribute('href', tileHref(game.indicatorTile));
         svg.append(use);
         piece.element.replaceChildren(svg);
         piece.face = svg;
