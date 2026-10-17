@@ -195,22 +195,6 @@
   gap:.55cqw;
   min-height:2.3cqw;
 }
-.wall-die {
-  display:grid;
-  place-items:center;
-  flex:0 0 2.3cqw;
-  width:2.3cqw;
-  height:2.3cqw;
-  border:.08cqw solid #d3c9ac;
-  border-right-color:#9d947d;
-  border-bottom-color:#8a8067;
-  border-radius:.4cqw;
-  background:linear-gradient(135deg,#fffbed,#e1d7bf);
-  box-shadow:.08cqw .18cqw .12cqw #061e17a6;
-  color:#244b3b;
-  font:bold 1.8cqw/1 Georgia,serif;
-}
-.wall-die.is-smaller { color:#a43d32; }
 .wall-indicator-position {
   color:#c6d0b6;
   font-size:1.55cqw;
@@ -262,7 +246,5 @@
   width:18cqw;
   height:18cqw;
 }
-.table:has(.wall-tail:not([hidden])) .wall-counter { inset:3.9cqw; }
-.table:has(.wall-tail:not([hidden])) .wall-counter strong { font-size:5.6cqw; }
 .table:has(.wall-tail:not([hidden])) .bot-melds-top { left:-13.4cqw; top:2.5cqw; }
 .table:has(.wall-tail:not([hidden])) .table-caption { display:none; }

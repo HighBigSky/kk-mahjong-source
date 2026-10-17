@@ -197,6 +197,32 @@ function wildMarker(type) {
   return type === game.wildTile ? '<span class="wild-marker" aria-hidden="true">癞</span>' : '';
 }
 
+// 顶栏皮子/癞子小结里的牌：牌面 + 皮/癞角标，替掉原来「皮子」「癞子」两段文字。
+function laiziTile(type, badge) {
+  const name = tileName(type) + (badge === '癞' ? '，癞子' : '，皮子');
+  const marker = badge === '癞' ? 'wild-marker' : 'pizi-marker';
+  return `<span class="tile ${badge === '癞' ? 'is-wild' : ''}" title="${name}" aria-label="${name}">${face(type)}<span class="${marker}" aria-hidden="true">${badge}</span></span>`;
+}
+
+// 骰子点数 → 3×3 格里的点位置（行/列），画成真正的骰子面而不是数字。
+const DIE_PIPS = Object.freeze({
+  1: [[2, 2]],
+  2: [[1, 1], [3, 3]],
+  3: [[1, 1], [2, 2], [3, 3]],
+  4: [[1, 1], [1, 3], [3, 1], [3, 3]],
+  5: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3]],
+  6: [[1, 1], [1, 3], [2, 1], [2, 3], [3, 1], [3, 3]],
+});
+
+function diceHTML(values) {
+  if (values.length !== 2) return '';
+  const key = Math.min(...values);
+  return values.map(value => {
+    const pips = (DIE_PIPS[value] || []).map(([row, column]) => `<i style="grid-area:${row}/${column}"></i>`).join('');
+    return `<span class="table-die${value === key ? ' is-key' : ''}">${pips}</span>`;
+  }).join('');
+}
+
 function meldHTML(meld) {
   const label = meld.kind === 'gang' ? meld.added ? '补杠' : meld.concealed ? '暗杠' : '明杠' : meld.kind === 'chi' ? '吃' : '碰';
   return `<div class="meld-group" data-kind="${meld.kind}" aria-label="${label} ${meld.tiles.map(tileName).join('、')}"><span class="meld-label" aria-hidden="true">${label}</span>${meld.tiles.map(value => tile(value)).join('')}</div>`;
@@ -469,11 +495,19 @@ function render() {
   const specialName = heldSpecialName();
   $('#score').textContent = game.players[0].score.toLocaleString('zh-CN');
   $('#wall-count').textContent = game.wall.length;
+  $('#wall-pill').hidden = !active;
+  $('#wall-pill').setAttribute('aria-label', `牌墙剩余 ${game.wall.length} 张`);
   renderWall($('#wall-tail'), game);
+  const dice = game.wallInfo?.dice || [];
+  setHTMLIfChanged($('#table-dice'), diceHTML(dice));
+  $('.table-center').setAttribute('aria-label', dice.length === 2
+    ? `牌桌中央，骰子 ${dice[0]} 点和 ${dice[1]} 点，取较小点数 ${Math.min(...dice)} 翻皮；牌墙剩余 ${game.wall.length} 张`
+    : '牌桌中央');
   $('#round-label').textContent = active ? `第 ${game.round} 局 · ${game.dealer === 0 ? '你' : displayNames[game.dealer]}坐庄` : '四人准备后开局';
   $('#laizi-summary').hidden = !game.laiziEnabled;
-  setHTMLIfChanged($('#indicator-tile'), game.laiziEnabled ? tile(game.indicatorTile) : '');
-  setHTMLIfChanged($('#wild-tile'), game.laiziEnabled ? tile(game.wildTile) : '');
+  // 皮子/癞子用牌面 + 角标表示，省掉「皮子」「癞子」两段文字，窄屏顶栏才放得下。
+  setHTMLIfChanged($('#indicator-tile'), game.laiziEnabled ? laiziTile(game.indicatorTile, '皮') : '');
+  setHTMLIfChanged($('#wild-tile'), game.laiziEnabled ? laiziTile(game.wildTile, '癞') : '');
   $('#laizi-summary').setAttribute('aria-label', game.laiziEnabled ? `皮子${tileName(game.indicatorTile)}，癞子${tileName(game.wildTile)}` : '未启用翻皮子定癞子');
   $('#hand-count').textContent = `${hand.length} 张`;
   $('.hand-zone').classList.toggle('has-melds', game.players[0].melds.length + game.players[0].redGangs.length + (game.players[0].piziGangs?.length || 0) > 0);
@@ -523,7 +557,8 @@ function render() {
   for (let player = 0; player < 4; player++) {
     const seat = game.players[player];
     const river = $(`#river-${player}`);
-    const limit = player === 0 || player === 2 ? 12 : 8;
+    // 牌河四边同尺寸同行数：上下各 6 列×2 行（12 张），左右各 3 列×2 行（6 张）。
+    const limit = player === 0 || player === 2 ? 12 : 6;
     const offset = Math.max(0, seat.discards.length - limit);
     setHTMLIfChanged(river, seat.discards.slice(offset).map((type, index) => tile(type, game.pendingDiscard?.from === player && index === seat.discards.length - offset - 1 ? 'last-discard' : '')).join(''));
     river.dataset.label = `${seats[player]} · ${seat.discards.length} 张${offset ? ' ›' : ''}`;

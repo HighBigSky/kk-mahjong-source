@@ -7,7 +7,7 @@ import { tileHref } from '../ui/tiles-sprite.js';
 /** @typedef {{ wall:{length:number}, wallInfo?:WallInfo|null, indicatorTile:number|null }} WallSnapshot */
 /** @typedef {{ element:HTMLSpanElement, face:SVGSVGElement|null, state:string }} PieceView */
 /** @typedef {{ element:HTMLDivElement, pieces:PieceView[], label:HTMLSpanElement }} StackView */
-/** @typedef {{ title:HTMLElement, count:HTMLElement, dice:HTMLSpanElement[], position:HTMLSpanElement, stacks:StackView[] }} WallView */
+/** @typedef {{ title:HTMLElement, count:HTMLElement, position:HTMLSpanElement, stacks:StackView[] }} WallView */
 
 const TILES_PER_STACK = 2;
 const STACKS_PER_SIDE = TOTAL_TILE_COUNT / TILES_PER_STACK / 4;
@@ -33,15 +33,10 @@ function createView(element) {
   title.append(counter);
   const metadata = document.createElement('div');
   metadata.className = 'wall-tail-meta';
-  const dice = [0, 1].map(() => {
-    const die = document.createElement('span');
-    die.className = 'wall-die';
-    die.setAttribute('aria-hidden', 'true');
-    return die;
-  });
+  // 骰子已经搬到牌桌正中央，这里只留「第 N 墩翻皮」的说明文字。
   const position = document.createElement('span');
   position.className = 'wall-indicator-position';
-  metadata.append(...dice, position);
+  metadata.append(position);
   heading.append(title, metadata);
   const lane = document.createElement('div');
   lane.className = 'wall-tail-stacks';
@@ -49,7 +44,7 @@ function createView(element) {
   const stacks = Array.from({length:TOTAL_TILE_COUNT / TILES_PER_STACK}, (_, index) => createStack(index));
   lane.append(...stacks.map(stack => stack.element));
   element.replaceChildren(heading, lane);
-  const view = { title, count, dice, position, stacks };
+  const view = { title, count, position, stacks };
   views.set(element, view);
   return view;
 }
@@ -126,10 +121,6 @@ export function renderWall(element, game) {
   const indicatorStack = indicator < 0 ? -1 : Math.floor(indicator / TILES_PER_STACK);
 
   view.count.textContent = String(remaining);
-  for (const [index, value] of info.dice.entries()) {
-    view.dice[index].textContent = String(value);
-    view.dice[index].classList.toggle('is-smaller', value === Math.min(...info.dice));
-  }
   view.position.textContent = indicator >= 0 ? `第 ${indicatorStack + 1} 墩翻皮` : '未翻皮';
   view.title.title = remaining > 0 ? '青色标记处普通摸牌，金色标记处杠后补牌；牌背数量与余牌数同步' : '牌墙已空，无牌可补';
 
