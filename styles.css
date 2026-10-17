@@ -721,6 +721,15 @@ svg {
   transition:background .15s,transform .15s,box-shadow .15s
 }
 
+.action-button.action-next {
+  flex:0 0 28cqw;
+  width:28cqw
+}
+
+.action-button.action-next>span {
+  font-size:4.6cqw
+}
+
 .action-button>span {
   font-family:"STKaiti","KaiTi","SimSun",serif;
   font-weight:600;

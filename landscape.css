@@ -244,6 +244,8 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .action-heading { display:none; }
 .is-landscape .action-buttons { gap:calc(var(--ui-unit) * 1.4); }
 .is-landscape .action-button { flex:0 0 calc(var(--ui-unit) * 9.6); width:calc(var(--ui-unit) * 9.6); height:calc(var(--ui-unit) * 9.4); border-radius:calc(var(--ui-unit) * 1.7); gap:calc(var(--ui-unit) * .2); }
+.is-landscape .action-button.action-next { flex:0 0 calc(var(--ui-unit) * 24); width:calc(var(--ui-unit) * 24); }
+.is-landscape .action-button.action-next>span { font-size:calc(var(--ui-unit) * 3.9); }
 .is-landscape .action-button>span { font-size:calc(var(--ui-unit) * 5.3); }
 .is-landscape .action-button small { font-size:calc(var(--ui-unit) * 1.5); letter-spacing:calc(var(--ui-unit) * .2); }
 .is-landscape .bottom-bar { bottom:1%; left:2%; width:96%; font-size:calc(var(--ui-unit) * 2.1); }

@@ -483,13 +483,17 @@ function render() {
     button.disabled = !available;
     button.hidden = !available;
   }
-  $('.action-zone').hidden = !Object.values(enabled).some(Boolean);
+  const canNextRound = game.phase.kind === PHASE.ENDED && room?.owner === 0;
+  const nextRoundReady = canNextRound && network.status === 'connected' && !room?.seats.some(seat => !seat.connected);
+  $('#action-next').hidden = !canNextRound;
+  $('#action-next').disabled = !nextRoundReady || network.busy;
+  $('.action-zone').hidden = !(Object.values(enabled).some(Boolean) || canNextRound);
   $('#action-gang').title = actions.redGang || actions.piziGang ? '可单张杠出红中或皮子，从墙尾补摸一张牌' : '杠牌';
 
   updateTurnMessage(actions);
   $('#last-event').textContent = game.events.at(-1) || '好友同桌，支持添加人机';
-  $('#action-caption').textContent = actions.pass ? '响应出牌' : '对局操作';
-  $('#action-context').textContent = actions.hu ? '胡牌可用' : specialName ? `先杠出${specialName}，才能胡牌` : actions.concealedGangs.length ? '可暗杠' : actions.addedGangs.length ? '可补杠' : actions.pass ? '胡 > 碰杠 > 吃' : '好牌，慢慢打';
+  $('#action-caption').textContent = game.phase.kind === PHASE.ENDED ? '本局结束' : actions.pass ? '响应出牌' : '对局操作';
+  $('#action-context').textContent = game.phase.kind === PHASE.ENDED ? (nextRoundReady ? '可以开始下一局' : '等待好友重连') : actions.hu ? '胡牌可用' : specialName ? `先杠出${specialName}，才能胡牌` : actions.concealedGangs.length ? '可暗杠' : actions.addedGangs.length ? '可补杠' : actions.pass ? '胡 > 碰杠 > 吃' : '好牌，慢慢打';
   $('#hand-instruction').textContent = !active ? '加入房间后由服务端发牌' : game.phase.kind === PHASE.ENDED ? '等待房主开始下一局' : !myTurn ? '等待轮到你时出牌' : '点选手牌，再点一次打出';
   $('#next-round').disabled = room?.owner !== 0 || network.status !== 'connected' || network.busy || room?.seats.some(seat => !seat.connected);
   $('#next-round').textContent = room?.owner === 0 ? '开始下一局' : '等待房主开始下一局';
@@ -615,6 +619,11 @@ $('#rules-btn').addEventListener('click', () => openModal('#rules-dialog'));
 $('#settings-btn').addEventListener('click', () => openModal('#settings-dialog'));
 $('#restart-btn').addEventListener('click', () => openModal('#room-dialog'));
 $('#next-round').addEventListener('click', () => moveDone(network.next()));
+$('#action-next').addEventListener('click', async () => {
+  await moveDone(network.next());
+  const dialog = $('#result-dialog');
+  if (dialog?.open) dialog.close();
+});
 $('#room-create').addEventListener('click', () => roomOperation(async () => {
   const name = nickname();
   roomOrientation.prepareEntry();
