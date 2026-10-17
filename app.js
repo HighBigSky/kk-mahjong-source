@@ -7,6 +7,9 @@ import { createRoomOrientation } from './src/ui/orientation.js';
 
 const $ = selector => document.querySelector(selector);
 const renderedHTML = new WeakMap();
+// 手牌按「牌面 + 第几张同牌」复用节点：重建 innerHTML 会让每张牌的 SVG 重新解析，
+// 出牌/接牌时会闪一下白。复用后只有真正增减的牌才新建节点。
+const handNodes = new Map();
 const network = createRoomClient({ onChange:roomChanged, onError:roomError });
 const game = network.game;
 const displayNames = ['你', '等待好友', '等待好友', '等待好友'];
@@ -432,7 +435,30 @@ function render() {
     .filter(entry => entry.index !== separatedDrawnIndex)
     .sort((left, right) => tilePriority(left.type) - tilePriority(right.type) || left.type - right.type);
   if (separatedDrawnIndex >= 0 && separatedDrawnIndex < hand.length) order.push({ type: hand[separatedDrawnIndex], index: separatedDrawnIndex });
-  setHTMLIfChanged($('#hand'), order.map(({ type, index }) => `<button class="tile ${specialTile(type) ? 'red-kong-tile' : ''} ${type === game.wildTile ? 'is-wild' : ''} ${index === separatedDrawnIndex ? 'drawn' : ''}" data-index="${index}" aria-label="${tileName(type)}${specialTile(type) ? '，只能杠出，不能打出' : ''}${type === game.wildTile ? '，癞子' : ''}${index === drawnIndex ? '，摸到的牌' : ''}" ${specialTile(type) ? 'title="只能单张杠出，从牌墙末端补摸一张牌"' : ''}>${face(type)}${specialTile(type) ? '<span class="red-kong-marker" aria-hidden="true">杠</span>' : ''}${wildMarker(type)}${preferences.names ? `<span class="tile-name">${tileName(type)}</span>` : ''}</button>`).join(''));
+  const handKeySeen = new Map();
+  const handTileNodes = order.map(({ type, index }) => {
+    const occurrence = handKeySeen.get(type) || 0;
+    handKeySeen.set(type, occurrence + 1);
+    const key = `${type}:${occurrence}:${preferences.names ? 1 : 0}`;
+    let node = handNodes.get(key);
+    if (!node) {
+      node = document.createElement('button');
+      node.dataset.key = key;
+      node.innerHTML = `${face(type)}${specialTile(type) ? '<span class="red-kong-marker" aria-hidden="true">杠</span>' : ''}${wildMarker(type)}${preferences.names ? `<span class="tile-name">${tileName(type)}</span>` : ''}`;
+      handNodes.set(key, node);
+    }
+    node.dataset.index = String(index);
+    node.className = `tile ${specialTile(type) ? 'red-kong-tile' : ''} ${type === game.wildTile ? 'is-wild' : ''} ${index === separatedDrawnIndex ? 'drawn' : ''}`.trim();
+    node.setAttribute('aria-label', `${tileName(type)}${specialTile(type) ? '，只能杠出，不能打出' : ''}${type === game.wildTile ? '，癞子' : ''}${index === drawnIndex ? '，摸到的牌' : ''}`);
+    if (specialTile(type)) node.title = '只能单张杠出，从牌墙末端补摸一张牌';
+    else node.removeAttribute('title');
+    return node;
+  });
+  const handElement = $('#hand');
+  const currentHandNodes = [...handElement.children];
+  if (currentHandNodes.length !== handTileNodes.length || currentHandNodes.some((node, position) => node !== handTileNodes[position])) {
+    handElement.replaceChildren(...handTileNodes);
+  }
   updateHandState();
 
   for (let player = 0; player < 4; player++) {
