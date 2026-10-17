@@ -18,7 +18,7 @@ let toastTimer = null;
 let resultShown = 0;
 let audio = null;
 let lastSoundEvent = '';
-const preferences = { sound: false, names: false, laizi: false };
+const preferences = { sound: false, names: false };
 let previousRoomCode = null;
 let previousRound = 0;
 let previousVersion = -1;
@@ -35,7 +35,6 @@ try {
   const saved = JSON.parse(localStorage.getItem('queqi-settings') || '{}');
   preferences.sound = saved.sound === true;
   preferences.names = saved.names === true;
-  preferences.laizi = saved.laizi === true;
   $('#room-name').value = localStorage.getItem('queqi-nickname') || '';
 } catch { /* Browsers may disable local storage; the game still works. */ }
 
@@ -233,8 +232,6 @@ function playSound(kind = 'tile') {
 function syncSettings() {
   $('#sound-setting').checked = preferences.sound;
   $('#names-setting').checked = preferences.names;
-  $('#laizi-setting').checked = network.room ? network.room.laizi : preferences.laizi;
-  $('#laizi-setting').disabled = Boolean(network.room);
   $('#sound-btn use').setAttribute('href', preferences.sound ? '#i-sound' : '#i-mute');
   $('#sound-btn').setAttribute('aria-label', preferences.sound ? '关闭音效' : '开启音效');
   $('#sound-btn').setAttribute('aria-pressed', String(preferences.sound));
@@ -627,7 +624,7 @@ $('#action-next').addEventListener('click', async () => {
 $('#room-create').addEventListener('click', () => roomOperation(async () => {
   const name = nickname();
   roomOrientation.prepareEntry();
-  try { return await network.create(name, preferences.laizi); }
+  try { return await network.create(name, true); }
   finally { roomOrientation.finishEntry(Boolean(network.room)); }
 }));
 $('#room-join').addEventListener('click', () => roomOperation(async () => {
@@ -676,10 +673,6 @@ $('#sound-btn').addEventListener('click', () => {
 });
 $('#sound-setting').addEventListener('change', event => { preferences.sound = event.target.checked; persist(); syncSettings(); playSound('select'); });
 $('#names-setting').addEventListener('change', event => { preferences.names = event.target.checked; persist(); render(); });
-$('#laizi-setting').addEventListener('change', event => {
-  preferences.laizi = event.target.checked; persist();
-  toast('创建房间时将使用此癞子设置');
-});
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
 document.querySelectorAll('dialog').forEach(dialog => {
   dialog.addEventListener('click', event => {

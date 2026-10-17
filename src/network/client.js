@@ -102,7 +102,7 @@ export function createRoomClient({ onChange = () => {}, onError = () => {} } = {
     } finally { client.busy = false; changed(); }
   }
   client.canAct = () => client.status === 'connected' && !client.busy && client.room?.status === 'playing' && !client.room.paused;
-  client.create = (name, laizi = false) => enter('/api/rooms', {name, laizi});
+  client.create = (name, laizi = true) => enter('/api/rooms', {name, laizi});
   client.join = (code, name) => enter(`/api/rooms/${code}/join`, {name});
   client.ready = ready => command('ready', {ready});
   client.start = () => command('start');

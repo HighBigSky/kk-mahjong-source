@@ -32,7 +32,7 @@ export class RoomService {
     this.cleanupTimer.unref();
   }
 
-  create({ name, laizi = false } = {}) {
+  create({ name, laizi = true } = {}) {
     name = nameOf(name);
     if (typeof laizi !== 'boolean') fail(400, 'INVALID_LAIZI', '癞子选项必须是布尔值。');
     this.cleanup();
