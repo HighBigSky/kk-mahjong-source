@@ -150,7 +150,6 @@
 }
 
 .hand .tile.hinted { outline-color: #cee7a7; }
-.tile-name { z-index: 2; text-shadow: 0 1px 1px #092d21; }
 
 .my-melds .tile {
   --tile-depth: var(--tile-meld-depth);

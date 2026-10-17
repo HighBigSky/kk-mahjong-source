@@ -175,7 +175,20 @@ svg {
 
 .top-tools {
   display:flex;
+  align-items:center;
   gap:2.2cqw
+}
+
+/* 连接状态胶囊：从底部栏搬到顶栏，两种朝向都常驻可见。 */
+.top-tools .connection {
+  padding:1.5cqw 2.5cqw;
+  gap:.9cqw;
+  border:1px solid #6d8468;
+  border-radius:6cqw;
+  background:#0d302955;
+  font-size:1.65cqw;
+  letter-spacing:.05cqw;
+  white-space:nowrap
 }
 
 .icon-button {
@@ -783,6 +796,18 @@ svg {
   border-bottom-color:#173e2c
 }
 
+/* 出牌提示：只在轮到自己出牌时出现，做成虚线的辅助按钮，不抢吃碰杠胡的分量。 */
+.action-hint:not(:disabled) {
+  color:#d3e2b4;
+  background:#1e4738;
+  border:1px dashed #8aa273;
+  border-bottom:1px dashed #8aa273
+}
+
+.action-hint:not(:disabled):hover {
+  background:#2a5743
+}
+
 .hand-zone {
   position:absolute;
   top:89.1%;
@@ -820,27 +845,6 @@ svg {
   color:#9ab398;
   font-size:1.8cqw;
   margin-left:.4cqw
-}
-
-.hint-button {
-  background:none;
-  border:0;
-  color:#ddc895;
-  display:flex;
-  align-items:center;
-  gap:.6cqw;
-  padding:0;
-  font-size:2cqw;
-  min-height:4cqw
-}
-
-.hint-button svg {
-  width:2.9cqw;
-  height:2.9cqw
-}
-
-.hint-button:disabled {
-  color:#668b72
 }
 
 .hand {
@@ -895,18 +899,6 @@ svg {
   background:#fff9e8
 }
 
-.tile-name {
-  position:absolute;
-  bottom:-2.1cqw;
-  left:0;
-  width:100%;
-  font-size:1.2cqw;
-  color:#cbd2b3;
-  white-space:nowrap;
-  text-align:center;
-  line-height:1.4
-}
-
 .hand-instruction {
   margin-top:1.7cqw;
   text-align:center;
@@ -943,34 +935,6 @@ svg {
 
 .hand-zone.has-melds .hand-heading {
   margin-bottom:.9cqw
-}
-
-.bottom-bar {
-  position:absolute;
-  bottom:.7%;
-  left:4.5%;
-  width:91%;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  color:#91ad93;
-  font-size:1.8cqw
-}
-
-.bottom-bar button {
-  color:#adc0a0;
-  background:none;
-  border:0;
-  padding:.8cqw 0;
-  display:flex;
-  align-items:center;
-  gap:.7cqw;
-  font-size:1.8cqw
-}
-
-.bottom-bar svg {
-  width:2.5cqw;
-  height:2.5cqw
 }
 
 .connection {
@@ -1166,6 +1130,41 @@ svg {
   font-size:2.4cqw
 }
 
+/* 设置里的“玩法说明 / 返回桌面”：并排两个整行按钮，返回桌面就放在右上角设置里。 */
+.setting-links {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:2.4cqw;
+  margin-top:4.5cqw
+}
+
+.setting-link {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:1.4cqw;
+  min-height:11cqw;
+  padding:0 2cqw;
+  border:1px solid #778e65;
+  border-radius:2cqw;
+  background:#244c3a;
+  color:#dcc99a;
+  font-size:2.6cqw
+}
+
+.setting-link svg {
+  width:3.6cqw;
+  height:3.6cqw
+}
+
+.setting-link:hover {
+  background:#2e5c46
+}
+
+.setting-link:active {
+  transform:translateY(1px)
+}
+
 .choice-option {
   display:flex;
   align-items:center;
@@ -1316,10 +1315,6 @@ svg {
   justify-content:flex-end
 }
 
-.hand-zone:has(.tile-name) .hand-instruction {
-  visibility:hidden
-}
-
 .history-tiles {
   display:grid;
   grid-template-columns:repeat(7,1fr);
@@ -1375,15 +1370,11 @@ svg {
   font-size:max(9px,1.9cqw)
 }
 
-.hint-button {
-  font-size:max(10px,2cqw)
-}
-
 .hand-instruction {
   font-size:max(9px,1.8cqw)
 }
 
-.bottom-bar button,.connection {
+.connection {
   font-size:max(9px,1.8cqw)
 }
 
@@ -1488,9 +1479,8 @@ svg {
 @media(max-height:500px) {
   .game .hand-heading { font-size:2.6cqw }
   .game .hand-heading small { font-size:1.9cqw }
-  .game .hint-button { font-size:2cqw }
   .game .hand-instruction { font-size:1.8cqw }
-  .game .bottom-bar button,.game .connection { font-size:1.8cqw }
+  .game .connection { font-size:1.8cqw }
   .game .wallet-copy small { font-size:1.8cqw }
   .game .room-meta { font-size:1.95cqw }
   .game .player-seat .opponent-name { font-size:2.6cqw }

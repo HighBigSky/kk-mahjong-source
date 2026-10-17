@@ -15,8 +15,8 @@ const report = { viewports:[], fixtures:0, selections:0, orientationTransitions:
 const sizes = [[280,600],[320,568],[375,667],[390,844],[667,375],[812,375],[360,320],[1440,900]];
 const baseURL = process.env.MAHJONG_URL || 'http://localhost:5173';
 
-async function fixture(page, { melds, drawn, names }) {
-  return page.evaluate(({ melds, drawn, names }) => {
+async function fixture(page, { melds, drawn }) {
+  return page.evaluate(({ melds, drawn }) => {
     const game = window.mahjongGame;
     document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
     const count = (drawn ? 14 : 13) - 3 * melds;
@@ -28,12 +28,9 @@ async function fixture(page, { melds, drawn, names }) {
     game.players[0].melds = Array.from({ length:melds }, (_, index) => ({ kind:'gang', tiles:Array(4).fill(index), from:1, concealed:false }));
     game.players[0].redGangs = [];
     game.lastDraw = drawn ? { player:0, tile:game.players[0].hand.at(-1), index:count - 1 } : null;
-    const setting = document.querySelector('#names-setting');
-    setting.checked = names;
-    setting.dispatchEvent(new Event('change', { bubbles:true }));
     window.renderMahjong();
     return { hand:game.players[0].hand.slice(), indexes:[...document.querySelectorAll('#hand button')].map(element => Number(element.dataset.index)) };
-  }, { melds, drawn, names });
+  }, { melds, drawn });
 }
 
 async function inspect(page, state, expected) {
@@ -57,8 +54,9 @@ async function inspect(page, state, expected) {
         if (!hit || !(hit === element || element.contains(hit))) issues.push(`${label} is occluded at ${x.toFixed(2)},${y.toFixed(2)} by ${hit?.tagName}.${hit?.className?.baseVal ?? hit?.className ?? ''}`);
       }
     };
-    const footer = r(document.querySelector('.bottom-bar'));
     const root = r(document.querySelector('#game'));
+    // 底部栏已移除：以牌桌/舞台底边作为手牌的下沿基准。
+    const footer = { x:root.x, y:root.bottom, right:root.right, bottom:innerHeight, width:root.width, height:0 };
     inside(root,'game');
     const overflow = { width:Math.max(document.body.scrollWidth,document.documentElement.scrollWidth), height:Math.max(document.body.scrollHeight,document.documentElement.scrollHeight) };
     if (overflow.width > innerWidth + 1 || overflow.height > innerHeight + 1) issues.push(`page overflow: ${JSON.stringify(overflow)} vs ${innerWidth}×${innerHeight}`);
@@ -79,7 +77,7 @@ async function inspect(page, state, expected) {
       const face = r(button.querySelector('svg'));
       inside(face,`face ${index}`);
       if (!disjoint(rect,footer)) issues.push(`tile ${index} overlaps footer`);
-      for (const child of button.querySelectorAll('.tile-name,.wild-marker,.red-kong-marker')) {
+      for (const child of button.querySelectorAll('.wild-marker,.red-kong-marker')) {
         const childRect = r(child);
         inside(childRect,`${child.className} ${index}`);
         if (!disjoint(childRect,footer)) issues.push(`${child.className} ${index} overlaps footer`);
@@ -103,16 +101,16 @@ async function inspect(page, state, expected) {
 try {
   for (const [width,height] of sizes) {
     const context = await browser.newContext({ viewport:{ width,height }, reducedMotion:'reduce' });
-    await context.addInitScript(() => localStorage.setItem('queqi-settings',JSON.stringify({ sound:false, speed:180, names:false })));
+    await context.addInitScript(() => localStorage.setItem('queqi-settings',JSON.stringify({ sound:false })));
     const page = await context.newPage();
     page.on('pageerror', error=>report.errors.push(error.message));
     page.on('response', response=>{ if(response.status()>=400) report.errors.push(`${response.status()} ${response.url()}`); });
     await page.goto(baseURL,{ waitUntil:'networkidle' });
     await page.waitForFunction(()=>window.mahjongGame && document.querySelectorAll('#hand button').length===14);
     const viewport = { width,height,fixtures:0,selections:0,minFooterClearance:null };
-    for (const names of [false,true]) for (const drawn of [false,true]) for (let melds=0; melds<=4; melds++) {
-      const state = `${width}×${height}, names ${names}, ${drawn?14:13} base tiles, ${melds} melds`;
-      const expected = await fixture(page,{ melds,drawn,names });
+    for (const drawn of [false,true]) for (let melds=0; melds<=4; melds++) {
+      const state = `${width}×${height}, ${drawn?14:13} base tiles, ${melds} melds`;
+      const expected = await fixture(page,{ melds,drawn });
       let result = await inspect(page,state,expected);
       report.fixtures++; viewport.fixtures++;
       if (result.drawn !== (drawn?1:0)) report.failures.push(`${state}: drawn tile missing/duplicated`);
@@ -126,7 +124,7 @@ try {
       }
     }
     // Resizing must not reset, duplicate or silently drop the currently held tiles.
-    const expected = await fixture(page,{ melds:0,drawn:true,names:true });
+    const expected = await fixture(page,{ melds:0,drawn:true });
     const selectable = await page.locator('#hand button[aria-disabled="false"]').last().getAttribute('data-index');
     await page.locator(`#hand button[data-index="${selectable}"]`).click();
     for (const next of [{width:height,height:width},{width,height}]) {

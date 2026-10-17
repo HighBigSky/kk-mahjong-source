@@ -25,7 +25,7 @@ let toastTimer = null;
 let resultShown = 0;
 let audio = null;
 let lastSoundEvent = '';
-const preferences = { sound: false, names: false };
+const preferences = { sound: false };
 let previousRoomCode = null;
 let previousRound = 0;
 let previousVersion = -1;
@@ -41,7 +41,6 @@ const roomOrientation = createRoomOrientation({onLayout:positionActionNotice});
 try {
   const saved = JSON.parse(localStorage.getItem('queqi-settings') || '{}');
   preferences.sound = saved.sound === true;
-  preferences.names = saved.names === true;
   $('#room-name').value = localStorage.getItem('queqi-nickname') || '';
 } catch { /* Browsers may disable local storage; the game still works. */ }
 
@@ -245,7 +244,6 @@ function playSound(kind = 'tile') {
 
 function syncSettings() {
   $('#sound-setting').checked = preferences.sound;
-  $('#names-setting').checked = preferences.names;
   $('#sound-btn use').setAttribute('href', preferences.sound ? '#i-sound' : '#i-mute');
   $('#sound-btn').setAttribute('aria-label', preferences.sound ? '关闭音效' : '开启音效');
   $('#sound-btn').setAttribute('aria-pressed', String(preferences.sound));
@@ -435,7 +433,6 @@ function render() {
   setHTMLIfChanged($('#wild-tile'), game.laiziEnabled ? tile(game.wildTile) : '');
   $('#laizi-summary').setAttribute('aria-label', game.laiziEnabled ? `皮子${tileName(game.indicatorTile)}，癞子${tileName(game.wildTile)}` : '未启用翻皮子定癞子');
   $('#hand-count').textContent = `${hand.length} 张`;
-  $('#hint-btn').disabled = !myTurn;
   $('.hand-zone').classList.toggle('has-melds', game.players[0].melds.length + game.players[0].redGangs.length + (game.players[0].piziGangs?.length || 0) > 0);
 
   const drawnIndex = game.phase.kind === PHASE.DISCARD && game.current === 0 && game.lastDraw?.player === 0 ? game.lastDraw.index : -1;
@@ -450,12 +447,12 @@ function render() {
   const handTileNodes = order.map(({ type, index }) => {
     const occurrence = handKeySeen.get(type) || 0;
     handKeySeen.set(type, occurrence + 1);
-    const key = `${type}:${occurrence}:${preferences.names ? 1 : 0}`;
+    const key = `${type}:${occurrence}`;
     let node = handNodes.get(key);
     if (!node) {
       node = document.createElement('button');
       node.dataset.key = key;
-      node.innerHTML = `${face(type)}${specialTile(type) ? '<span class="red-kong-marker" aria-hidden="true">杠</span>' : ''}${wildMarker(type)}${preferences.names ? `<span class="tile-name">${tileName(type)}</span>` : ''}`;
+      node.innerHTML = `${face(type)}${specialTile(type) ? '<span class="red-kong-marker" aria-hidden="true">杠</span>' : ''}${wildMarker(type)}`;
       handNodes.set(key, node);
     }
     node.dataset.index = String(index);
@@ -524,11 +521,15 @@ function render() {
     button.disabled = !available;
     button.hidden = !available;
   }
+  // 「出牌提示」只在轮到自己、且没有吃碰杠胡可选时出现：有牌可吃碰杠胡时它只会分心。
+  const hintAvailable = myTurn && !(enabled.chi || enabled.peng || enabled.gang || enabled.hu || enabled.pass);
+  $('#hint-btn').disabled = !hintAvailable;
+  $('#hint-btn').hidden = !hintAvailable;
   const canNextRound = game.phase.kind === PHASE.ENDED && room?.owner === 0;
   const nextRoundReady = canNextRound && network.status === 'connected' && !room?.seats.some(seat => !seat.connected);
   $('#action-next').hidden = !canNextRound;
   $('#action-next').disabled = !nextRoundReady || network.busy;
-  $('.action-zone').hidden = !(Object.values(enabled).some(Boolean) || canNextRound);
+  $('.action-zone').hidden = !(Object.values(enabled).some(Boolean) || canNextRound || hintAvailable);
   $('#action-gang').title = actions.redGang || actions.piziGang || actions.wildGang ? '可单张杠出红中、皮子或癞子，从墙尾补摸一张牌' : '杠牌';
 
   updateTurnMessage(actions);
@@ -657,9 +658,16 @@ $('#hint-btn').addEventListener('click', () => {
   renderSelection();
   toast(hinted < 0 ? '当前没有可打出的牌，红中和皮子只能用于杠牌' : `建议打出${tileName(game.players[0].hand[hinted])}，仅供参考`);
 });
-$('#rules-btn').addEventListener('click', () => openModal('#rules-dialog'));
+// 设置里的两个入口都会先关掉设置弹窗，再开对应对弹窗，避免两层弹窗叠在一起。
+$('#settings-rules').addEventListener('click', () => {
+  $('#settings-dialog').close();
+  openModal('#rules-dialog');
+});
 $('#settings-btn').addEventListener('click', () => openModal('#settings-dialog'));
-$('#restart-btn').addEventListener('click', () => openModal('#room-dialog'));
+$('#settings-home').addEventListener('click', () => {
+  $('#settings-dialog').close();
+  openModal('#room-dialog');
+});
 $('#next-round').addEventListener('click', () => moveDone(network.next()));
 $('#action-next').addEventListener('click', async () => {
   await moveDone(network.next());
@@ -718,7 +726,6 @@ $('#sound-btn').addEventListener('click', () => {
   toast(preferences.sound ? '音效已开启' : '音效已关闭');
 });
 $('#sound-setting').addEventListener('change', event => { preferences.sound = event.target.checked; persist(); syncSettings(); playSound('select'); });
-$('#names-setting').addEventListener('change', event => { preferences.names = event.target.checked; persist(); render(); });
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
 document.querySelectorAll('dialog').forEach(dialog => {
   dialog.addEventListener('click', event => {

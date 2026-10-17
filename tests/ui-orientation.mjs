@@ -126,7 +126,7 @@ async function geometry(page, viewport, label, playing = false) {
       return hit?.closest('#hand button[data-index]') !== button;
     }).map(button => Number(button.dataset.index));
     const table = document.querySelector('.table');
-    const areas = ['.table', '.hand-zone', '#opponent-0', '#opponent-1', '#opponent-2', '#opponent-3', '.top-tools', '.bottom-bar', '.action-zone'];
+    const areas = ['.table', '.hand-zone', '#opponent-0', '#opponent-1', '#opponent-2', '#opponent-3', '.top-tools', '.action-zone'];
     return {
       inRoom: document.documentElement.classList.contains('in-room'),
       rotated: document.documentElement.classList.contains('landscape-rotated'),
@@ -311,8 +311,13 @@ try {
   for (const viewport of viewports) await geometry(owner, viewport, 'playing', true);
   for (const viewport of [viewports[0], viewports[2]]) {
     await owner.setViewportSize(viewport);
-    for (const [button, dialog] of [['#rules-btn', '#rules-dialog'], ['#settings-btn', '#settings-dialog']]) {
-      await owner.locator(button).click();
+    for (const [button, dialog] of [['#settings-rules', '#rules-dialog'], ['#settings-btn', '#settings-dialog']]) {
+      // 玩法说明现在挂在右上角设置里：先开设置，再由设置里的入口打开规则。
+      await owner.locator('#settings-btn').click();
+      await owner.locator('#settings-dialog[open]').waitFor();
+      if (button !== '#settings-btn') {
+        await owner.locator(button).click();
+      }
       await owner.locator(`${dialog}[open]`).waitFor();
       await geometry(owner, viewport, dialog.slice(1));
       await owner.locator(`${dialog} .modal-close`).click();

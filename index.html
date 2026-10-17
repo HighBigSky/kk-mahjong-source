@@ -23,10 +23,8 @@
     <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4Zm13 0 5 6m0-6-5 6"/></symbol>
     <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9h6v6H9Z"/></symbol>
     <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 5 2.3c-1.6 1-2 1.2-2 2.7m0 3v.1"/></symbol>
-    <symbol id="i-hint" viewBox="0 0 24 24"><path d="M8 16c0-2-3-3-3-7a7 7 0 0 1 14 0c0 4-3 5-3 7Zm1 4h6m-5 3h4M9 8l3 4 3-4m-3 4v4"/></symbol>
-    <symbol id="i-restart" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 0 6M4 4v6h6"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 3.6l8.5 7.4M6 9.4V20h12V9.4M10 20v-5.6h4V20"/></symbol>
   </svg>
   <main class="game" aria-label="KK麻将对局" id="game">
     <header class="topbar">
@@ -35,7 +33,7 @@
         <div class="wallet-copy"><small>我的金币</small><strong id="score">1,000</strong></div>
       </div>
       <div class="laizi-summary" id="laizi-summary" role="group" hidden><div><span>皮子</span><span id="indicator-tile"></span></div><div><span>癞子</span><span id="wild-tile"></span></div></div>
-      <div class="top-tools"><button class="icon-button" id="sound-btn" aria-label="开启音效" title="音效"><svg><use href="#i-mute"></use></svg></button><button class="icon-button" id="settings-btn" aria-label="设置"><svg><use href="#i-settings"></use></svg></button></div>
+      <div class="top-tools"><span class="connection" id="connection-status" data-state="offline" role="status" aria-live="polite"><i></i><span id="connection-text">未连接</span></span><button class="icon-button" id="sound-btn" aria-label="开启音效" title="音效"><svg><use href="#i-mute"></use></svg></button><button class="icon-button" id="settings-btn" aria-label="设置"><svg><use href="#i-settings"></use></svg></button></div>
     </header>
 
     <div class="room-heading"><span class="room-line"></span><h1>KK<span>麻将</span></h1><span class="room-line"></span></div>
@@ -91,16 +89,16 @@
         <button class="action-button action-hu" id="action-hu" data-action="hu" disabled hidden><span>胡</span><small>HU</small></button>
         <button class="action-button action-pass" id="action-pass" data-action="pass" disabled hidden><span>过</span><small>PASS</small></button>
         <button class="action-button action-next" id="action-next" disabled hidden><span>下一局</span><small>NEXT</small></button>
+        <button class="action-button action-hint" id="hint-btn" aria-label="出牌提示" hidden><span>提示</span><small>HINT</small></button>
       </div>
     </section>
 
     <section class="hand-zone" aria-label="玩家手牌区">
-      <div class="hand-heading"><span><b class="my-seat">东</b> 我的手牌 <small id="hand-count">14 张</small></span><button class="hint-button" id="hint-btn"><svg><use href="#i-hint"></use></svg>出牌提示</button></div>
+      <div class="hand-heading"><span><b class="my-seat">东</b> 我的手牌 <small id="hand-count">14 张</small></span></div>
       <div class="player-rack" id="rack-0"><div class="my-melds" id="melds-0" role="group" hidden></div><div class="hand" id="hand" role="group" aria-label="点击选牌，再次点击打出"></div></div>
       <div class="hand-instruction" id="hand-instruction">点选手牌，再点一次打出</div>
     </section>
 
-    <footer class="bottom-bar"><button id="rules-btn"><svg><use href="#i-help"></use></svg>玩法说明</button><span class="connection" id="connection-status" data-state="offline"><i></i><span id="connection-text">未连接</span></span><button id="restart-btn"><svg><use href="#i-restart"></use></svg>房间</button></footer>
     <div class="toast" id="toast" role="status"></div>
 
     <dialog id="rules-dialog" class="modal">
@@ -122,7 +120,10 @@
     <dialog id="settings-dialog" class="modal">
       <button class="modal-close" data-close aria-label="关闭"><svg><use href="#i-close"></use></svg></button><span class="modal-eyebrow">MAKE YOURSELF AT HOME</span><h2>牌桌设置</h2>
       <label class="setting-row"><span><b>游戏音效</b><small>出牌与操作提示音</small></span><input type="checkbox" id="sound-setting" role="switch"></label>
-      <label class="setting-row"><span><b>显示牌名</b><small>在手牌下方显示中文名称</small></span><input type="checkbox" id="names-setting" role="switch"></label>
+      <div class="setting-links">
+        <button class="setting-link" id="settings-rules"><svg aria-hidden="true"><use href="#i-help"></use></svg><span>玩法说明</span></button>
+        <button class="setting-link" id="settings-home"><svg aria-hidden="true"><use href="#i-home"></use></svg><span>返回桌面</span></button>
+      </div>
       <button class="primary-button" data-close>保存并继续</button>
     </dialog>
     <dialog id="choice-dialog" class="modal choice-modal"><button class="modal-close" data-close aria-label="取消选择"><svg><use href="#i-close"></use></svg></button><span class="modal-eyebrow">YOUR MOVE</span><h2 id="choice-title">选择吃牌组合</h2><div id="choice-options"></div></dialog>
@@ -138,8 +139,8 @@
         <div class="room-separator"><span>已有房间码</span></div>
         <label class="room-field" for="room-code"><span>输入 6 位房间码</span></label>
         <div class="room-join-row"><input id="room-code" name="room-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" enterkeyhint="go" placeholder="6 位数字" aria-label="6 位数字房间码"><button class="secondary-button" id="room-join">加入房间</button></div>
-        <p class="room-note">邀请好友同桌，也可由房主添加人机补足四席。房主可在设置中选择翻皮子玩法，再创建房间。</p>
-        <button class="room-leave" id="room-options">设置翻皮子、音效与牌名</button>
+        <p class="room-note">邀请好友同桌，也可由房主添加人机补足四席。翻皮子定癞子为固定玩法，开局前可在设置中调整音效。</p>
+        <button class="room-leave" id="room-options">打开设置：音效、玩法说明</button>
       </div>
       <div id="room-waiting" hidden>
         <div class="room-invite"><span class="room-invite-label">房间码</span><strong id="room-current-code" aria-label="当前房间码">------</strong><button class="secondary-button" id="room-copy">复制邀请</button><small>将网址与房间码一起发送给好友</small></div>

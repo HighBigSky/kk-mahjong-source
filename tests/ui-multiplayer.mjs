@@ -373,7 +373,9 @@ try {
     await screenshot(pages[0], `online-playing-${viewport.width}x${viewport.height}.png`);
   }
   const finished = JSON.stringify(room.game);
-  await pages[0].locator('#restart-btn').click();
+  // 返回桌面已收进右上角设置：设置 → 返回桌面 → 房间面板。
+  await pages[0].locator('#settings-btn').click();
+  await pages[0].locator('#settings-home').click();
   await pages[0].locator('#room-dialog[open]').waitFor();
   assert.equal(await pages[0].locator('#room-leave').isDisabled(), true, 'live games cannot silently abandon the seat');
   await pages[0].locator('#room-close').click();
