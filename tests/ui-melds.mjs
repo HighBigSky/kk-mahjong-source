@@ -225,7 +225,13 @@ try {
   });
   const unchangedGame = JSON.stringify(room.game); const version = room.version;
   for (const stream of room.seats[0].streams) service._write(stream, service.snapshot(room, 0));
-  await waitFor(() => pages[0].evaluate(() => window.__meldNodes.players !== window.mahjongGame.players), 'same-version SSE re-render');
+  await pages[0].evaluate(() => new Promise(resolve => {
+    const key = 'queqi-room-session';
+    const {code, token} = JSON.parse(sessionStorage.getItem(key));
+    const probe = new EventSource(`/api/rooms/${code}/events?token=${encodeURIComponent(token)}`);
+    probe.addEventListener('state', () => { probe.close(); requestAnimationFrame(() => requestAnimationFrame(resolve)); }, {once:true});
+  }));
+  assert.equal(await pages[0].evaluate(() => window.__meldNodes.players === window.mahjongGame.players), true, 'same-version snapshot keeps state references');
   for (const index of [0, 1, 0, 1, 0, 1]) await pages[0].locator(`#hand button[data-index="${index}"]`).click();
   const stable = await pages[0].evaluate(() => {
     const current = [...document.querySelectorAll('[id^="melds-"] *')];

@@ -2,27 +2,43 @@ import { PHASE } from '../domain/model.js';
 
 const SESSION_KEY = 'queqi-room-session';
 const emptyActions = () => ({ hu:false, peng:false, gang:false, redGang:false, piziGang:false, chi:[], pass:false, concealedGangs:[], addedGangs:[] });
-const emptyState = () => ({ players:Array.from({length:4}, () => ({name:'等待好友', hand:[], melds:[], redGangs:[], piziGangs:[], discards:[], score:1000})), wall:{length:0}, phase:{kind:PHASE.DEALING, dealt:0}, current:null, dealer:0, round:0, pendingDiscard:null, result:null, winner:null, lastDraw:null, events:[], actionNotice:null, laiziEnabled:false, indicatorTile:null, wildTile:null, wallInfo:null });
+const emptyState = () => ({ players:Array.from({length:4}, () => ({name:'等待好友', hand:[], melds:[], redGangs:[], piziGangs:[], discards:[], score:1000})), wall:{length:0}, phase:{kind:PHASE.DEALING, dealt:0}, current:null, dealer:0, round:0, pendingDiscard:null, lastDiscard:null, result:null, winner:null, lastDraw:null, events:[], actionNotice:null, laiziEnabled:false, indicatorTile:null, wildTile:null, wallInfo:null });
 
 /** Same-origin HTTP commands and server-sent snapshots. No rules run in this adapter. */
-export function createRoomClient({ onChange = () => {}, onError = () => {} } = {}) {
+export function createRoomClient({ onChange = () => {}, onBusyChange, onError = () => {} } = {}) {
   let credentials = null;
   let stream = null;
   let generation = 0;
   let leaving = false;
+  let snapshotKey = null;
   let actions = emptyActions();
   const signalListeners = new Set();
   const client = { room:null, status:'offline', busy:false, game:emptyState() };
   const changed = () => onChange(client);
+  // Busy changes only disable controls; callers can avoid rebuilding the table.
+  // Existing callers without this callback keep receiving the original onChange.
+  const setBusy = value => {
+    if (client.busy === value) return;
+    client.busy = value;
+    if (onBusyChange) onBusyChange(client);
+    else changed();
+  };
   const save = () => { try { if (credentials) sessionStorage.setItem(SESSION_KEY, JSON.stringify(credentials)); else sessionStorage.removeItem(SESSION_KEY); } catch { /* Session storage is optional. */ } };
   const receive = envelope => {
-    if (!envelope?.room) return;
-    if (client.room?.code === envelope.room.code && client.room.version > envelope.room.version) return;
+    if (!envelope?.room) return false;
+    if (client.room?.code === envelope.room.code && client.room.version > envelope.room.version) return false;
+    // SSE and the command reply usually contain the same snapshot. Compare the
+    // entire payload, not just version: connection/pause/notice timing can change
+    // without advancing the room version and must still reach the interface.
+    const nextKey = JSON.stringify([envelope.room, envelope.state ?? null]);
+    if (nextKey === snapshotKey) return false;
+    snapshotKey = nextKey;
     client.room = envelope.room;
     const state = envelope.state;
     Object.assign(client.game, state ? { ...state, wall:{length:state.wallCount} } : emptyState());
     actions = state?.actions || emptyActions();
     changed();
+    return true;
   };
   async function request(path, body, authenticated = true) {
     const controller = new AbortController();
@@ -57,8 +73,9 @@ export function createRoomClient({ onChange = () => {}, onError = () => {} } = {
       if (currentGeneration !== generation) return;
       try {
         const envelope = JSON.parse(event.data);
+        const statusChanged = client.status !== 'connected';
         client.status = 'connected';
-        receive(envelope);
+        if (!receive(envelope) && statusChanged) changed();
       } catch { onError('房间消息读取失败，请刷新重连'); }
     });
     // 语音信令和牌局快照分开处理：信令不触发牌桌重绘，也不改变房间版本。
@@ -73,9 +90,11 @@ export function createRoomClient({ onChange = () => {}, onError = () => {} } = {
       // Leaving revokes this token and closes SSE before the HTTP reply arrives.
       // Do not treat that intentional stream close as an expired-room recovery.
       if (currentGeneration !== generation || leaving) return;
-      client.status = 'reconnecting'; changed();
+      if (client.status !== 'reconnecting') { client.status = 'reconnecting'; changed(); }
       // EventSource retries transport failures. An expired room cannot recover.
-      request(`/api/rooms/${credentials.code}/state`).then(receive).catch(error => {
+      request(`/api/rooms/${credentials.code}/state`).then(envelope => {
+        if (currentGeneration === generation) receive(envelope);
+      }).catch(error => {
         if (currentGeneration !== generation) return;
         if (error.status === 401 || error.status === 404) { reset(); onError('房间已失效，请重新创建或加入'); }
       });
@@ -83,6 +102,7 @@ export function createRoomClient({ onChange = () => {}, onError = () => {} } = {
   }
   function reset() {
     generation++; stream?.close(); stream = null;
+    snapshotKey = null;
     credentials = null; save();
     client.room = null; client.status = 'offline'; actions = emptyActions();
     Object.assign(client.game, emptyState()); changed();
@@ -97,20 +117,26 @@ export function createRoomClient({ onChange = () => {}, onError = () => {} } = {
   async function command(endpoint, body = {}) {
     if (!credentials) throw new Error('请先加入房间');
     if (client.busy) return false;
-    client.busy = true; changed();
+    setBusy(true);
     const currentGeneration = generation;
     try {
       const envelope = await request(`/api/rooms/${credentials.code}/${endpoint}`, body);
       if (currentGeneration === generation && envelope.room) receive(envelope);
       return true;
     } catch (error) {
-      if (error.status === 409 && credentials) {
-        try { receive(await request(`/api/rooms/${credentials.code}/state`)); } catch { /* SSE also refreshes the snapshot. */ }
+      if (error.status === 409 && credentials && currentGeneration === generation) {
+        try {
+          const envelope = await request(`/api/rooms/${credentials.code}/state`);
+          if (currentGeneration === generation) receive(envelope);
+        } catch { /* SSE also refreshes the snapshot. */ }
       }
       throw error;
-    } finally { client.busy = false; changed(); }
+    } finally { setBusy(false); }
   }
   client.canAct = () => client.status === 'connected' && !client.busy && client.room?.status === 'playing' && !client.room.paused;
+  // Layout can show the next authoritative choices while the previous request
+  // finishes. Execution still uses getActions/canAct and remains busy-guarded.
+  client.availableActions = () => client.status === 'connected' && client.room?.status === 'playing' && !client.room.paused ? actions : emptyActions();
   client.create = (name, laizi = true) => enter('/api/rooms', {name, laizi});
   client.join = (code, name) => enter(`/api/rooms/${code}/join`, {name});
   client.ready = ready => command('ready', {ready});

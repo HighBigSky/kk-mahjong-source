@@ -594,6 +594,23 @@ svg {
   pointer-events:none
 }
 
+.ting-button { position:absolute; z-index:7; right:2%; bottom:2%; display:grid; place-items:center; width:8cqw; height:10cqw; padding:0; color:#ffe8a0; border:1px solid #d6c183; border-radius:2cqw; background:linear-gradient(145deg,#225b4b,#103b32); box-shadow:0 2px 5px #002b27aa; }
+.ting-button>span { font:700 5cqw/1 "KaiTi","STKaiti",serif; }
+.ting-button small { font-size:1.7cqw; }
+.ting-button[hidden],.dice-intro[hidden] { display:none; }
+.dice-intro { position:absolute; z-index:9; left:50%; top:43%; transform:translate(-50%,-50%); width:62cqw; padding:3cqw; display:grid; justify-items:center; gap:2cqw; border:1px solid #d7bf7f; border-radius:3cqw; color:#f9ebc7; background:linear-gradient(145deg,#0b3838f5,#072928f5); box-shadow:0 4px 24px #001e25aa; }
+.dice-intro-label { font-size:3cqw; letter-spacing:.3cqw; }
+.dice-intro-dice { display:flex; gap:3cqw; }
+.dice-intro-dice .table-die { width:16cqw; height:16cqw; padding:3cqw; }
+.dice-intro-dice .table-die i { width:2.4cqw; height:2.4cqw; }
+.dice-intro-note { font-size:2.6cqw; }
+.dice-intro small { font-size:2cqw; color:#b8c7ae; }
+.ting-tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(46px,1fr)); gap:14px 8px; margin:18px 0; }
+.ting-wait { display:grid; justify-items:center; align-content:start; gap:5px; font-size:12px; }
+.ting-wait .tile { width:40px; height:56px; }
+.ting-wait small { font-size:10px; color:#cfdbbf; white-space:nowrap; }
+.ting-note { font-size:12px; color:#b6c8ac; }
+
 .table-die {
   display:grid;
   grid-template-columns:repeat(3,1fr);

@@ -425,6 +425,9 @@ export class MahjongGame {
   phase = { kind: PHASE.DEALING, dealt: 0 };
   /** @type {PendingDiscard|null} */
   pendingDiscard = null;
+  /** Most recent public river tile; retained after passing, removed on a claim.
+   * @type {{from:PlayerId,tile:TileCode,index:number}|null} */
+  lastDiscard = null;
   /** @type {PlayerId|null} */
   winner = null;
   /** @type {GameResult|null} */
@@ -509,6 +512,7 @@ export class MahjongGame {
     this.current = this.dealer;
     this._setPhase({ kind: PHASE.DISCARD, seat: this.current });
     this.pendingDiscard = null;
+    this.lastDiscard = null;
     this.winner = null;
     this.result = null;
     this.lastDraw = null;
@@ -598,6 +602,7 @@ export class MahjongGame {
     if (isSpecialGangTile(seat.hand[index], this.indicatorTile)) return false;
     const [tile] = seat.hand.splice(index, 1);
     seat.discards.push(tile);
+    this.lastDiscard = { from:player, tile, index:seat.discards.length - 1 };
     this.pendingDiscard = { tile, from: player };
     this._setPhase({ kind: PHASE.CLAIM, discard: this.pendingDiscard });
     this.lastDraw = null;
@@ -740,6 +745,7 @@ export class MahjongGame {
     // Claimed tiles leave the river; each physical tile belongs to exactly one place.
     const riverIndex = river.lastIndexOf(tile);
     if (riverIndex >= 0) river.splice(riverIndex, 1);
+    this.lastDiscard = null;
     this.pendingDiscard = null;
     this._responses = Array(4).fill(null);
     this.current = player;

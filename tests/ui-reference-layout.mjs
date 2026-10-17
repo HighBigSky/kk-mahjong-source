@@ -270,7 +270,7 @@ try {
     const game = window.mahjongGame;
     game.pendingDiscard = { from: 1, tile: 0 };
     game.phase = { kind: 'claim', discard: game.pendingDiscard };
-    game.getActions = () => ({ chi: [[0, 1, 2]], peng: true, gang: true, hu: true, pass: true, redGang: false, piziGang: false, wildGang: false, concealedGangs: [], addedGangs: [] });
+    window.mahjongRoom.availableActions = () => ({ chi: [[0, 1, 2]], peng: true, gang: true, hu: true, pass: true, redGang: false, piziGang: false, wildGang: false, concealedGangs: [], addedGangs: [] });
     window.renderMahjong();
   });
   for (const viewport of viewports) {

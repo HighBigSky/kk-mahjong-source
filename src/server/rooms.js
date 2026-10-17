@@ -300,7 +300,7 @@ export class RoomService {
           redGangs:[...player.redGangs], piziGangs:[...(player.piziGangs || [])], discards:[...player.discards],
         })),
         wallCount:game.wall.length, dealer:mapSeat(game.dealer), current:mapSeat(game.current), round:game.round,
-        phase, pendingDiscard:mapDiscard(game.pendingDiscard), winner:mapSeat(game.winner), result, actionNotice,
+        phase, pendingDiscard:mapDiscard(game.pendingDiscard), lastDiscard:game.lastDiscard && {...mapDiscard(game.lastDiscard), index:game.lastDiscard.index}, winner:mapSeat(game.winner), result, actionNotice,
         lastDraw:game.lastDraw?.player === viewer ? {...game.lastDraw, player:0} : null,
         // The teaching engine logs seat 0's actual draw; never broadcast that secret.
         events:game.events.map(event => /^你(?:摸|补)到/.test(event) ? `${game.players[0].name}${event.startsWith('你补') ? '补牌' : '摸牌'}。` : event),

@@ -87,6 +87,7 @@ export const ACTION = Object.freeze({
  * already owned by a river or a hand; they do not own additional copies.
  * @typedef {{players:PlayerState[], wall:TileCode[], phase:Phase, current:PlayerId,
  *            dealer:PlayerId, round:number, pendingDiscard:PendingDiscard|null,
+ *            lastDiscard?:{from:PlayerId,tile:TileCode,index:number}|null,
  *            result:GameResult|null, winner:PlayerId|null, lastDraw:LastDraw|null,
  *            events:string[], laiziEnabled:boolean, indicatorTile:TileCode|null,
  *            wildTile:TileCode|null, wallInfo:WallInfo}} GameState

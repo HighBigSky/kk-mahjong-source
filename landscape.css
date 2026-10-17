@@ -389,7 +389,8 @@ html.in-room .room-error { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),1
    coordinates are square. No perspective transform touches pointer targets. */
 html.in-room #game.is-landscape {
   --board-size:min(calc(var(--stage-height) * .94),calc(var(--stage-width) - var(--ui-unit) * 32));
-  --hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--stage-width) * .82 - var(--ui-unit) * 8) / 14));
+  --rack-width:min(calc(var(--stage-width) * .82),calc(var(--stage-width) * .872 - var(--ui-unit) * 10.5));
+  --hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--ui-unit) * 8) / 14));
   --hand-height:calc(var(--hand-width) * 1.4);
   --public-tile-width:calc(var(--table-unit) * 3);
   --public-tile-height:calc(var(--table-unit) * 4.2);
@@ -530,14 +531,14 @@ html.in-room #game.is-landscape {
 .is-landscape .room-meta { top:13%; left:2%; width:23%; opacity:.7; font-size:calc(var(--ui-unit) * 2.1); }
 
 /* Large local tiles finish the near edge. Available width caps all 14 tiles. */
-.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:11%; width:82%; bottom:1.5%; }
+.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:11%; width:var(--rack-width); bottom:1.5%; }
 .is-landscape .hand { height:calc(var(--hand-height) + var(--ui-unit) * 2); gap:calc(var(--ui-unit) * .4); padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * .6) 0; }
 .is-landscape .hand::before { display:none; }
 .is-landscape .hand .tile { flex-shrink:0; }
 .is-landscape .hand-zone .player-rack .my-melds { max-width:36%; height:auto; min-height:calc(var(--ui-unit) * 9); --self-public-tile-width:calc(var(--ui-unit) * 3.5); --self-public-tile-height:calc(var(--ui-unit) * 4.9); }
 .is-landscape .hand-zone.has-melds .player-rack {
-  --public-reserve:min(calc(var(--stage-width) * .82 * .36),calc((var(--special-count) * 5 + var(--meld-count) * 19) * var(--ui-unit)));
-  --hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--stage-width) * .82 - var(--public-reserve) - var(--ui-unit) * 10) / max(1,var(--concealed-count))));
+  --public-reserve:min(calc(var(--rack-width) * .36),calc((var(--special-count) * 5 + var(--meld-count) * 19) * var(--ui-unit)));
+  --hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--public-reserve) - var(--ui-unit) * 10) / max(1,var(--concealed-count))));
   --hand-height:calc(var(--hand-width) * 1.4);
 }
 .is-landscape .hand-zone.has-melds .hand { justify-content:flex-end; }
@@ -562,3 +563,79 @@ html.in-room #game.is-landscape {
 #game.is-landscape:not(.is-wide) .seat-top { height:calc(var(--ui-unit) * 16); flex-direction:column; justify-content:center; }
 #game.is-landscape:not(.is-wide) .seat-top .opponent-copy { text-align:center; }
 #game.is-landscape:not(.is-wide) .seat-top .opponent-score { justify-content:center; }
+
+/* A compact far-seat badge sits beyond the far wall, near the reference slot. */
+#game.is-landscape .seat-top {
+  left:calc(50% + var(--table-unit) * 25.8);
+  right:auto;
+  top:1.4%;
+  width:calc(var(--ui-unit) * 13);
+  height:calc(var(--ui-unit) * 6.5);
+  padding:calc(var(--ui-unit) * .25);
+  gap:calc(var(--ui-unit) * .7);
+  flex-direction:row;
+  border-radius:calc(var(--ui-unit) * 1.2);
+}
+#game.is-landscape .seat-top .portrait { width:calc(var(--ui-unit) * 5.5); height:calc(var(--ui-unit) * 5.5); }
+#game.is-landscape .seat-top .opponent-copy { text-align:left; gap:calc(var(--ui-unit) * .25); }
+#game.is-landscape .seat-top .opponent-name { font-size:calc(var(--ui-unit) * 2.1); }
+#game.is-landscape .seat-top .opponent-name small,#game.is-landscape .seat-top .opponent-state { display:none; }
+#game.is-landscape .seat-top .opponent-score { justify-content:flex-start; font-size:calc(var(--ui-unit) * 1.9); }
+#game.is-landscape .seat-top .seat,#game.is-landscape .seat-top .dealer-badge { width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.2); font-size:calc(var(--ui-unit) * 1.65); }
+#game.is-landscape:not(.is-wide) .seat-top { left:calc(50% + var(--table-unit) * 22); top:.2%; width:calc(var(--ui-unit) * 12); height:calc(var(--ui-unit) * 6); flex-direction:row; justify-content:flex-start; }
+#game.is-landscape:not(.is-wide) .seat-top .portrait { width:calc(var(--ui-unit) * 5); height:calc(var(--ui-unit) * 5); }
+#game.is-landscape:not(.is-wide) .seat-top .opponent-copy { text-align:left; }
+#game.is-landscape:not(.is-wide) .seat-top .opponent-score { justify-content:flex-start; }
+#game.is-landscape:not(.is-wide) .top-tools .connection>span { display:none; }
+#game.is-landscape:not(.is-wide) .top-tools .connection { position:absolute; right:0; top:calc(var(--ui-unit) * 11.5); padding:0 calc(var(--ui-unit) * 1.5); }
+
+/* Smaller river faces open a clear lane around the square compass. */
+#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { grid-template-columns:repeat(6,calc(var(--table-unit) * 4.6)); grid-auto-rows:calc(var(--table-unit) * 6.44); max-height:calc(var(--table-unit) * 13.38); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { grid-template-columns:repeat(3,calc(var(--table-unit) * 4.6)); grid-auto-rows:calc(var(--table-unit) * 6.44); max-height:calc(var(--table-unit) * 13.38); }
+#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 12); }
+#game.is-landscape .table .river .tile { width:calc(var(--table-unit) * 4.6); height:calc(var(--table-unit) * 6.44); }
+#game.is-landscape .table .river .tile.last-discard { outline:calc(var(--table-unit) * .25) solid #ffbe46; outline-offset:calc(var(--table-unit) * .16); box-shadow:0 0 calc(var(--table-unit) * 1.1) #ffaf3c80; }
+#game.is-landscape .table .river .tile.last-discard::after {
+  content:"";
+  top:calc(var(--table-unit) * -1.8);
+  bottom:auto;
+  left:calc(50% - var(--table-unit) * .85);
+  width:calc(var(--table-unit) * 1.7);
+  height:calc(var(--table-unit) * 1.7);
+  border:1px solid #fff0a1;
+  border-radius:65% 65% 65% 0;
+  transform:rotate(-45deg);
+  background:linear-gradient(145deg,#ffe15b,#ff970d 75%);
+  box-shadow:0 1px 3px #70410080;
+  pointer-events:none;
+}
+#game.is-landscape .table .river-left .tile.last-discard::after { top:calc(50% - var(--table-unit) * .85); left:calc(var(--table-unit) * -2.4); transform:rotate(-135deg); }
+#game.is-landscape .table .river-right .tile.last-discard::after { top:calc(50% - var(--table-unit) * .85); left:auto; right:calc(var(--table-unit) * -2.4); transform:rotate(45deg); }
+
+/* The opening is readable for 1.5 seconds; the resting pair stays unobtrusive. */
+#game.is-landscape .table-die { width:calc(var(--table-unit) * 2.4); height:calc(var(--table-unit) * 2.4); padding:calc(var(--table-unit) * .4); }
+#game.is-landscape .table-die i { width:calc(var(--table-unit) * .45); height:calc(var(--table-unit) * .45); }
+.is-landscape .dice-intro { width:calc(var(--ui-unit) * 58); padding:calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 2.5); gap:calc(var(--ui-unit) * 2); }
+.is-landscape .dice-intro-label { font-size:calc(var(--ui-unit) * 3.2); letter-spacing:calc(var(--ui-unit) * .5); }
+.is-landscape .dice-intro-dice { gap:calc(var(--ui-unit) * 4); }
+#game.is-landscape .dice-intro .table-die { width:calc(var(--ui-unit) * 15); height:calc(var(--ui-unit) * 15); padding:calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 2); }
+#game.is-landscape .dice-intro .table-die i { width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.2); }
+.is-landscape .dice-intro-note { font-size:calc(var(--ui-unit) * 2.6); }
+.is-landscape .dice-intro small { font-size:calc(var(--ui-unit) * 2); }
+
+/* Selected tiles keep the pointer target and get immediate, steady light. */
+#game.is-landscape .hand .tile { transition:transform 80ms,box-shadow 80ms; }
+#game.is-landscape .hand .tile.selected { --tile-face:linear-gradient(135deg,#ffffef,#fff2ba 72%,#ead38c); outline:calc(var(--ui-unit) * .45) solid #fff2a8; outline-offset:calc(var(--ui-unit) * .15); box-shadow:0 0 0 calc(var(--ui-unit) * .9) #fbd96e35,0 0 calc(var(--ui-unit) * 3) #ffe58a9c,0 calc(var(--ui-unit) * .7) calc(var(--ui-unit) * 1.3) #002c2a88; }
+.is-landscape .ting-button { right:1.8%; bottom:2%; width:calc(var(--ui-unit) * 8.4); height:calc(var(--ui-unit) * 11); border-radius:calc(var(--ui-unit) * 1.5); }
+.is-landscape .ting-button>span { font-size:calc(var(--ui-unit) * 6); }
+.is-landscape .ting-button small { font-size:calc(var(--ui-unit) * 2); }
+html.in-room .ting-tiles { grid-template-columns:repeat(auto-fill,minmax(calc(var(--dialog-unit) * 10),1fr)); gap:calc(var(--dialog-unit) * 3) calc(var(--dialog-unit) * 1.3); margin:calc(var(--dialog-unit) * 3) 0; }
+html.in-room .ting-wait { gap:calc(var(--dialog-unit) * .8); font-size:calc(var(--dialog-unit) * 2.5); }
+html.in-room .ting-wait .tile { width:calc(var(--dialog-unit) * 9); height:calc(var(--dialog-unit) * 12.6); --tile-depth:calc(var(--dialog-unit) * .6); --tile-side:calc(var(--dialog-unit) * .2); }
+html.in-room .ting-wait small { font-size:calc(var(--dialog-unit) * 2); }
+html.in-room .ting-note { font-size:calc(var(--dialog-unit) * 2.3); }
+
+@container (max-width:720px) {
+  .is-landscape .top-tools .connection>span { display:none; }
+  .is-landscape .top-tools .connection { padding:0 calc(var(--ui-unit) * 1.5); }
+}
