@@ -1,0 +1,25 @@
+# 统一换行：Linux 上运行的文件必须 LF，Windows 启动脚本用 CRLF
+* text=auto
+
+# 在 Linux 服务器上执行/解析的，一律锁 LF
+*.sh      text eol=lf
+deploy/*  text eol=lf
+Dockerfile       text eol=lf
+.dockerignore    text eol=lf
+.gitignore       text eol=lf
+.gitattributes   text eol=lf
+*.example text eol=lf
+
+# Windows 双击运行的，用 CRLF
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+*.js   text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.svg  text eol=lf
+
+*.png    binary
+*.tar.gz binary

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="红顶瓜皮帽地主麻将玩家头像">
+<title>得意的麻将地主</title><desc>纯白底国风 Q 版矢量半身像。圆脸中年男子穿朱红短衫，戴红顶瓜皮帽，手持一张红中麻将牌。</desc>
+<rect width="512" height="512" fill="#fff"/>
+<!-- Short jacket and neck; generous clear perimeter for avatar framing. -->
+<path d="M225 272h62v49h-62z" fill="#edbb91"/>
+<path d="M178 297q-49 6-69 56l-15 72q-2 14 14 19h291q18-4 13-22l-16-69q-13-46-65-56l-38-6-36 29-35-29Z" fill="#b73d35"/>
+<path d="m220 292 37 27 33-28 14 15-37 47-51-48Z" fill="#e3b35f"/>
+<path d="m226 301 31 25 30-25 6 10-28 36-40-38Z" fill="#92332d"/>
+<path d="M266 348v88" stroke="#dfb15e" stroke-width="4" stroke-linecap="round"/>
+<path d="M248 362h31m-31 28h31m-31 28h31" stroke="#dfb15e" stroke-width="4" stroke-linecap="round"/>
+<circle cx="267" cy="362" r="4" fill="#f2ce86"/><circle cx="267" cy="390" r="4" fill="#f2ce86"/><circle cx="267" cy="418" r="4" fill="#f2ce86"/>
+<!-- Ears and softly rounded head, all flat fills. -->
+<path d="M169 195q-21-17-25 10-1 23 22 34m173-44q20-17 24 10 1 23-22 34" fill="#e6ad83"/>
+<path d="M175 161q-17 76 5 108 26 39 79 41 53-4 75-39 23-34 4-110Z" fill="#f2c79f"/>
+<path d="M174 161q-7 13-5 38l10 5 8-41m149-2q7 13 5 38l-10 5-8-41" fill="#354036"/>
+<path d="M175 247q20 50 84 54 61-5 81-54-4 26-20 41-30 26-63 24-42-2-69-26-10-13-13-39" fill="#e9b38c"/>
+<ellipse cx="192" cy="235" rx="17" ry="9" fill="#e7a082"/><ellipse cx="323" cy="235" rx="17" ry="9" fill="#e7a082"/>
+<!-- Red top melon cap with a restrained gold brim. -->
+<path d="M162 165q-4-59 34-77 28-17 68-15 70 1 86 50l4 42q-101 29-192 0Z" fill="#263c31"/>
+<path d="M165 151q88 25 186 0l2 16q-92 27-191-1Z" fill="#3a4d39"/>
+<path d="M164 156q91 26 189 0" fill="none" stroke="#d4aa5e" stroke-width="4"/>
+<path d="M228 75q1-23 29-23 29 0 30 23l-10 8h-37Z" fill="#b73d35"/>
+<path d="M247 56q-8 7-7 19" fill="none" stroke="#d67253" stroke-width="4" stroke-linecap="round"/>
+<!-- Confident raised brows, smiling eyes, small moustache and smirk. -->
+<path d="M189 188q21-15 43-4" fill="none" stroke="#394031" stroke-width="9" stroke-linecap="round"/>
+<path d="M280 180q18-9 40 3" fill="none" stroke="#394031" stroke-width="9" stroke-linecap="round"/>
+<path d="M192 208q14-10 29-2m64-4q15-11 29-1" fill="none" stroke="#394031" stroke-width="5.5" stroke-linecap="round"/>
+<circle cx="207" cy="207" r="3" fill="#394031"/><circle cx="299" cy="201" r="3" fill="#394031"/>
+<path d="M254 210q-6 18-1 22 7 5 16-1" fill="none" stroke="#bd805c" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M258 245q-9-10-22-5-9 4-14 4 5 13 18 10l17-5m1-4q10-10 23-5 8 4 13 3-4 13-18 11l-17-5" fill="#394031"/>
+<path d="M238 267q18 8 38-5" fill="none" stroke="#813c32" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M259 278q9 3 17-3" fill="none" stroke="#d59270" stroke-width="3" stroke-linecap="round"/>
+<!-- Left sleeve and relaxed hand. -->
+<path d="M144 342q-16 26-21 56l65 14 8-24-37-16" fill="#9e332f"/>
+<path d="m179 385 40 12q11 3 11 15-1 13-14 13l-43-10q-12-3-10-15 2-12 16-15Z" fill="#f2c79f"/>
+<path d="m193 400 25 6m-25 4 22 6" fill="none" stroke="#c28a65" stroke-width="2.6" stroke-linecap="round"/>
+<!-- Mahjong tile held by the right hand, with a distinct flat face. -->
+<path d="M334 349q24-5 30 16l9 30q4 22-19 29l-18 5-11-28Z" fill="#f2c79f"/>
+<rect x="308" y="328" width="55" height="78" rx="6" fill="#dfcfaa"/>
+<rect x="307" y="324" width="55" height="76" rx="6" fill="#fff9e8" stroke="#bfa778" stroke-width="2.5"/>
+<path fill="#af362e" transform="translate(312.780 337.119) scale(0.44180)" d="M52.344 28.906 C61.979 27.344 67.904 25.977 70.117 24.805 C72.331 23.633 74.349 23.568 76.172 24.609 C77.995 25.651 79.948 26.888 82.031 28.32 C84.115 29.753 84.245 31.12 82.422 32.422 C80.599 33.724 78.255 38.672 75.391 47.266 C79.297 50.651 78.776 52.474 73.828 52.734 C68.88 52.995 61.589 53.646 51.953 54.688 C51.953 74.479 51.693 86.393 51.172 90.43 C50.651 94.466 49.87 96.615 48.828 96.875 C47.786 97.135 47.135 94.596 46.875 89.258 C46.615 83.919 46.484 72.526 46.484 55.078 C41.536 55.339 35.547 55.99 28.516 57.031 C28.255 59.635 27.93 61.328 27.539 62.109 C27.148 62.891 26.628 63.021 25.977 62.5 C25.326 61.979 24.74 60.352 24.219 57.617 C23.698 54.883 22.852 50.781 21.68 45.313 C20.508 39.844 19.206 36.003 17.773 33.789 C16.341 31.576 16.406 30.469 17.969 30.469 C19.531 30.469 21.159 30.729 22.852 31.25 C24.544 31.771 27.669 31.771 32.227 31.25 C36.784 30.729 41.536 30.078 46.484 29.297 C46.484 18.62 45.638 12.109 43.945 9.766 C42.253 7.422 42.708 6.445 45.313 6.836 C47.917 7.227 50.391 8.008 52.734 9.18 C55.078 10.352 55.664 11.654 54.492 13.086 C53.32 14.518 52.604 19.792 52.344 28.906 Z M51.953 50.391 C57.682 49.87 63.932 49.089 70.703 48.047 C71.484 43.359 71.94 39.583 72.07 36.719 C72.201 33.854 71.875 31.901 71.094 30.859 C70.313 29.818 68.49 29.492 65.625 29.883 C62.76 30.273 58.333 30.859 52.344 31.641 C52.083 38.932 51.953 45.182 51.953 50.391 Z M26.563 34.766 C27.083 41.016 27.734 47.266 28.516 53.516 C33.464 52.995 39.453 52.214 46.484 51.172 L46.484 32.422 C36.849 33.464 30.208 34.245 26.563 34.766 Z"/>
+<path d="M314 373q-11-10-20-3-9 7-1 17l13 14q7 7 16 2l8-6" fill="#f2c79f"/>
+<path d="M354 365q12-8 15 3 2 9-7 14m-3 2q11-5 12 4 1 10-12 13" fill="#f2c79f" stroke="#c28a65" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M314 374q-5 0-6 4" fill="none" stroke="#c28a65" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

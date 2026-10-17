@@ -1,0 +1,172 @@
+/* Material layers only; table, seat and river bounds stay unchanged.
+   Raised edges catch the upper-left light; recessed edges shade that light. */
+:root {
+  --table-wood-light:#916b45;
+  --table-wood-mid:#60432e;
+  --table-wood-dark:#30241d;
+  --table-inlay:#d8b46d;
+  --table-inlay-width:clamp(1px,.4cqw,2px);
+  --table-apron-depth:.85cqw;
+  --table-rim-radius:5cqw;
+  --felt-base:#185341;
+  --felt-light:#2f6c56;
+  --felt-shade:#133d31;
+  --felt-edge-depth:1.5cqw;
+  --felt-thread-step:.24cqw;
+  --compass-rim:.65cqw;
+  --compass-ink:#0e2b24;
+  --compass-highlight:#295747;
+  --compass-pointer:.65cqw;
+}
+
+.opponent-top { top:16%; }
+.opponent-top>.opponent-state { top:9.4cqw; min-height:0; line-height:1; }
+
+.table {
+  isolation:isolate;
+  border-radius:var(--table-rim-radius);
+  border:1px solid #af8b55;
+  background:
+    repeating-linear-gradient(174deg,transparent 0 1.35cqw,#e5bb8110 1.4cqw 1.46cqw,transparent 1.51cqw 2.45cqw,#1a100b24 2.5cqw 2.58cqw),
+    linear-gradient(135deg,var(--table-wood-light),var(--table-wood-mid) 32%,var(--table-wood-dark));
+  box-shadow:
+    inset .15cqw .2cqw .14cqw #f6dba176,
+    inset -.2cqw -.28cqw .25cqw #1b120cba,
+    .25cqw 1.25cqw 1.1cqw #04191070,
+    .65cqw 1.7cqw 2.3cqw #041a1240;
+}
+
+/* A continuous rounded apron avoids joints where the curved corners turn. */
+.table::before {
+  content:"";
+  position:absolute;
+  inset:.08cqw .03cqw calc(-1 * var(--table-apron-depth));
+  z-index:-2;
+  border:1px solid #201911;
+  border-radius:inherit;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 .25cqw,#0e0a0726 .27cqw .32cqw),
+    linear-gradient(135deg,#89633e,#4e3827 42%,#241d17);
+  box-shadow:inset 0 -.2cqw .2cqw #110e0bb3,0 .22cqw .2cqw #081c1370;
+  pointer-events:none;
+}
+
+/* Return lines seat the gold inlay inside the wood instead of above it. */
+.table::after {
+  content:"";
+  position:absolute;
+  inset:.43cqw;
+  z-index:-1;
+  border:var(--table-inlay-width) solid var(--table-inlay);
+  border-right-color:#a48551;
+  border-bottom-color:#927644;
+  border-radius:calc(var(--table-rim-radius) - .43cqw);
+  background:
+    repeating-linear-gradient(174deg,transparent 0 1.35cqw,#ebc8900e 1.4cqw 1.46cqw,transparent 1.51cqw 2.5cqw),
+    linear-gradient(135deg,#9b754d,#654931 32%,#463223 74%,#33251c);
+  box-shadow:0 .12cqw .14cqw #20170ebf,inset .12cqw .16cqw .16cqw #f1d0974d,inset -.13cqw -.15cqw .16cqw #1e170fd9;
+  pointer-events:none;
+}
+
+.table-border {
+  z-index:0;
+  border-color:#0d3428;
+  background:
+    repeating-linear-gradient(35deg,#dbf1c902 0 .055cqw,transparent .055cqw var(--felt-thread-step)),
+    repeating-linear-gradient(125deg,#031d1504 0 .055cqw,transparent .055cqw var(--felt-thread-step)),
+    radial-gradient(ellipse at 26% 18%,var(--felt-light),var(--felt-base) 62%,var(--felt-shade));
+  box-shadow:
+    inset .65cqw .8cqw var(--felt-edge-depth) #041e17b3,
+    inset -.2cqw -.3cqw .55cqw #75a17c52,
+    inset 0 0 .65cqw #05271da6,
+    0 -.14cqw .12cqw #edcf9670,
+    0 .22cqw .18cqw #211b13bf;
+  pointer-events:none;
+}
+
+.table>.backs,.table>.river,.table>.bot-melds,.table>.table-caption { z-index:1; }
+
+/* Specificity retains circles when seats-layout.css loads later. */
+.table .table-center {
+  z-index:1;
+  border-color:#c6b47e99;
+  border-radius:50%;
+  background:
+    radial-gradient(ellipse at 27% 20%,#47735b33,transparent 67%),
+    linear-gradient(135deg,var(--compass-highlight),var(--compass-ink) 72%,#102f26);
+  box-shadow:
+    inset .16cqw .2cqw .28cqw #e5d5a336,
+    inset -.2cqw -.28cqw .34cqw #051912b3,
+    0 .24cqw .42cqw #041d16a6,
+    0 0 0 var(--compass-rim) #153e30,
+    0 0 0 calc(var(--compass-rim) + 1px) #b7bc7d70,
+    .22cqw .55cqw .8cqw #06271b70;
+}
+
+.table .table-center::before {
+  content:"";
+  position:absolute;
+  inset:.8cqw;
+  border:1px solid #b5c08c26;
+  border-radius:50%;
+  box-shadow:inset .14cqw .2cqw .3cqw #061d1780;
+  pointer-events:none;
+}
+
+.table .wall-counter {
+  border:1px solid #071f1870;
+  border-radius:50%;
+  background:
+    radial-gradient(ellipse at 30% 20%,#264b3a66,transparent 76%),
+    linear-gradient(135deg,#0b241d,#153a2d);
+  color:#b3c1a1;
+  box-shadow:inset .18cqw .24cqw .4cqw #04181099,0 .13cqw .13cqw #92ac783d;
+}
+
+.wall-counter strong { color:#f3ddac; text-shadow:0 .17cqw .12cqw #041810; }
+.direction { color:#afbd98; text-shadow:0 .13cqw .1cqw #061a14; }
+
+.direction.active {
+  border:1px solid #f4db9c;
+  border-radius:50%;
+  background:linear-gradient(135deg,#f1dca4,#c7a867 72%,#ad9055);
+  color:#173a29;
+  box-shadow:inset .1cqw .14cqw .1cqw #fff4d15c,.1cqw .2cqw .25cqw #041d1699;
+  text-shadow:0 .1cqw .08cqw #f8e7b855;
+}
+
+/* A decorative active-seat pointer never intercepts table interaction. */
+.direction.active::after {
+  content:"";
+  position:absolute;
+  width:0;
+  height:0;
+  border:var(--compass-pointer) solid transparent;
+  pointer-events:none;
+}
+
+.direction-n.active::after {
+  top:-1cqw;
+  left:calc(50% - var(--compass-pointer));
+  border-bottom-color:var(--table-inlay);
+}
+
+.direction-s.active::after {
+  bottom:-1cqw;
+  left:calc(50% - var(--compass-pointer));
+  border-top-color:var(--table-inlay);
+}
+
+.direction-w.active::after {
+  left:-1cqw;
+  top:calc(50% - var(--compass-pointer));
+  border-right-color:var(--table-inlay);
+}
+
+.direction-e.active::after {
+  right:-1cqw;
+  top:calc(50% - var(--compass-pointer));
+  border-left-color:var(--table-inlay);
+}
+
+.river::before { color:#b1c3a7; text-shadow:0 .13cqw .13cqw #123d2b; }

@@ -1,0 +1,25 @@
+{
+  "name": "kk-mahjong",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "KK麻将 · 国风四人好友房，竖屏建房、横屏对局",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node --test tests/*.test.js",
+    "test:online": "node --test tests/multiplayer.test.js",
+    "test:ui": "node tests/ui-multiplayer.mjs",
+    "test:bots": "node --test tests/room-bots.test.js",
+    "test:ui:bots": "node tests/ui-bots.mjs",
+    "test:ui:wall": "node tests/ui-wall.mjs",
+    "test:ui:melds": "node tests/ui-melds.mjs",
+    "test:ui:rules": "node tests/ui-win-rules.mjs",
+    "test:ui:reveal": "node tests/ui-reveal-hands.mjs",
+    "test:ui:notices": "node tests/ui-action-notices.mjs",
+    "test:ui:orientation": "node tests/ui-orientation.mjs"
+  }
+}

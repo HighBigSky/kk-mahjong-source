@@ -1,0 +1,268 @@
+/* The physical wall is four runs of 17 double-height stacks. Its dimensions
+   scale with the portrait board. Only the public indicator has a tile face. */
+:root {
+  --wall-piece-width:2.7cqw;
+  --wall-piece-height:3.78cqw;
+  --wall-stack-step:2.9cqw;
+  --wall-stack-depth:.43cqw;
+  --wall-piece-radius:.3cqw;
+  --wall-tail-gold:#d8b46d;
+  --wall-head-jade:#b4dbc4;
+  --wall-tail-muted:#abc0a0;
+}
+
+.wall-tail { position:absolute; inset:0; z-index:2; pointer-events:none; }
+.wall-tail[hidden] { display:none; }
+.wall-tail-stacks { position:absolute; inset:0; }
+
+.wall-stack {
+  position:absolute;
+  width:var(--wall-piece-width);
+  height:calc(var(--wall-piece-height) + var(--wall-stack-depth));
+}
+
+/* Tail-to-head order: bottom left-to-right, right bottom-to-top,
+   top right-to-left, then left top-to-bottom. Slots never reflow. */
+.wall-stack[data-side="bottom"] {
+  left:calc(10.4cqw + var(--wall-stack-index) * var(--wall-stack-step));
+  bottom:1.65cqw;
+}
+.wall-stack[data-side="right"] {
+  right:4.65cqw;
+  top:calc(11.2cqw + (16 - var(--wall-stack-index)) * var(--wall-stack-step));
+}
+.wall-stack[data-side="top"] {
+  left:calc(10.4cqw + (16 - var(--wall-stack-index)) * var(--wall-stack-step));
+  top:5.1cqw;
+}
+.wall-stack[data-side="left"] {
+  left:4.65cqw;
+  top:calc(11.2cqw + var(--wall-stack-index) * var(--wall-stack-step));
+}
+.wall-stack[data-side="left"],.wall-stack[data-side="right"] {
+  width:var(--wall-piece-height);
+  height:calc(var(--wall-piece-width) + var(--wall-stack-depth));
+}
+
+.wall-piece {
+  position:absolute;
+  left:0;
+  width:var(--wall-piece-width);
+  height:var(--wall-piece-height);
+  border-radius:var(--wall-piece-radius);
+}
+.wall-piece-lower { z-index:0; top:var(--wall-stack-depth); }
+.wall-piece-upper { z-index:1; top:0; }
+.wall-stack[data-side="left"] .wall-piece,
+.wall-stack[data-side="right"] .wall-piece {
+  width:var(--wall-piece-height);
+  height:var(--wall-piece-width);
+}
+.wall-piece.back {
+  border-width:.08cqw;
+  border-right-color:#30553b;
+  border-bottom-width:.25cqw;
+  box-shadow:inset .08cqw .1cqw .1cqw #deebc752,.08cqw .15cqw .12cqw #061f16b3;
+}
+.wall-piece.back::before {
+  inset:.25cqw .25cqw .3cqw;
+  border-width:.08cqw;
+  border-radius:.17cqw;
+}
+/* Consumed slots recede into the felt but retain the indicator's location. */
+.wall-piece.is-empty {
+  border:.06cqw dashed #a5ba8b26;
+  background:#082b2212;
+  box-shadow:none;
+}
+.wall-piece.tile {
+  --tile-depth:.25cqw;
+  --tile-side:.08cqw;
+  border-width:.08cqw;
+  border-radius:var(--wall-piece-radius);
+  box-shadow:.08cqw .2cqw .13cqw #061e17ad;
+}
+.wall-piece.is-indicator {
+  z-index:3;
+  outline:.15cqw solid #e7c77f;
+  outline-offset:.08cqw;
+}
+.wall-stack[data-side="left"] .wall-piece.tile svg,
+.wall-stack[data-side="right"] .wall-piece.tile svg {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:calc(var(--wall-piece-width) - .25cqw);
+  height:calc(var(--wall-piece-height) - .08cqw);
+  transform:translate(-50%,-50%) rotate(90deg);
+}
+.wall-piece.is-next-piece {
+  border-color:#e6c676;
+  box-shadow:.08cqw .18cqw .12cqw #031b129c,0 0 0 .14cqw #e8c676b3;
+}
+.wall-piece.is-head-piece {
+  border-color:var(--wall-head-jade);
+  box-shadow:.08cqw .18cqw .12cqw #031b129c,0 0 0 .13cqw #b4dbc499;
+}
+.wall-stack.is-next::before,.wall-stack.is-head::before {
+  position:absolute;
+  z-index:4;
+  top:.12cqw;
+  left:.1cqw;
+  display:grid;
+  place-items:center;
+  min-width:1.75cqw;
+  min-height:1.75cqw;
+  padding:.03cqw .1cqw;
+  border-radius:.25cqw;
+  color:#173b2a;
+  font-size:max(6px,1.5cqw);
+  font-weight:700;
+  line-height:1.05;
+  text-shadow:none;
+}
+.wall-stack.is-next::before { content:"补"; background:#e4c57f; }
+.wall-stack.is-head::before { content:"摸"; background:var(--wall-head-jade); }
+.wall-stack.is-next.is-head::before {
+  content:"摸补";
+  writing-mode:vertical-rl;
+  text-orientation:upright;
+  padding:.05cqw .1cqw;
+  background:linear-gradient(180deg,var(--wall-head-jade),#e4c57f);
+  font-size:max(6px,1.5cqw);
+  line-height:1;
+}
+.wall-stack[data-side="left"].is-next.is-head::before,
+.wall-stack[data-side="right"].is-next.is-head::before {
+  writing-mode:horizontal-tb;
+  left:0;
+  right:0;
+  padding:.03cqw 0;
+  background:linear-gradient(90deg,var(--wall-head-jade),#e4c57f);
+}
+.wall-stack.is-next::after,.wall-stack.is-head::after {
+  content:"";
+  position:absolute;
+  z-index:4;
+  left:calc(50% - .42cqw);
+  top:-.85cqw;
+  width:0;
+  height:0;
+  border-left:.42cqw solid transparent;
+  border-right:.42cqw solid transparent;
+  border-top:.6cqw solid var(--wall-tail-gold);
+}
+.wall-stack.is-head::after { border-top-color:var(--wall-head-jade); }
+.wall-stack-number {
+  position:absolute;
+  z-index:4;
+  left:-.6cqw;
+  right:-.6cqw;
+  top:calc(100% + .3cqw);
+  text-align:center;
+  color:#ead29a;
+  font-size:1.35cqw;
+  line-height:1;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 .1cqw .1cqw #092c1f;
+}
+.wall-stack:not(.has-indicator) .wall-stack-number { display:none; }
+.wall-stack[data-side="bottom"] .wall-stack-number { top:-1.5cqw; }
+
+.wall-tail-heading {
+  position:absolute;
+  left:calc(50% - 11.5cqw);
+  top:44.8cqw;
+  width:23cqw;
+  text-align:center;
+}
+/* Keep the existing compass as the one visible live counter. */
+.wall-tail-title,.wall-tail-count {
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  border:0;
+  overflow:hidden;
+  white-space:nowrap;
+  clip-path:inset(50%);
+}
+.wall-tail-meta {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.55cqw;
+  min-height:2.3cqw;
+}
+.wall-die {
+  display:grid;
+  place-items:center;
+  flex:0 0 2.3cqw;
+  width:2.3cqw;
+  height:2.3cqw;
+  border:.08cqw solid #d3c9ac;
+  border-right-color:#9d947d;
+  border-bottom-color:#8a8067;
+  border-radius:.4cqw;
+  background:linear-gradient(135deg,#fffbed,#e1d7bf);
+  box-shadow:.08cqw .18cqw .12cqw #061e17a6;
+  color:#244b3b;
+  font:bold 1.8cqw/1 Georgia,serif;
+}
+.wall-die.is-smaller { color:#a43d32; }
+.wall-indicator-position {
+  color:#c6d0b6;
+  font-size:1.55cqw;
+  line-height:1.2;
+  white-space:nowrap;
+}
+
+/* Compact the table interior only once the full public wall is present. */
+.table:has(.wall-tail:not([hidden])) .backs-top { top:1.8cqw; height:2.65cqw; }
+.table:has(.wall-tail:not([hidden])) .backs-top .back {
+  width:2cqw;
+  height:2.65cqw;
+  border-bottom-width:.25cqw;
+}
+.table:has(.wall-tail:not([hidden])) .backs-left { left:.65cqw; }
+.table:has(.wall-tail:not([hidden])) .backs-right { right:.65cqw; }
+.table:has(.wall-tail:not([hidden])) .backs-left,
+.table:has(.wall-tail:not([hidden])) .backs-right { width:3.1cqw; }
+.table:has(.wall-tail:not([hidden])) .backs-left .back,
+.table:has(.wall-tail:not([hidden])) .backs-right .back { width:3.1cqw; }
+
+.table:has(.wall-tail:not([hidden])) .river-top,
+.table:has(.wall-tail:not([hidden])) .river-bottom {
+  grid-template-columns:repeat(6,4.5cqw);
+  grid-auto-rows:6.3cqw;
+  max-height:13.1cqw;
+}
+.table:has(.wall-tail:not([hidden])) .river-top { top:11.5cqw; }
+.table:has(.wall-tail:not([hidden])) .river-bottom { bottom:7cqw; }
+.table:has(.wall-tail:not([hidden])) .river-top .tile,
+.table:has(.wall-tail:not([hidden])) .river-bottom .tile { width:4.5cqw; height:6.3cqw; }
+.table:has(.wall-tail:not([hidden])) .river-top::before,
+.table:has(.wall-tail:not([hidden])) .river-bottom::before { top:-1.8cqw; }
+
+.table:has(.wall-tail:not([hidden])) .river-left { left:10.7cqw; }
+.table:has(.wall-tail:not([hidden])) .river-right { right:10.7cqw; }
+.table:has(.wall-tail:not([hidden])) .river-left,
+.table:has(.wall-tail:not([hidden])) .river-right {
+  width:8.2cqw;
+  grid-template-columns:repeat(2,3.7cqw);
+  grid-auto-rows:5.2cqw;
+  max-height:22.3cqw;
+}
+.table:has(.wall-tail:not([hidden])) .river-left .tile,
+.table:has(.wall-tail:not([hidden])) .river-right .tile { width:3.7cqw; height:5.2cqw; }
+.table:has(.wall-tail:not([hidden])) .table-center {
+  left:calc(50% - 9cqw);
+  top:calc(50% - 9cqw);
+  width:18cqw;
+  height:18cqw;
+}
+.table:has(.wall-tail:not([hidden])) .wall-counter { inset:3.9cqw; }
+.table:has(.wall-tail:not([hidden])) .wall-counter strong { font-size:5.6cqw; }
+.table:has(.wall-tail:not([hidden])) .bot-melds-top { left:-13.4cqw; top:2.5cqw; }
+.table:has(.wall-tail:not([hidden])) .table-caption { display:none; }

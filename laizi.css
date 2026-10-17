@@ -1,0 +1,68 @@
+/* Optional table rule: the indicator stays public, outside every hand and river. */
+.laizi-summary {
+  display:flex;
+  align-items:center;
+  gap:1.6cqw;
+  padding:.6cqw 1.2cqw;
+  border:1px solid #a2925c66;
+  border-radius:1.8cqw;
+  background:#0d302b80;
+}
+
+.laizi-summary[hidden] { display:none; }
+
+.laizi-summary>div {
+  display:flex;
+  align-items:center;
+  gap:.8cqw;
+}
+
+.laizi-summary>div>span:first-child {
+  font-size:max(9px,1.8cqw);
+  line-height:1.2;
+  color:#dbca98;
+}
+
+.laizi-summary .tile {
+  width:4.4cqw;
+  height:6.2cqw;
+  --tile-depth:.35cqw;
+}
+
+.tile.is-wild { border-top-color:#f2ce6b; }
+
+.wild-marker,.red-kong-marker {
+  position:absolute;
+  top:-.25cqw;
+  left:-.2cqw;
+  z-index:3;
+  display:grid;
+  place-items:center;
+  min-width:2cqw;
+  height:2.2cqw;
+  padding:0 .15cqw;
+  border:1px solid #f3da93;
+  border-radius:.5cqw;
+  background:#8a4a22;
+  color:#fff2bd;
+  font-size:max(7px,1.5cqw);
+  font-weight:600;
+  line-height:1;
+  pointer-events:none;
+}
+
+.red-kong-marker {
+  background:#8f372d;
+  color:#fff2bd;
+}
+
+.hand .tile.red-kong-tile:not(:disabled):hover {
+  --tile-face:linear-gradient(135deg,#fffdf2,#f7efdc 56%,#ded0ae);
+  cursor:help;
+}
+
+.bot-melds .wild-marker {
+  min-width:1.4cqw;
+  height:1.6cqw;
+  font-size:1.2cqw;
+}

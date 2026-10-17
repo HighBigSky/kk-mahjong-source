@@ -1,0 +1,592 @@
+/* A traditional four-sided table: opponents above, left and right, with the
+   local player below. Table and tile materials remain in the depth styles. */
+.wallet-pill {
+  display:flex;
+  align-items:center;
+  gap:1.5cqw;
+  min-width:29cqw;
+  min-height:9cqw;
+  padding:1cqw 2.3cqw;
+  border:1px solid #a2925c66;
+  border-radius:2.5cqw;
+  background:linear-gradient(145deg,#204d3c99,#0d302b80);
+  box-shadow:inset 0 .12cqw .16cqw #e8dc9c12,0 .3cqw .8cqw #061f1833;
+}
+
+.wallet-pill>svg {
+  width:4.8cqw;
+  height:4.8cqw;
+  color:#e0bd75;
+  fill:#c8a45d12;
+}
+
+.wallet-copy {
+  display:grid;
+  gap:.45cqw;
+}
+
+.wallet-copy small {
+  font-size:max(9px,1.8cqw);
+  line-height:1;
+  color:#b5c3a3;
+  letter-spacing:.12cqw;
+}
+
+.wallet-copy strong {
+  font:3.8cqw/1.05 Georgia,serif;
+  font-variant-numeric:tabular-nums;
+  color:#f0d9a4;
+  letter-spacing:.08cqw;
+}
+
+.player-seat {
+  width:37cqw;
+  height:10.5cqw;
+  display:flex;
+  align-items:center;
+  gap:1.5cqw;
+  padding:.35cqw .55cqw;
+  border:1px solid #78916938;
+  border-radius:5.2cqw 2.4cqw 2.4cqw 5.2cqw;
+  background:linear-gradient(100deg,#0b3029c2,#1c4b3b80 72%,#214b3b40);
+  box-shadow:inset 0 .12cqw .1cqw #e5dbac0d,0 .4cqw .9cqw #05231b26;
+  transition:border-color .18s,background .18s;
+}
+
+.player-seat .portrait {
+  width:9.2cqw;
+  height:9.2cqw;
+  padding:.35cqw;
+  border-color:#b5a375;
+  box-shadow:0 .25cqw .5cqw #07221970;
+}
+
+.player-seat .seat {
+  width:3.2cqw;
+  height:3.2cqw;
+  bottom:-.2cqw;
+  right:-.35cqw;
+  font-size:max(8px,2cqw);
+  border-radius:.9cqw;
+  background:linear-gradient(145deg,#315942,#163e30);
+  box-shadow:0 .15cqw .2cqw #08271c80;
+}
+
+.dealer-badge,.red-gang-badge {
+  position:absolute;
+  z-index:2;
+  display:grid;
+  place-items:center;
+  border:1px solid #edce8a;
+  border-radius:.8cqw;
+  line-height:1;
+  font-weight:600;
+  box-shadow:0 .15cqw .35cqw #08271c80;
+}
+
+.dealer-badge {
+  top:-.15cqw;
+  left:-.25cqw;
+  width:3.2cqw;
+  height:3.2cqw;
+  background:linear-gradient(135deg,#f6df9b,#c4a25b);
+  color:#3b341f;
+  font-size:max(8px,2cqw);
+}
+
+.red-gang-badge {
+  bottom:-.2cqw;
+  left:-.3cqw;
+  min-width:4.6cqw;
+  height:2.8cqw;
+  padding:0 .3cqw;
+  background:#95382e;
+  color:#fff1cb;
+  font-size:max(8px,1.6cqw);
+  white-space:nowrap;
+}
+
+.dealer-badge[hidden],.red-gang-badge[hidden] {
+  display:none;
+}
+
+.player-seat .opponent-copy {
+  min-width:0;
+  display:grid;
+  gap:.1cqw;
+  align-content:center;
+}
+
+.player-seat .opponent-name {
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:max(10px,2.6cqw);
+  line-height:1.05;
+  letter-spacing:.12cqw;
+  color:#f0e7cb;
+}
+
+.player-seat .opponent-name small {
+  margin-left:.65cqw;
+  padding:0 .55cqw;
+  border:1px solid #d3b47b55;
+  border-radius:.55cqw;
+  font-size:max(8px,1.65cqw);
+  line-height:1;
+  letter-spacing:0;
+  color:#e4c68a;
+  vertical-align:.1cqw;
+}
+
+.player-seat .opponent-score {
+  justify-content:flex-start;
+  gap:.65cqw;
+  font-size:max(9px,2.2cqw);
+  line-height:1;
+  color:#d9c18c;
+}
+
+.player-seat .opponent-score svg {
+  width:2.2cqw;
+  height:2.2cqw;
+}
+
+.player-seat .opponent-state {
+  position:static;
+  min-height:0;
+  width:auto;
+  font-size:max(9px,1.9cqw);
+  line-height:1;
+  color:#9cb8a3;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.seat-top {
+  top:16.3%;
+}
+
+.seat-bottom {
+  top:63.4%;
+}
+
+.seat-top,.seat-bottom {
+  left:31.5%;
+}
+
+.seat-left,.seat-right {
+  top:calc(43% - 10.25cqw);
+  width:13cqw;
+  height:20.5cqw;
+  flex-direction:column;
+  justify-content:center;
+  gap:.35cqw;
+  padding:.35cqw .4cqw;
+  border-radius:6.5cqw 6.5cqw 2.5cqw 2.5cqw;
+  background:linear-gradient(180deg,#0b3029c2,#1c4b3b80 72%,#214b3b40);
+}
+
+.seat-left {
+  left:.5%;
+}
+
+.seat-right {
+  right:.5%;
+}
+
+.seat-left .opponent-copy,.seat-right .opponent-copy {
+  width:100%;
+  gap:.15cqw;
+  text-align:center;
+}
+
+.seat-left .opponent-score,.seat-right .opponent-score {
+  justify-content:center;
+}
+
+.player-seat.is-active {
+  border-color:#d6b369a6;
+  background:linear-gradient(100deg,#214b36e6,#315a3ca6 72%,#31563b70);
+}
+
+.seat-left.is-active,.seat-right.is-active {
+  background:linear-gradient(180deg,#214b36e6,#315a3ca6 72%,#31563b70);
+}
+
+.player-seat.is-active .portrait {
+  box-shadow:0 0 0 .45cqw #dcc27d29,0 .3cqw .6cqw #09251a66;
+}
+
+.player-seat.is-active .seat {
+  color:#183d2a;
+  border-color:#f0d594;
+  background:linear-gradient(145deg,#edd498,#b69a5c);
+}
+
+.player-seat.is-claiming {
+  border-color:#d6b369a6;
+}
+
+.player-seat.is-claiming .opponent-state {
+  color:#f0d08c;
+}
+
+.table {
+  left:15%;
+  top:23.5%;
+  width:70%;
+  height:39%;
+}
+
+.backs-top {
+  top:1.8cqw;
+}
+
+.backs-left,.backs-right {
+  top:36%;
+  height:45%;
+}
+
+.river-top,.river-bottom {
+  grid-template-columns:repeat(6,5cqw);
+  grid-auto-rows:7cqw;
+  max-height:14.5cqw;
+}
+
+.river-top {
+  top:9.2cqw;
+}
+
+.river-bottom {
+  bottom:7cqw;
+}
+
+.river-top .tile,.river-bottom .tile {
+  width:5cqw;
+  height:7cqw;
+}
+
+.river-left,.river-right {
+  top:36%;
+}
+
+.river-left {
+  left:6cqw;
+}
+
+.river-right {
+  right:6cqw;
+}
+
+.table-center {
+  width:20cqw;
+  height:20cqw;
+  left:calc(50% - 10cqw);
+  top:calc(50% - 10cqw);
+  border-radius:4cqw;
+}
+
+.table-center::before {
+  border-radius:3.2cqw;
+}
+
+.wall-counter {
+  inset:4.2cqw;
+  border-radius:2.4cqw;
+}
+
+.bot-melds-top {
+  top:7.6cqw;
+  left:2cqw;
+  display:grid;
+  grid-template-columns:max-content;
+  gap:.5cqw;
+}
+
+.bot-melds-left,.bot-melds-right {
+  top:calc(50% + 12cqw);
+  bottom:auto;
+  flex-direction:column;
+  gap:.5cqw;
+}
+
+.bot-melds-left {
+  left:-14.5cqw;
+  right:auto;
+}
+
+.bot-melds-right {
+  right:-14.5cqw;
+  left:auto;
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .player-seat {
+    transition:none;
+  }
+}
+
+/* Public combinations share a rack with that seat's concealed hand. The wall
+   keeps its own fixed slots; declaring a combination never reflows the wall. */
+:root {
+  --public-tile-width:2.05cqw;
+  --public-tile-height:2.87cqw;
+  --public-tile-gap:.1cqw;
+  --public-group-gap:.35cqw;
+  --self-public-tile-width:3cqw;
+  --self-public-tile-height:4.2cqw;
+  --public-label-color:#e4c88e;
+}
+
+.table .opponent-rack {
+  position:absolute;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.7cqw;
+  pointer-events:none;
+}
+
+#game .table .opponent-rack .backs,
+#game .table .opponent-rack .bot-melds {
+  position:static;
+  inset:auto;
+  width:auto;
+  height:auto;
+  min-width:0;
+  max-height:none;
+  flex-shrink:0;
+  margin:0;
+  padding:0;
+  transform:none;
+}
+
+.table .opponent-rack .backs {
+  display:flex;
+  justify-content:flex-start;
+  gap:var(--public-tile-gap);
+}
+
+.table .opponent-rack .bot-melds {
+  display:flex;
+  gap:var(--public-group-gap);
+}
+
+#game .table .opponent-rack .bot-melds[hidden],
+#game .hand-zone .player-rack .my-melds[hidden] {
+  display:none;
+}
+
+.opponent-rack .meld-group,
+.player-rack .meld-group {
+  position:relative;
+  display:flex;
+  flex:none;
+  gap:var(--public-tile-gap);
+  padding:0;
+  border-radius:.25cqw;
+  background:transparent;
+}
+
+.opponent-rack .meld-label,
+.player-rack .meld-label {
+  position:absolute;
+  display:block;
+  color:var(--public-label-color);
+  font-size:max(6px,1.4cqw);
+  font-weight:500;
+  line-height:1;
+  white-space:nowrap;
+  text-align:center;
+  text-shadow:0 .1cqw .12cqw #082b20;
+}
+
+.opponent-rack .meld-group[data-kind="redGang"] .meld-label {
+  color:#f0b8a4;
+}
+
+.opponent-rack .meld-group[data-kind="piziGang"] .meld-label {
+  color:#ead39c;
+}
+
+#game .table .opponent-rack .tile,
+#game .table .opponent-rack .backs .back {
+  flex:none;
+  min-width:0;
+  width:var(--public-tile-width);
+  height:var(--public-tile-height);
+  border-radius:.25cqw;
+  border-bottom-width:.2cqw;
+}
+
+.table .opponent-rack .tile {
+  --tile-depth:.22cqw;
+  --tile-side:.08cqw;
+}
+
+.table .opponent-rack-top {
+  top:1.8cqw;
+  left:4.5cqw;
+  right:4.5cqw;
+  height:var(--public-tile-height);
+}
+
+.table .opponent-rack-top .backs,
+.table .opponent-rack-top .bot-melds,
+.table .opponent-rack-top .meld-group {
+  flex-direction:row;
+}
+
+.opponent-rack-top .meld-label {
+  left:0;
+  right:0;
+  bottom:calc(100% + .45cqw);
+}
+
+.table .opponent-rack-left,
+.table .opponent-rack-right {
+  top:6cqw;
+  bottom:3.8cqw;
+  width:var(--public-tile-height);
+  flex-direction:column;
+}
+
+.table .opponent-rack-left { left:.55cqw; }
+.table .opponent-rack-right { right:.55cqw; }
+
+.table .opponent-rack-left .backs,
+.table .opponent-rack-right .backs,
+.table .opponent-rack-left .bot-melds,
+.table .opponent-rack-right .bot-melds,
+.table .opponent-rack-left .meld-group,
+.table .opponent-rack-right .meld-group {
+  flex-direction:column;
+}
+
+#game .table .opponent-rack-left .tile,
+#game .table .opponent-rack-right .tile,
+#game .table .opponent-rack-left .backs .back,
+#game .table .opponent-rack-right .backs .back {
+  position:relative;
+  width:var(--public-tile-height);
+  height:var(--public-tile-width);
+  max-height:none;
+}
+
+.opponent-rack-left .tile svg,
+.opponent-rack-right .tile svg {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:var(--public-tile-width);
+  height:var(--public-tile-height);
+  transform:translate(-50%,-50%) rotate(90deg);
+}
+
+.opponent-rack-left .meld-label,
+.opponent-rack-right .meld-label {
+  top:50%;
+  width:1.7cqw;
+  transform:translateY(-50%);
+  writing-mode:vertical-rl;
+  text-orientation:upright;
+  letter-spacing:.08cqw;
+}
+
+.opponent-rack-left .meld-label { right:calc(100% + .25cqw); }
+.opponent-rack-right .meld-label { left:calc(100% + .25cqw); }
+
+/* Single red/indicator kongs do not reduce the number of concealed tiles.
+   A compact public row immediately above the local hand preserves all 14
+   original interactive tiles at their existing size and with clear hot areas. */
+.player-rack { min-width:0; }
+
+.hand-zone.has-melds {
+  top:calc(84.2% - 1cqw);
+}
+
+.hand-zone.has-melds .hand-heading {
+  margin-bottom:.2cqw;
+  transform:translateY(-.5cqw);
+}
+
+.hand-zone.has-melds .player-rack {
+  display:flex;
+  flex-direction:column;
+  gap:.2cqw;
+}
+
+.hand-zone .player-rack .my-melds {
+  position:relative;
+  top:auto;
+  bottom:auto;
+  left:auto;
+  width:100%;
+  min-height:5.7cqw;
+  padding:1.5cqw .6cqw 0;
+  display:flex;
+  align-items:flex-end;
+  justify-content:flex-start;
+  gap:.65cqw;
+  z-index:1;
+  pointer-events:none;
+}
+
+.player-rack .my-melds .tile {
+  flex:none;
+  width:var(--self-public-tile-width);
+  height:var(--self-public-tile-height);
+  --tile-depth:.32cqw;
+  --tile-side:.12cqw;
+}
+
+.player-rack .meld-label {
+  bottom:calc(100% + .3cqw);
+  left:0;
+  right:0;
+}
+
+.player-rack .meld-group[data-kind="redGang"] .meld-label { color:#f0b8a4; }
+.player-rack .meld-group[data-kind="piziGang"] .meld-label { color:#ead39c; }
+
+.hand-zone.has-melds .hand {
+  justify-content:center;
+}
+
+.hand-zone.has-melds .hand-instruction { visibility:hidden; }
+
+/* The app anchors each word to its concealed hand's centreline, facing the
+   felt. Dimensions scale down only when a crowded river needs a narrower lane. */
+:root {
+  --seat-action-size:6cqw;
+  --seat-action-font-size:5.6cqw;
+  --seat-action-chi:#9fd9b3;
+  --seat-action-peng:#9bcce7;
+  --seat-action-gang:#f1cf83;
+  --seat-action-hu:#ff9385;
+}
+
+.seat-action-notice {
+  position:absolute;
+  z-index:4;
+  display:grid;
+  place-items:center;
+  width:var(--seat-action-size);
+  height:var(--seat-action-size);
+  margin:0;
+  padding:0;
+  font:700 var(--seat-action-font-size)/1 "KaiTi","STKaiti","SimSun",serif;
+  text-align:center;
+  letter-spacing:0;
+  text-shadow:0 .12cqw .08cqw #051e15;
+  pointer-events:none;
+  user-select:none;
+}
+
+.seat-action-notice[hidden] { display:none; }
+.seat-action-notice[data-kind="chi"] { color:var(--seat-action-chi); }
+.seat-action-notice[data-kind="peng"] { color:var(--seat-action-peng); }
+.seat-action-notice[data-kind="gang"] { color:var(--seat-action-gang); }
+.seat-action-notice[data-kind="hu"] { color:var(--seat-action-hu); }

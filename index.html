@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#123e34">
+  <meta name="description" content="KK麻将，竖屏建房、横屏对局的国风好友麻将。创建房间，分享房间码，与远方好友一起吃碰杠胡。">
+  <title>KK麻将</title>
+  <link rel="icon" href="assets/avatar-player.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="table-depth.css">
+  <link rel="stylesheet" href="tiles-depth.css">
+  <link rel="stylesheet" href="seats-layout.css">
+  <link rel="stylesheet" href="laizi.css">
+  <link rel="stylesheet" href="wall-layout.css">
+  <link rel="stylesheet" href="rooms.css">
+  <link rel="stylesheet" href="landscape.css">
+</head>
+<body>
+  <svg class="icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3-.7 2.3-2 .9-2.2-.5-1.6 2.7 1.5 1.8v2.4l-1.5 1.8 1.6 2.7 2.3-.4 2 .9L9 21h6l.7-2.4 2-.9 2.3.4 1.6-2.7-1.5-1.8v-2.4l1.5-1.8L20 6.7l-2.2.5-2-.9L15 3Z"/><circle cx="12" cy="12" r="3.3"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4Z"/><path d="M16 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4Zm13 0 5 6m0-6-5 6"/></symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9h6v6H9Z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 5 2.3c-1.6 1-2 1.2-2 2.7m0 3v.1"/></symbol>
+    <symbol id="i-hint" viewBox="0 0 24 24"><path d="M8 16c0-2-3-3-3-7a7 7 0 0 1 14 0c0 4-3 5-3 7Zm1 4h6m-5 3h4M9 8l3 4 3-4m-3 4v4"/></symbol>
+    <symbol id="i-restart" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 0 6M4 4v6h6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  </svg>
+  <main class="game" aria-label="KK麻将对局" id="game">
+    <header class="topbar">
+      <div class="wallet-pill" aria-label="我的对局金币">
+        <svg aria-hidden="true"><use href="#i-coin"></use></svg>
+        <div class="wallet-copy"><small>我的金币</small><strong id="score">1,000</strong></div>
+      </div>
+      <div class="laizi-summary" id="laizi-summary" role="group" hidden><div><span>皮子</span><span id="indicator-tile"></span></div><div><span>癞子</span><span id="wild-tile"></span></div></div>
+      <div class="top-tools"><button class="icon-button" id="sound-btn" aria-label="开启音效" title="音效"><svg><use href="#i-mute"></use></svg></button><button class="icon-button" id="settings-btn" aria-label="设置"><svg><use href="#i-settings"></use></svg></button></div>
+    </header>
+
+    <div class="room-heading"><span class="room-line"></span><h1>KK<span>麻将</span></h1><span class="room-line"></span></div>
+    <div class="room-meta"><span id="room-label">好友房间 · 等待加入</span><span class="meta-dot">·</span><span id="round-label">邀请好友，一起上桌</span></div>
+
+    <div class="opponent player-seat seat-top" id="opponent-2" aria-label="上方，阿福，西家">
+      <div class="portrait"><img src="assets/avatar-2.svg" alt="阿福的头像"><span class="seat">西</span><span class="dealer-badge" id="dealer-2" aria-label="庄家" hidden>庄</span><span class="red-gang-badge" id="red-gangs-2" hidden></span></div>
+      <div class="opponent-copy"><span class="opponent-name">阿福</span><span class="opponent-score"><svg><use href="#i-coin"></use></svg><b id="score-2">1,000</b></span><span class="opponent-state" id="state-2">等待中</span></div>
+    </div>
+    <div class="opponent player-seat seat-left" id="opponent-3" aria-label="左侧，小棠，北家">
+      <div class="portrait"><img src="assets/avatar-3.svg" alt="小棠的头像"><span class="seat">北</span><span class="dealer-badge" id="dealer-3" aria-label="庄家" hidden>庄</span><span class="red-gang-badge" id="red-gangs-3" hidden></span></div>
+      <div class="opponent-copy"><span class="opponent-name">小棠</span><span class="opponent-score"><svg><use href="#i-coin"></use></svg><b id="score-3">1,000</b></span><span class="opponent-state" id="state-3">等待中</span></div>
+    </div>
+    <div class="opponent player-seat seat-bottom" id="opponent-0" aria-label="下方，逍遥雀友，你，东家">
+      <div class="portrait"><img src="assets/avatar-player.svg" alt="你的头像，红帽朱衫的雀友"><span class="seat">东</span><span class="dealer-badge" id="dealer-0" aria-label="庄家">庄</span><span class="red-gang-badge" id="red-gangs-0" hidden></span></div>
+      <div class="opponent-copy"><span class="opponent-name">逍遥雀友 <small>你</small></span><span class="opponent-score"><svg><use href="#i-coin"></use></svg><b id="score-0">1,000</b></span><span class="opponent-state" id="state-0">请出牌</span></div>
+    </div>
+    <div class="opponent player-seat seat-right" id="opponent-1" aria-label="右侧，云舟，南家">
+      <div class="portrait"><img src="assets/avatar-1.svg" alt="云舟的头像"><span class="seat">南</span><span class="dealer-badge" id="dealer-1" aria-label="庄家" hidden>庄</span><span class="red-gang-badge" id="red-gangs-1" hidden></span></div>
+      <div class="opponent-copy"><span class="opponent-name">云舟</span><span class="opponent-score"><svg><use href="#i-coin"></use></svg><b id="score-1">1,000</b></span><span class="opponent-state" id="state-1">等待中</span></div>
+    </div>
+
+    <section class="table" aria-label="麻将桌出牌区">
+      <div class="table-border"></div>
+      <div class="opponent-rack opponent-rack-top" id="rack-2"><div class="bot-melds bot-melds-top" id="melds-2" role="group" hidden></div><div class="backs backs-top" id="backs-2" aria-label="阿福的手牌"></div></div>
+      <div class="opponent-rack opponent-rack-left" id="rack-3"><div class="bot-melds bot-melds-left" id="melds-3" role="group" hidden></div><div class="backs backs-left" id="backs-3" aria-label="小棠的手牌"></div></div>
+      <div class="opponent-rack opponent-rack-right" id="rack-1"><div class="bot-melds bot-melds-right" id="melds-1" role="group" hidden></div><div class="backs backs-right" id="backs-1" aria-label="云舟的手牌"></div></div>
+      <div class="river river-top" id="river-2" aria-label="阿福的出牌"></div>
+      <div class="river river-left" id="river-3" aria-label="小棠的出牌"></div>
+      <div class="river river-right" id="river-1" aria-label="云舟的出牌"></div>
+      <div class="river river-bottom" id="river-0" aria-label="你的出牌"></div>
+      <div class="table-center">
+        <span class="direction direction-n" data-player="2">西</span><span class="direction direction-w" data-player="3">北</span><span class="direction direction-e" data-player="1">南</span><span class="direction direction-s" data-player="0">东</span>
+        <div class="wall-counter"><span>余牌</span><strong id="wall-count">83</strong><span class="wall-unit">张</span></div>
+      </div>
+      <span class="seat-action-notice" data-player="0" role="status" aria-live="polite" aria-atomic="true" hidden></span>
+      <span class="seat-action-notice" data-player="1" role="status" aria-live="polite" aria-atomic="true" hidden></span>
+      <span class="seat-action-notice" data-player="2" role="status" aria-live="polite" aria-atomic="true" hidden></span>
+      <span class="seat-action-notice" data-player="3" role="status" aria-live="polite" aria-atomic="true" hidden></span>
+      <span class="table-caption">闲来一局 · 好牌常来</span>
+      <section class="wall-tail" id="wall-tail" role="group" aria-label="四方剩余牌墙、翻皮位置与摸补牌位置" hidden></section>
+    </section>
+
+    <div class="turn-message" aria-live="polite"><span class="turn-dot"></span><span id="turn-text">轮到你了，请选择一张牌打出</span></div>
+    <div class="last-event" id="last-event" aria-live="polite">牌已备齐，祝你手气好</div>
+
+    <section class="action-zone" aria-label="麻将操作" hidden>
+      <div class="action-heading"><span id="action-caption">对局操作</span><span id="action-context">好牌，慢慢打</span></div>
+      <div class="action-buttons">
+        <button class="action-button" id="action-chi" data-action="chi" disabled hidden><span>吃</span><small>CHI</small></button>
+        <button class="action-button" id="action-peng" data-action="peng" disabled hidden><span>碰</span><small>PENG</small></button>
+        <button class="action-button" id="action-gang" data-action="gang" disabled hidden><span>杠</span><small>GANG</small></button>
+        <button class="action-button action-hu" id="action-hu" data-action="hu" disabled hidden><span>胡</span><small>HU</small></button>
+        <button class="action-button action-pass" id="action-pass" data-action="pass" disabled hidden><span>过</span><small>PASS</small></button>
+      </div>
+    </section>
+
+    <section class="hand-zone" aria-label="玩家手牌区">
+      <div class="hand-heading"><span><b class="my-seat">东</b> 我的手牌 <small id="hand-count">14 张</small></span><button class="hint-button" id="hint-btn"><svg><use href="#i-hint"></use></svg>出牌提示</button></div>
+      <div class="player-rack" id="rack-0"><div class="my-melds" id="melds-0" role="group" hidden></div><div class="hand" id="hand" role="group" aria-label="点击选牌，再次点击打出"></div></div>
+      <div class="hand-instruction" id="hand-instruction">点选手牌，再点一次打出</div>
+    </section>
+
+    <footer class="bottom-bar"><button id="rules-btn"><svg><use href="#i-help"></use></svg>玩法说明</button><span class="connection" id="connection-status" data-state="offline"><i></i><span id="connection-text">未连接</span></span><button id="restart-btn"><svg><use href="#i-restart"></use></svg>房间</button></footer>
+    <div class="toast" id="toast" role="status"></div>
+
+    <dialog id="rules-dialog" class="modal">
+      <button class="modal-close" data-close aria-label="关闭"><svg><use href="#i-close"></use></svg></button>
+      <span class="modal-eyebrow">HOW TO PLAY</span><h2>好牌从容打</h2><p class="modal-lead">基础麻将 · 136 张 · 四人一桌</p>
+      <div class="rules-list">
+        <p><b>用牌</b><span>万、筒、条各 1—9，每种 4 张，共 108 张；东南西北中发白各 4 张，共 28 张。全副 136 张。</span></p>
+        <p><b>坐庄</b><span>四人逆时针轮庄：下 → 右 → 上 → 左。庄家起手 14 张，闲家各 13 张，庄家先出。</span></p>
+        <p><b>出牌</b><span>点选一张手牌，再点一次打出。也可按 Enter 确认；方向键切换选牌。</span></p>
+        <p><b>单张杠</b><span>红中，以及本局与翻出皮子同牌面的手牌，只作特殊杠牌，不能直接打出、吃碰或作普通杠。轮到自己出牌时，可自行选择杠出 1 张红中或皮子，从墙尾补摸 1 张；有多张可逐张操作，也可暂时保留。不占普通面子组。所有已杠实牌均公开摆在各家手牌旁，标记「红」或「皮」；吃碰及普通杠也在同处按组展示，全桌可见。</span></p>
+        <p><b>胡牌限制</b><span>暗手中只要还有红中或皮子，就不能自摸或点炮胡牌。必须先把它们全部逐张杠出，再按剩余手牌判断能否胡牌；已杠出的特殊牌不影响胡牌。牌墙已空且手里只剩红中或皮子时流局。牌墙上已翻开的那张皮子保持原位，不可取入手牌或拿来杠。</span></p>
+        <p><b>翻癞子</b><span>房主可在建房前的设置中开启。开局掷两颗骰子，取较小点数，从牌墙末端数到对应墩（每墩 2 张），翻上面一张作皮子，留在原位明示；同花色下一张为癞子，9 回到 1。字牌按东 → 南 → 西 → 北 → 中 → 发 → 白 → 东循环。若直接翻到红中，或算出红中为癞子，均将一张实物白板换到该位置作皮子、发财作癞子，原翻牌放回牌堆。牌桌四边显示剩余牌堆，中央余牌数与牌背张数实时同步。普通摸牌从墙头取（青色「摸」标记），所有杠后补牌从墙尾取（金色「补」标记），跳过已翻皮子；取走后原位留空。</span></p>
+        <p><b>吃碰杠</b><span>只可吃上家的顺子；两张同牌可碰，三张可明杠。四张可暗杠，碰后摸到同牌可补杠。杠后补牌须有余牌。</span></p>
+        <p><b>胡牌</b><span>屁胡须四组顺子或刻子，加一对相同的二、五、八万／筒／条作将；一张二五八配癞子、两张癞子均可作将。吃、碰、明杠算开口，补杠延续已开口；暗杠及红中、皮子单张杠不算开口。屁胡未开口可用多个癞子，但只能自摸，不能接胡；开口后最多一个癞子，可以自摸或接胡。大胡为七对、碰碰胡、将一色、风一色，均不受二五八将及开口癞子数量限制，未开口也可接胡。七对无普通副露，四张同牌可算两对；碰碰胡须四组刻子或杠加一对。将一色须暗手和普通副露全部为二五八；风一色须全部为东南西北中发白。这两种大胡不要求组合结构，癞子可替代所缺牌；已公开副露按真实牌面判断。红中和皮子仍须先杠出。</span></p>
+        <p><b>计分</b><span>暂用演示计分：基础 10；七对、碰碰胡、自摸各加 10，清一色加 20，字一色加 30。自摸每家付一份，点炮一家付三份；杠不计分。</span></p>
+      </div><p class="rule-note">邀请好友加入，房主也可在开局前添加人机补足四席。真人准备后由房主开局，人机自动操作。胡牌按以上规则，计分暂用演示方案；点击牌河可查看出牌及已杠红中、皮子。</p><button class="primary-button" data-close>知道了，继续对局</button>
+    </dialog>
+    <dialog id="settings-dialog" class="modal">
+      <button class="modal-close" data-close aria-label="关闭"><svg><use href="#i-close"></use></svg></button><span class="modal-eyebrow">MAKE YOURSELF AT HOME</span><h2>牌桌设置</h2>
+      <label class="setting-row"><span><b>游戏音效</b><small>出牌与操作提示音</small></span><input type="checkbox" id="sound-setting" role="switch"></label>
+      <label class="setting-row"><span><b>显示牌名</b><small>在手牌下方显示中文名称</small></span><input type="checkbox" id="names-setting" role="switch"></label>
+      <label class="setting-row"><span><b>翻皮子定癞子</b><small>房主建房前选择 · 房内所有人同步</small></span><input type="checkbox" id="laizi-setting" role="switch"></label>
+      <button class="primary-button" data-close>保存并继续</button>
+    </dialog>
+    <dialog id="choice-dialog" class="modal choice-modal"><button class="modal-close" data-close aria-label="取消选择"><svg><use href="#i-close"></use></svg></button><span class="modal-eyebrow">YOUR MOVE</span><h2 id="choice-title">选择吃牌组合</h2><div id="choice-options"></div></dialog>
+    <dialog id="history-dialog" class="modal"><button class="modal-close" data-close aria-label="关闭出牌记录"><svg><use href="#i-close"></use></svg></button><span class="modal-eyebrow">DISCARD HISTORY</span><h2 id="history-title">出牌记录</h2><p class="modal-lead" id="history-description"></p><div class="history-tiles" id="history-tiles"></div><div id="history-red-record" hidden><p class="modal-lead">已杠红中与皮子</p><div class="history-tiles" id="history-red-tiles"></div></div><button class="primary-button" data-close>返回牌桌</button></dialog>
+    <dialog id="room-dialog" class="modal room-modal" aria-labelledby="room-title" aria-describedby="room-intro">
+      <button class="modal-close" id="room-close" aria-label="返回牌桌" hidden><svg aria-hidden="true"><use href="#i-close"></use></svg></button>
+      <span class="modal-eyebrow">FRIENDS AT THE TABLE</span>
+      <h2 id="room-title">好友来一桌</h2>
+      <p class="modal-lead" id="room-intro">相隔再远，好牌一起打。</p>
+      <div id="room-entry">
+        <label class="room-field" for="room-name"><span>你的昵称</span><input id="room-name" name="nickname" type="text" maxlength="12" autocomplete="nickname" placeholder="给好友一个熟悉的名字" required></label>
+        <button class="primary-button" id="room-create">创建好友房间</button>
+        <div class="room-separator"><span>已有房间码</span></div>
+        <label class="room-field" for="room-code"><span>输入 6 位房间码</span></label>
+        <div class="room-join-row"><input id="room-code" name="room-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" enterkeyhint="go" placeholder="6 位数字" aria-label="6 位数字房间码"><button class="secondary-button" id="room-join">加入房间</button></div>
+        <p class="room-note">邀请好友同桌，也可由房主添加人机补足四席。房主可在设置中选择翻皮子玩法，再创建房间。</p>
+        <button class="room-leave" id="room-options">设置翻皮子、音效与牌名</button>
+      </div>
+      <div id="room-waiting" hidden>
+        <div class="room-invite"><span class="room-invite-label">房间码</span><strong id="room-current-code" aria-label="当前房间码">------</strong><button class="secondary-button" id="room-copy">复制邀请</button><small>将网址与房间码一起发送给好友</small></div>
+        <ol class="room-members" id="room-members" aria-label="房间内的四个座位">
+          <li data-seat="0"><span class="room-member-seat">东</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
+          <li data-seat="1"><span class="room-member-seat">南</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
+          <li data-seat="2"><span class="room-member-seat">西</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
+          <li data-seat="3"><span class="room-member-seat">北</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
+        </ol>
+        <div class="room-play-controls"><button class="secondary-button" id="room-ready">准备</button><button class="primary-button" id="room-start" hidden>房主开始对局</button></div>
+        <p class="room-note">房主可在开局前添加或移除人机。人机自动准备，真人准备后由房主开始；真人断线时整桌暂停，重连后继续。</p>
+        <button class="room-leave" id="room-leave">离开房间</button>
+      </div>
+      <p class="room-status" id="room-status" role="status" aria-live="polite">创建房间，或输入好友发来的房间码。</p>
+      <p class="room-error" id="room-error" role="alert" hidden></p>
+    </dialog>
+    <dialog id="result-dialog" class="modal result-modal"><span class="modal-eyebrow">ROUND COMPLETE</span><img class="result-avatar" id="result-avatar" src="assets/avatar-player.svg" alt="本局结果头像"><h2 id="result-title">好牌，胡了！</h2><p class="modal-lead" id="result-detail"></p><div class="result-hand" id="result-hand"></div><div class="result-scores" id="result-scores"></div><button class="primary-button" id="next-round">房主开始下一局</button><button class="secondary-button" data-close>查看牌桌</button></dialog>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

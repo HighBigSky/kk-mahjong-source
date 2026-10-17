@@ -1,0 +1,14 @@
+.git
+.agents
+.codex
+node_modules
+output
+tests
+docs
+*.log
+*.tmp
+.env
+.env.*
+coverage
+playwright-report
+test-results

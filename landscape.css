@@ -1,0 +1,329 @@
+/* A room has a landscape playing surface. The entry screen keeps its original
+   portrait layout. stage-* values come from the viewport orientation adapter;
+   they describe the usable landscape surface after device safe areas. */
+html.in-room,
+html.in-room body {
+  width:100%;
+  height:100%;
+  min-height:0;
+  overflow:hidden;
+  overscroll-behavior:none;
+}
+
+html.in-room body { padding:0; }
+
+html.in-room #game.is-landscape {
+  --ui-unit:calc(var(--stage-height) / 100);
+  --board-width:calc(var(--stage-width) * .72);
+  --board-height:calc(var(--stage-height) * .49);
+  --table-unit:calc(var(--board-height) / 70);
+  --hand-width:calc(var(--ui-unit) * 8.3);
+  --hand-height:calc(var(--ui-unit) * 11.6);
+  --tile-radius:calc(var(--ui-unit) * .7);
+  --tile-hand-radius:calc(var(--ui-unit) * .7);
+  --tile-bevel:calc(var(--ui-unit) * .14);
+  --tile-contact-blur:calc(var(--ui-unit) * .45);
+  --tile-hand-depth:calc(var(--ui-unit) * .85);
+  --tile-hand-side:calc(var(--ui-unit) * .28);
+  --tile-river-depth:calc(var(--table-unit) * .48);
+  --tile-river-side:calc(var(--table-unit) * .18);
+  --tile-river-radius:calc(var(--table-unit) * .55);
+  --tile-bot-depth:calc(var(--table-unit) * .22);
+  --tile-bot-side:calc(var(--table-unit) * .08);
+  --tile-back-core:calc(var(--table-unit) * .38);
+  --table-rim-radius:calc(var(--ui-unit) * 3.3);
+  --table-apron-depth:calc(var(--ui-unit) * .55);
+  --felt-edge-depth:calc(var(--ui-unit) * 1.1);
+  --felt-thread-step:calc(var(--ui-unit) * .24);
+  --compass-rim:calc(var(--table-unit) * .65);
+  --compass-pointer:calc(var(--table-unit) * .65);
+  --public-tile-width:calc(var(--table-unit) * 2.05);
+  --public-tile-height:calc(var(--table-unit) * 2.87);
+  --public-tile-gap:calc(var(--table-unit) * .1);
+  --public-group-gap:calc(var(--table-unit) * .35);
+  --self-public-tile-width:calc(var(--ui-unit) * 2.5);
+  --self-public-tile-height:calc(var(--ui-unit) * 3.5);
+  --wall-piece-width:calc(var(--table-unit) * 2.7);
+  --wall-piece-height:calc(var(--table-unit) * 3.78);
+  --wall-stack-step:calc(var(--table-unit) * 2.9);
+  --wall-stack-depth:calc(var(--table-unit) * .43);
+  --wall-piece-radius:calc(var(--table-unit) * .3);
+  --wall-horizontal-step:calc((var(--board-width) - var(--table-unit) * 20.8 - var(--wall-piece-width)) / 16);
+  position:fixed;
+  left:var(--stage-center-x);
+  top:var(--stage-center-y);
+  width:var(--stage-width);
+  height:var(--stage-height);
+  max-width:none;
+  max-height:none;
+  aspect-ratio:auto;
+  transform:translate(-50%,-50%);
+  transform-origin:center;
+  border:none;
+  font-size:calc(var(--ui-unit) * 3);
+}
+
+html.in-room.landscape-rotated #game.is-landscape {
+  transform:translate(-50%,-50%) rotate(90deg);
+}
+
+.is-landscape .topbar { top:2.5%; left:2%; right:2%; height:12%; }
+.is-landscape .wallet-pill {
+  min-width:0;
+  min-height:0;
+  height:calc(var(--ui-unit) * 10);
+  padding:calc(var(--ui-unit) * 1.3) calc(var(--ui-unit) * 2.2);
+  gap:calc(var(--ui-unit) * 1.5);
+  border-radius:calc(var(--ui-unit) * 2);
+}
+.is-landscape .wallet-pill>svg { width:calc(var(--ui-unit) * 4.8); height:calc(var(--ui-unit) * 4.8); }
+.is-landscape .wallet-copy { gap:calc(var(--ui-unit) * .55); }
+.is-landscape .wallet-copy small { font-size:calc(var(--ui-unit) * 2.5); letter-spacing:0; }
+.is-landscape .wallet-copy strong { font-size:calc(var(--ui-unit) * 4.2); letter-spacing:0; }
+.is-landscape .top-tools { gap:calc(var(--ui-unit) * 1.8); }
+.is-landscape .icon-button {
+  width:calc(var(--ui-unit) * 10);
+  height:calc(var(--ui-unit) * 10);
+  border-radius:calc(var(--ui-unit) * 2.4);
+}
+.is-landscape .icon-button svg { width:calc(var(--ui-unit) * 4.7); height:calc(var(--ui-unit) * 4.7); }
+.is-landscape .laizi-summary {
+  position:absolute;
+  left:24%;
+  gap:calc(var(--ui-unit) * 1.8);
+  padding:calc(var(--ui-unit) * .8) calc(var(--ui-unit) * 1.5);
+  border-radius:calc(var(--ui-unit) * 1.6);
+}
+.is-landscape .laizi-summary>div { gap:calc(var(--ui-unit) * .8); }
+.is-landscape .laizi-summary>div>span:first-child { font-size:calc(var(--ui-unit) * 2.5); }
+.is-landscape .topbar .laizi-summary .tile {
+  width:calc(var(--ui-unit) * 4.2);
+  height:calc(var(--ui-unit) * 5.9);
+  --tile-depth:calc(var(--ui-unit) * .35);
+  --tile-side:calc(var(--ui-unit) * .12);
+}
+.is-landscape .room-heading {
+  top:1.4%; left:43%; width:14%; gap:calc(var(--ui-unit) * 1.3);
+}
+.is-landscape .room-heading h1 { font-size:calc(var(--ui-unit) * 3.4); letter-spacing:calc(var(--ui-unit) * .4); white-space:nowrap; }
+.is-landscape .room-heading h1 span { margin-left:calc(var(--ui-unit) * .6); font-size:calc(var(--ui-unit) * 2.1); letter-spacing:calc(var(--ui-unit) * .6); }
+.is-landscape .room-line { width:calc(var(--ui-unit) * 4); }
+.is-landscape .room-meta {
+  top:14%; left:1.8%; width:30%; justify-content:flex-start;
+  font-size:calc(var(--ui-unit) * 2.35); gap:calc(var(--ui-unit) * 1.1); letter-spacing:0;
+}
+
+/* Four seat badges surround the rectangular board instead of occupying the
+   vertical portrait bands. Their independent bounds keep the felt clear. */
+.is-landscape .player-seat {
+  width:calc(var(--ui-unit) * 31);
+  height:calc(var(--ui-unit) * 10.2);
+  gap:calc(var(--ui-unit) * 1.2);
+  padding:calc(var(--ui-unit) * .4);
+  border-radius:calc(var(--ui-unit) * 5) calc(var(--ui-unit) * 2) calc(var(--ui-unit) * 2) calc(var(--ui-unit) * 5);
+}
+.is-landscape .player-seat .portrait { width:calc(var(--ui-unit) * 9); height:calc(var(--ui-unit) * 9); padding:calc(var(--ui-unit) * .35); }
+.is-landscape .player-seat .seat,.is-landscape .dealer-badge { width:calc(var(--ui-unit) * 3.1); height:calc(var(--ui-unit) * 3.1); font-size:calc(var(--ui-unit) * 2.2); border-radius:calc(var(--ui-unit) * .7); }
+.is-landscape .red-gang-badge { min-width:calc(var(--ui-unit) * 4.6); height:calc(var(--ui-unit) * 2.7); font-size:calc(var(--ui-unit) * 1.85); border-radius:calc(var(--ui-unit) * .6); }
+.is-landscape .player-seat .opponent-copy { gap:calc(var(--ui-unit) * .35); }
+.is-landscape .player-seat .opponent-name { font-size:calc(var(--ui-unit) * 2.8); letter-spacing:0; }
+.is-landscape .player-seat .opponent-name small { font-size:calc(var(--ui-unit) * 1.9); margin-left:calc(var(--ui-unit) * .55); padding:0 calc(var(--ui-unit) * .4); }
+.is-landscape .player-seat .opponent-score { font-size:calc(var(--ui-unit) * 2.45); gap:calc(var(--ui-unit) * .5); }
+.is-landscape .player-seat .opponent-score svg { width:calc(var(--ui-unit) * 2.5); height:calc(var(--ui-unit) * 2.5); }
+.is-landscape .player-seat .opponent-state { font-size:calc(var(--ui-unit) * 2.05); }
+.is-landscape .seat-top { top:6.5%; left:50%; transform:translateX(-50%); }
+.is-landscape .seat-bottom { top:auto; bottom:9%; left:1%; width:calc(var(--ui-unit) * 17); height:calc(var(--ui-unit) * 18); flex-direction:column; justify-content:center; border-radius:calc(var(--ui-unit) * 3); }
+.is-landscape .seat-bottom .opponent-copy { width:100%; text-align:center; }
+.is-landscape .seat-bottom .opponent-score { justify-content:center; }
+.is-landscape .seat-left,.is-landscape .seat-right {
+  top:calc(42% - var(--ui-unit) * 10);
+  width:calc(var(--ui-unit) * 18);
+  height:calc(var(--ui-unit) * 20);
+  flex-direction:column;
+  justify-content:center;
+  gap:calc(var(--ui-unit) * .7);
+  border-radius:calc(var(--ui-unit) * 4) calc(var(--ui-unit) * 4) calc(var(--ui-unit) * 2) calc(var(--ui-unit) * 2);
+}
+.is-landscape .seat-left { left:2%; }
+.is-landscape .seat-right { right:2%; }
+
+/* The original wall model remains 17 fixed double stacks per side. Only its
+   horizontal stride expands; its vertical stride follows the board height. */
+#game.is-landscape .table { left:14%; top:17.5%; width:var(--board-width); height:var(--board-height); }
+#game.is-landscape .table-border { inset:calc(var(--ui-unit) * 1.2); border-radius:calc(var(--ui-unit) * 2.4); }
+#game.is-landscape .table .opponent-rack { gap:calc(var(--table-unit) * .7); }
+#game.is-landscape .table .opponent-rack-top { top:calc(var(--table-unit) * 1.8); left:calc(var(--table-unit) * 4.5); right:calc(var(--table-unit) * 4.5); }
+#game.is-landscape .table .opponent-rack-left,#game.is-landscape .table .opponent-rack-right { top:calc(var(--table-unit) * 6); bottom:calc(var(--table-unit) * 3.8); }
+#game.is-landscape .table .opponent-rack-left { left:calc(var(--table-unit) * .55); }
+#game.is-landscape .table .opponent-rack-right { right:calc(var(--table-unit) * .55); }
+.is-landscape .opponent-rack .meld-label { font-size:max(6px,calc(var(--table-unit) * 1.4)); }
+.is-landscape .opponent-rack-top .meld-label { bottom:calc(100% + var(--table-unit) * .45); }
+.is-landscape .opponent-rack-left .meld-label,.is-landscape .opponent-rack-right .meld-label { width:calc(var(--table-unit) * 1.7); letter-spacing:0; }
+.is-landscape .opponent-rack-left .meld-label { right:calc(100% + var(--table-unit) * .25); }
+.is-landscape .opponent-rack-right .meld-label { left:calc(100% + var(--table-unit) * .25); }
+.is-landscape .opponent-rack .back::before { inset:calc(var(--table-unit) * .35) calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .28); }
+.is-landscape .opponent-rack .wild-marker { display:none; }
+#game.is-landscape .table .wall-stack[data-side="bottom"] { left:calc(var(--table-unit) * 10.4 + var(--wall-stack-index) * var(--wall-horizontal-step)); bottom:calc(var(--table-unit) * 1.65); }
+#game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); top:calc(var(--table-unit) * 5.1); }
+#game.is-landscape .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + var(--wall-stack-index) * var(--wall-stack-step)); }
+#game.is-landscape .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + (16 - var(--wall-stack-index)) * var(--wall-stack-step)); }
+.is-landscape .wall-piece.back { border-width:calc(var(--table-unit) * .08); border-bottom-width:calc(var(--table-unit) * .25); }
+.is-landscape .wall-piece.back::before { inset:calc(var(--table-unit) * .25); border-width:calc(var(--table-unit) * .08); border-radius:calc(var(--table-unit) * .17); }
+.is-landscape .wall-piece.tile { --tile-depth:calc(var(--table-unit) * .25); --tile-side:calc(var(--table-unit) * .08); border-width:calc(var(--table-unit) * .08); }
+.is-landscape .wall-piece.is-indicator { outline-width:calc(var(--table-unit) * .15); outline-offset:calc(var(--table-unit) * .08); }
+.is-landscape .wall-stack.is-next::before,.is-landscape .wall-stack.is-head::before { min-width:calc(var(--table-unit) * 1.75); min-height:calc(var(--table-unit) * 1.75); padding:0; left:0; top:0; font-size:max(6px,calc(var(--table-unit) * 1.5)); border-radius:calc(var(--table-unit) * .25); }
+.is-landscape .wall-stack.is-next::after,.is-landscape .wall-stack.is-head::after { left:calc(50% - var(--table-unit) * .42); top:calc(var(--table-unit) * -.85); border-left-width:calc(var(--table-unit) * .42); border-right-width:calc(var(--table-unit) * .42); border-top-width:calc(var(--table-unit) * .6); }
+.is-landscape .wall-stack-number { top:calc(100% + var(--table-unit) * .3); font-size:max(6px,calc(var(--table-unit) * 1.35)); }
+.is-landscape .wall-stack[data-side="bottom"] .wall-stack-number { top:calc(var(--table-unit) * -2.2); }
+.is-landscape .wall-stack[data-side="left"] .wall-piece.tile svg,.is-landscape .wall-stack[data-side="right"] .wall-piece.tile svg { width:calc(var(--wall-piece-width) - var(--table-unit) * .25); height:calc(var(--wall-piece-height) - var(--table-unit) * .08); }
+
+#game.is-landscape .table .river { gap:calc(var(--table-unit) * .5); min-height:calc(var(--table-unit) * 5.2); }
+#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:18%; width:64%; grid-template-columns:repeat(6,calc(var(--table-unit) * 4.5)); grid-auto-rows:calc(var(--table-unit) * 6.3); max-height:calc(var(--table-unit) * 13.1); }
+#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 12.5); }
+#game.is-landscape .table .river-bottom { bottom:calc(var(--table-unit) * 7); }
+#game.is-landscape .table .river-top .tile,#game.is-landscape .table .river-bottom .tile { width:calc(var(--table-unit) * 4.5); height:calc(var(--table-unit) * 6.3); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:36%; width:calc(var(--table-unit) * 8.2); grid-template-columns:repeat(2,calc(var(--table-unit) * 3.7)); grid-auto-rows:calc(var(--table-unit) * 5.2); max-height:calc(var(--table-unit) * 22.3); }
+#game.is-landscape .table .river-left { left:calc(var(--table-unit) * 10.7); }
+#game.is-landscape .table .river-right { right:calc(var(--table-unit) * 10.7); }
+#game.is-landscape .table .river-left .tile,#game.is-landscape .table .river-right .tile { width:calc(var(--table-unit) * 3.7); height:calc(var(--table-unit) * 5.2); }
+#game.is-landscape .table .river .tile.last-discard { outline-width:calc(var(--table-unit) * .28); outline-offset:calc(var(--table-unit) * .12); }
+#game.is-landscape .table .river .tile.last-discard::after { bottom:calc(var(--table-unit) * .3); left:calc(50% - var(--table-unit) * .45); width:calc(var(--table-unit) * .9); height:calc(var(--table-unit) * .9); }
+#game.is-landscape .table .river::before { top:calc(var(--table-unit) * -2.6); font-size:max(7px,calc(var(--table-unit) * 1.9)); letter-spacing:0; }
+#game.is-landscape .table .river-count { font-size:max(7px,calc(var(--table-unit) * 1.5)); padding:calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .6); }
+#game.is-landscape .table .table-center { left:calc(50% - var(--table-unit) * 9); top:calc(50% - var(--table-unit) * 9); width:calc(var(--table-unit) * 18); height:calc(var(--table-unit) * 18); }
+#game.is-landscape .table .table-center::before { inset:calc(var(--table-unit) * .8); }
+#game.is-landscape .table .wall-counter { inset:calc(var(--table-unit) * 3.9); font-size:calc(var(--table-unit) * 1.7); }
+#game.is-landscape .table .wall-counter strong { font-size:calc(var(--table-unit) * 5.6); }
+#game.is-landscape .table .wall-unit { font-size:calc(var(--table-unit) * 1.4)!important; }
+.is-landscape .direction { width:calc(var(--table-unit) * 4); height:calc(var(--table-unit) * 4); font-size:calc(var(--table-unit) * 2.6); }
+.is-landscape .direction-n { top:calc(var(--table-unit) * .5); left:calc(50% - var(--table-unit) * 2); }
+.is-landscape .direction-s { bottom:calc(var(--table-unit) * .5); left:calc(50% - var(--table-unit) * 2); }
+.is-landscape .direction-w { left:calc(var(--table-unit) * .5); top:calc(50% - var(--table-unit) * 2); }
+.is-landscape .direction-e { right:calc(var(--table-unit) * .5); top:calc(50% - var(--table-unit) * 2); }
+.is-landscape .direction-n.active::after { top:calc(var(--table-unit) * -1); }
+.is-landscape .direction-s.active::after { bottom:calc(var(--table-unit) * -1); }
+.is-landscape .direction-w.active::after { left:calc(var(--table-unit) * -1); }
+.is-landscape .direction-e.active::after { right:calc(var(--table-unit) * -1); }
+.is-landscape .wall-tail-heading { left:calc(50% - var(--table-unit) * 11.5); top:calc(50% + var(--table-unit) * 11); width:calc(var(--table-unit) * 23); }
+.is-landscape .wall-tail-meta { gap:calc(var(--table-unit) * .55); min-height:calc(var(--table-unit) * 2.3); }
+.is-landscape .wall-die { flex-basis:calc(var(--table-unit) * 2.3); width:calc(var(--table-unit) * 2.3); height:calc(var(--table-unit) * 2.3); font-size:calc(var(--table-unit) * 1.8); border-radius:calc(var(--table-unit) * .4); }
+.is-landscape .wall-indicator-position { font-size:max(6px,calc(var(--table-unit) * 1.55)); }
+.is-landscape .seat-action-notice { width:calc(var(--table-unit) * 6); height:calc(var(--table-unit) * 6); font-size:calc(var(--table-unit) * 5.6); }
+
+/* A broad hand strip has its own tile scale. Public groups stay to its left,
+   with the incoming tile and all existing pointer targets kept intact. */
+.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { top:auto; bottom:7.5%; left:12%; width:78%; }
+.is-landscape .hand-heading,.is-landscape .hand-zone.has-melds .hand-heading { margin-bottom:calc(var(--ui-unit) * .4); transform:none; font-size:calc(var(--ui-unit) * 2.6); }
+.is-landscape .hand-heading>span { gap:calc(var(--ui-unit) * 1); }
+.is-landscape .hand-heading small { font-size:calc(var(--ui-unit) * 2.2); }
+.is-landscape .my-seat { width:calc(var(--ui-unit) * 3.6); height:calc(var(--ui-unit) * 3.6); font-size:calc(var(--ui-unit) * 2.5); border-radius:calc(var(--ui-unit) * .7); }
+.is-landscape .hint-button { font-size:calc(var(--ui-unit) * 2.5); min-height:calc(var(--ui-unit) * 4); gap:calc(var(--ui-unit) * .5); }
+.is-landscape .hint-button svg { width:calc(var(--ui-unit) * 3); height:calc(var(--ui-unit) * 3); }
+.is-landscape .hand-zone .player-rack,.is-landscape .hand-zone.has-melds .player-rack { display:flex; flex-direction:row; align-items:flex-end; gap:calc(var(--ui-unit) * 1); pointer-events:none; }
+.is-landscape .hand { width:auto; flex:1; min-width:0; height:calc(var(--ui-unit) * 13); gap:calc(var(--ui-unit) * .5); padding:calc(var(--ui-unit) * 1.1) calc(var(--ui-unit) * .6) 0; }
+.is-landscape .hand .tile { width:var(--hand-width); height:var(--hand-height); pointer-events:auto; }
+.is-landscape .hand .tile.drawn { margin-left:calc(var(--ui-unit) * 1.5); }
+.is-landscape .hand .tile.selected { transform:translateY(calc(var(--ui-unit) * -1.9)); outline-width:calc(var(--ui-unit) * .32); outline-offset:calc(var(--ui-unit) * .1); }
+.is-landscape .hand .tile.hinted { outline-width:calc(var(--ui-unit) * .4); outline-offset:calc(var(--ui-unit) * .12); }
+.is-landscape .hand::before { left:calc(var(--ui-unit) * -.45); right:calc(var(--ui-unit) * -.45); bottom:calc(var(--ui-unit) * -.55); height:calc(var(--ui-unit) * 1.15); border-radius:calc(var(--ui-unit) * .5); }
+.is-landscape .tile-name { bottom:calc(var(--ui-unit) * -2.2); font-size:calc(var(--ui-unit) * 1.7); }
+.is-landscape .hand-instruction,.is-landscape .hand-zone.has-melds .hand-instruction { display:none; }
+.is-landscape .hand-zone .player-rack .my-melds { flex:none; width:auto; max-width:39%; height:calc(var(--ui-unit) * 13); min-height:0; padding:calc(var(--ui-unit) * 2.2) 0 calc(var(--ui-unit) * .15); gap:calc(var(--ui-unit) * 2.3) calc(var(--ui-unit) * .7); flex-wrap:wrap; align-content:flex-end; justify-content:flex-start; }
+.is-landscape .player-rack .my-melds .tile { --tile-depth:calc(var(--ui-unit) * .4); --tile-side:calc(var(--ui-unit) * .14); }
+.is-landscape .player-rack .meld-label { bottom:calc(100% + var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.8); }
+.is-landscape .wild-marker,.is-landscape .red-kong-marker { top:calc(var(--ui-unit) * -.25); left:calc(var(--ui-unit) * -.2); min-width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.4); padding:0 calc(var(--ui-unit) * .15); border-radius:calc(var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.7); }
+.is-landscape .turn-message { top:69%; left:12%; width:32%; justify-content:flex-start; gap:calc(var(--ui-unit) * 1); font-size:calc(var(--ui-unit) * 2.7); letter-spacing:0; }
+.is-landscape #turn-text { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.is-landscape .turn-dot { width:calc(var(--ui-unit) * 1.3); height:calc(var(--ui-unit) * 1.3); }
+.is-landscape .last-event { top:73%; left:12%; width:32%; padding:0; text-align:left; font-size:calc(var(--ui-unit) * 2.05); letter-spacing:0; }
+.is-landscape .action-zone { top:67%; left:auto; right:24%; width:auto; max-width:48%; }
+.is-landscape .action-heading { display:none; }
+.is-landscape .action-buttons { gap:calc(var(--ui-unit) * 1.4); }
+.is-landscape .action-button { flex:0 0 calc(var(--ui-unit) * 9.6); width:calc(var(--ui-unit) * 9.6); height:calc(var(--ui-unit) * 9.4); border-radius:calc(var(--ui-unit) * 1.7); gap:calc(var(--ui-unit) * .2); }
+.is-landscape .action-button>span { font-size:calc(var(--ui-unit) * 5.3); }
+.is-landscape .action-button small { font-size:calc(var(--ui-unit) * 1.5); letter-spacing:calc(var(--ui-unit) * .2); }
+.is-landscape .bottom-bar { bottom:1%; left:2%; width:96%; font-size:calc(var(--ui-unit) * 2.1); }
+.is-landscape .bottom-bar button,.is-landscape .connection { font-size:calc(var(--ui-unit) * 2.1); gap:calc(var(--ui-unit) * .6); letter-spacing:0; }
+.is-landscape .bottom-bar button { padding:calc(var(--ui-unit) * .8) 0; }
+.is-landscape .bottom-bar svg { width:calc(var(--ui-unit) * 2.8); height:calc(var(--ui-unit) * 2.8); }
+.is-landscape .connection i { width:calc(var(--ui-unit) * .9); height:calc(var(--ui-unit) * .9); }
+.is-landscape .toast { top:64%; padding:calc(var(--ui-unit) * 1.6) calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 1.5); font-size:calc(var(--ui-unit) * 2.8); }
+
+/* showModal() promotes a dialog to the top layer, outside the main transform.
+   Rotate and centre it independently so its text and pointer targets match the
+   landscape game even when a mobile browser declines native orientation lock. */
+html.in-room .modal {
+  --dialog-unit:calc(var(--stage-height) / 100);
+  position:fixed;
+  inset:auto;
+  left:var(--stage-center-x);
+  top:var(--stage-center-y);
+  transform:translate(-50%,-50%);
+  transform-origin:center;
+  width:min(calc(var(--stage-width) * .84),800px);
+  max-width:none;
+  max-height:calc(var(--stage-height) * .94);
+  margin:0;
+  padding:calc(var(--dialog-unit) * 4) calc(var(--dialog-unit) * 5);
+  border-radius:calc(var(--dialog-unit) * 3);
+  font-size:clamp(12px,calc(var(--dialog-unit) * 2.7),18px);
+  line-height:1.5;
+  overscroll-behavior:contain;
+}
+html.in-room.landscape-rotated .modal { transform:translate(-50%,-50%) rotate(90deg); }
+html.in-room .modal-close { top:calc(var(--dialog-unit) * 2.5); right:calc(var(--dialog-unit) * 2.5); width:calc(var(--dialog-unit) * 8); height:calc(var(--dialog-unit) * 8); }
+html.in-room .modal-close svg { width:calc(var(--dialog-unit) * 4); height:calc(var(--dialog-unit) * 4); }
+html.in-room .modal-eyebrow { font-size:clamp(9px,calc(var(--dialog-unit) * 1.9),13px); letter-spacing:calc(var(--dialog-unit) * .3); }
+html.in-room .modal h2 { font-size:clamp(24px,calc(var(--dialog-unit) * 5.6),40px); margin:calc(var(--dialog-unit) * 1.5) 0; }
+html.in-room .modal .modal-lead { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); line-height:1.6; margin:calc(var(--dialog-unit) * 1.5) 0 calc(var(--dialog-unit) * 2.5); }
+html.in-room .modal .primary-button,html.in-room .modal .secondary-button { min-height:calc(var(--dialog-unit) * 9); padding:calc(var(--dialog-unit) * 1.4) calc(var(--dialog-unit) * 2); font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); border-radius:calc(var(--dialog-unit) * 1.5); margin-top:calc(var(--dialog-unit) * 2); }
+html.in-room .rules-list p { padding:calc(var(--dialog-unit) * 2) 0; gap:calc(var(--dialog-unit) * 2.5); }
+html.in-room .rules-list b { width:calc(var(--dialog-unit) * 10); }
+html.in-room .rules-list span { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
+html.in-room .rule-note { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),16px); }
+html.in-room .setting-row { padding:calc(var(--dialog-unit) * 3) 0; gap:calc(var(--dialog-unit) * 2); }
+html.in-room .setting-row>span { gap:calc(var(--dialog-unit) * 1); }
+html.in-room .setting-row b { font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); }
+html.in-room .setting-row small { font-size:clamp(11px,calc(var(--dialog-unit) * 2.3),17px); }
+html.in-room .setting-row input { width:calc(var(--dialog-unit) * 5); height:calc(var(--dialog-unit) * 5); }
+html.in-room .choice-option { padding:calc(var(--dialog-unit) * 1.8); gap:calc(var(--dialog-unit) * .6); margin:calc(var(--dialog-unit) * 1.5) 0; border-radius:calc(var(--dialog-unit) * 1.5); }
+html.in-room .choice-option .tile { width:calc(var(--dialog-unit) * 9); height:calc(var(--dialog-unit) * 12.6); --tile-depth:calc(var(--dialog-unit) * .8); --tile-side:calc(var(--dialog-unit) * .25); }
+html.in-room .choice-option>span:last-child { margin-left:calc(var(--dialog-unit) * 3); font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
+html.in-room .history-tiles { grid-template-columns:repeat(12,1fr); gap:calc(var(--dialog-unit) * .8); margin:calc(var(--dialog-unit) * 2) 0; }
+html.in-room .history-tiles .tile { --tile-depth:calc(var(--dialog-unit) * .5); --tile-side:calc(var(--dialog-unit) * .16); }
+html.in-room .result-avatar { width:calc(var(--dialog-unit) * 15); height:calc(var(--dialog-unit) * 15); margin:calc(var(--dialog-unit) * 1.5) auto; }
+html.in-room .result-hand { margin:calc(var(--dialog-unit) * 2) 0; gap:calc(var(--dialog-unit) * .6); }
+html.in-room .result-hand .tile { width:calc(var(--dialog-unit) * 5.4); height:calc(var(--dialog-unit) * 7.6); --tile-depth:calc(var(--dialog-unit) * .4); --tile-side:calc(var(--dialog-unit) * .14); }
+html.in-room .result-scores { margin-top:calc(var(--dialog-unit) * 2); display:grid; grid-template-columns:1fr 1fr; column-gap:calc(var(--dialog-unit) * 4); }
+html.in-room .result-score-row { padding:calc(var(--dialog-unit) * 1.2) 0; font-size:clamp(12px,calc(var(--dialog-unit) * 2.5),18px); }
+html.in-room .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2); }
+
+/* A compact two-column room lobby fits the same horizontal surface. The full
+   four-seat list and start/ready controls are visible together on small phones. */
+html.in-room .room-modal { width:min(calc(var(--stage-width) * .94),1000px); padding:calc(var(--dialog-unit) * 3) calc(var(--dialog-unit) * 4); scrollbar-gutter:auto; }
+html.in-room .room-modal .modal-eyebrow { font-size:clamp(9px,calc(var(--dialog-unit) * 1.7),12px); }
+html.in-room .room-modal h2 { font-size:clamp(23px,calc(var(--dialog-unit) * 4.7),36px); margin:2px 0; }
+html.in-room .room-modal .modal-lead { margin:0 0 calc(var(--dialog-unit) * 2); font-size:clamp(11px,calc(var(--dialog-unit) * 2.3),16px); }
+html.in-room #room-waiting { display:grid; grid-template-columns:minmax(0,.82fr) minmax(0,1.45fr); grid-template-rows:auto auto auto; gap:calc(var(--dialog-unit) * 1.5) calc(var(--dialog-unit) * 4); }
+html.in-room #room-waiting[hidden] { display:none!important; }
+html.in-room .room-invite { grid-column:1; grid-row:1; padding:calc(var(--dialog-unit) * 2); border-radius:calc(var(--dialog-unit) * 2); align-self:start; }
+html.in-room .room-invite-label { font-size:clamp(10px,calc(var(--dialog-unit) * 2),14px); }
+html.in-room #room-current-code { font-size:clamp(28px,calc(var(--dialog-unit) * 7.3),48px); letter-spacing:calc(var(--dialog-unit) * 1.3); }
+html.in-room .room-invite .secondary-button { width:auto; min-height:34px; margin:calc(var(--dialog-unit) * 1) auto 0; padding:5px 18px; font-size:clamp(12px,calc(var(--dialog-unit) * 2.2),16px); }
+html.in-room .room-invite small { margin-top:calc(var(--dialog-unit) * 1); font-size:clamp(10px,calc(var(--dialog-unit) * 1.9),14px); }
+html.in-room .room-members { grid-column:2; grid-row:1/3; margin:0; align-self:stretch; display:grid; grid-template-rows:repeat(4,1fr); }
+html.in-room .room-members li { min-height:44px; padding:calc(var(--dialog-unit) * .7) 0; gap:calc(var(--dialog-unit) * 1.5); }
+html.in-room .room-member-seat { width:calc(var(--dialog-unit) * 6); height:calc(var(--dialog-unit) * 6); font-size:calc(var(--dialog-unit) * 4); border-radius:calc(var(--dialog-unit) * 1.5); }
+html.in-room .room-member-name { font-size:clamp(11px,calc(var(--dialog-unit) * 2.5),18px); }
+html.in-room .room-member-state { font-size:clamp(10px,calc(var(--dialog-unit) * 2.1),15px); }
+html.in-room .room-bot-button { min-height:38px; min-width:64px; font-size:clamp(10px,calc(var(--dialog-unit) * 2.2),16px); padding:4px 7px; }
+html.in-room .room-play-controls { grid-column:2; grid-row:3; gap:calc(var(--dialog-unit) * 1.5); }
+html.in-room .room-play-controls>.primary-button,html.in-room .room-play-controls>.secondary-button { margin:0; min-height:40px; }
+html.in-room #room-waiting>.room-note { grid-column:1; grid-row:2; font-size:clamp(10px,calc(var(--dialog-unit) * 2.05),14px); line-height:1.55; margin:0; align-self:start; }
+html.in-room #room-waiting>.room-leave { grid-column:1; grid-row:3; min-height:36px; margin:0; font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),16px); }
+html.in-room .room-status { font-size:clamp(10px,calc(var(--dialog-unit) * 2.05),14px); margin:calc(var(--dialog-unit) * 1.5) 0 0; }
+html.in-room .room-error { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),16px); padding:6px 10px; margin:6px 0 0; }
+
+@media(prefers-reduced-motion:reduce) {
+  .is-landscape,.is-landscape *,html.in-room .modal { transition:none!important; animation:none!important; }
+}

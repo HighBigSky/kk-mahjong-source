@@ -1,0 +1,27 @@
+# Caddy 反向代理示例（有域名之后再启用）
+#
+# 用法：
+#   1. 把你的域名解析到服务器公网 IP（A 记录）
+#   2. 安装 Caddy：apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+#                   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+#                   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+#                   apt update && apt install -y caddy
+#   3. 把下面内容写入 /etc/caddy/Caddyfile（域名换成你的），systemctl reload caddy
+#   4. 编辑 /etc/systemd/system/kk-mahjong.service，加上
+#        Environment=PUBLIC_ORIGIN=https://你的域名
+#      然后 systemctl daemon-reload && systemctl restart kk-mahjong
+#
+# 关键点：flush_interval -1 关闭响应缓冲，否则 SSE 会被攒包，牌桌看起来"一卡一卡"。
+# 证书由 Caddy 自动申请和续期，不需要手动配 Let's Encrypt。
+
+mahjong.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:5173 {
+		flush_interval -1
+	}
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+}
