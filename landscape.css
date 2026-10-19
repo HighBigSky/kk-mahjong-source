@@ -386,10 +386,13 @@ html.in-room .room-error { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),1
   .is-landscape,.is-landscape *,html.in-room .modal { transition:none!important; animation:none!important; }
 }
 
-/* Reference table: the felt fills the stage; only the central playing
-   coordinates are square. No perspective transform touches pointer targets. */
+/* A seated player's view: the whole physical table shares one camera, while
+   the local standing hand and HUD keep their own screen-space hit targets. */
 html.in-room #game.is-landscape {
   --board-size:min(calc(var(--stage-height) * .94),calc(var(--stage-width) - var(--ui-unit) * 32));
+  --table-surface-width:calc(var(--stage-width) * .84);
+  --table-view-distance:calc(var(--stage-height) * 2);
+  --table-view-tilt:32deg;
   --rack-width:min(calc(var(--stage-width) * .82),calc(var(--stage-width) * .872 - var(--ui-unit) * 10.5));
   --hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--ui-unit) * 8) / 14));
   --hand-height:calc(var(--hand-width) * 1.4);
@@ -398,27 +401,15 @@ html.in-room #game.is-landscape {
   --tile-resin-light:#a5ce56;
   --tile-resin:#659b22;
   --tile-resin-dark:#365c12;
-  background:
-    repeating-linear-gradient(28deg,#a7ebdf03 0 1px,transparent 1px 3px),
-    repeating-linear-gradient(118deg,#002d3107 0 1px,transparent 1px 4px),
-    radial-gradient(ellipse at 49% 40%,#17857c 0%,#086c66 49%,#034943 100%);
-  box-shadow:inset 0 0 calc(var(--ui-unit) * 12) #002b2c9c;
+  background:radial-gradient(ellipse at 50% 75%,#31473b,#172a23 58%,#0a1714);
+  box-shadow:inset 0 0 calc(var(--ui-unit) * 12) #020e0b99;
 }
 
-/* Four joined walnut rails follow the existing perspective. The frame is a
-   background layer, leaving seat, wall, river and hand coordinates intact. */
-#game.is-landscape::before {
-  content:"";
-  position:absolute;
-  inset:0;
-  z-index:0;
-  pointer-events:none;
-  background:url("assets/table-wood-frame.svg") center / 100% 100% no-repeat;
-}
+#game.is-landscape::before,
 #game.is-landscape::after { content:none; }
 
 #game.is-landscape .table {
-  top:0;
+  top:calc(var(--ui-unit) * 2);
   left:calc(50% - var(--board-size) / 2);
   width:var(--board-size);
   height:var(--board-size);
@@ -427,20 +418,41 @@ html.in-room #game.is-landscape {
   border-radius:0;
   background:none;
   box-shadow:none;
+  transform-origin:50% 48%;
+  transform:perspective(var(--table-view-distance)) rotateX(var(--table-view-tilt));
 }
-#game.is-landscape .table::before,
+/* The source frame is rectangular; the same projection as the tiles makes
+   its far rail shorter and its near rail wider, with no separate fake skew. */
+#game.is-landscape .table::before {
+  content:"";
+  position:absolute;
+  z-index:-2;
+  top:0;
+  left:calc(50% - var(--table-surface-width) / 2);
+  width:var(--table-surface-width);
+  height:100%;
+  border:1px solid #c69c6370;
+  border-radius:calc(var(--ui-unit) * 3);
+  background:
+    url("assets/table-wood-frame.svg") center / 100% 100% no-repeat,
+    repeating-linear-gradient(28deg,#d9ebcd04 0 1px,transparent 1px 3px),
+    repeating-linear-gradient(118deg,#002c2509 0 1px,transparent 1px 4px),
+    radial-gradient(ellipse at 44% 30%,#24816a,#176451 52%,#0d4437);
+  box-shadow:0 calc(var(--ui-unit) * 2.4) calc(var(--ui-unit) * 4.5) #010b09a6;
+  pointer-events:none;
+}
 #game.is-landscape .table::after { content:none; }
 #game.is-landscape .table-border {
-  inset:calc(var(--table-unit) * 8.4) calc(var(--table-unit) * 7.8) calc(var(--table-unit) * 11.7);
-  border:1px solid #003e3d88;
-  border-radius:calc(var(--table-unit) * .5);
+  inset:7% calc(50% - var(--table-surface-width) * .46) 9%;
+  border:0;
+  border-radius:calc(var(--ui-unit) * 2);
   background:none;
-  box-shadow:inset 0 1px 1px #64c3ae30,0 1px 0 #68c1b126;
+  box-shadow:inset 0 calc(var(--ui-unit) * .6) calc(var(--ui-unit) * 2.4) #031e1759;
 }
 #game.is-landscape .table-border::after {
   content:"";
   position:absolute;
-  inset:12% 4%;
+  inset:15% 24%;
   border:calc(var(--table-unit) * 1.2) double #64b6a60b;
   border-radius:50%;
   pointer-events:none;
@@ -457,8 +469,8 @@ html.in-room #game.is-landscape {
   --public-tile-width:min(calc(var(--table-unit) * 3),calc(var(--table-unit) * 39 / max(14,calc(var(--concealed-count) + var(--special-count) + var(--meld-count) * 4))));
   --public-tile-height:calc(var(--public-tile-width) * 1.4);
 }
-#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--stage-width) * .36); }
-#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--stage-width) * .36); }
+#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--stage-width) * .34); }
+#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--stage-width) * .34); }
 #game.is-landscape .table .wall-stack[data-side="left"] { left:calc(50% - var(--stage-width) * .30); }
 #game.is-landscape .table .wall-stack[data-side="right"] { right:calc(50% - var(--stage-width) * .30); }
 #game.is-landscape .table .wall-stack[data-side="bottom"] {
@@ -539,9 +551,9 @@ html.in-room #game.is-landscape {
   --hand-height:calc(var(--hand-width) * 1.4);
 }
 .is-landscape .hand-zone.has-melds .hand { justify-content:flex-end; }
-.is-landscape .turn-message,.is-landscape .last-event { left:max(calc(var(--ui-unit) * 17),calc(50% - var(--board-size) / 2 - var(--ui-unit) * 13)); right:auto; width:min(12%,calc(50% - var(--board-size) / 2 + var(--table-unit) * 10.4 - var(--ui-unit) * 19)); }
-.is-landscape .turn-message { top:74%; font-size:calc(var(--ui-unit) * 2.4); }
-.is-landscape .last-event { top:79%; font-size:calc(var(--ui-unit) * 1.9); }
+.is-landscape .turn-message,.is-landscape .last-event { right:auto; }
+.is-landscape .turn-message { top:10%; left:28%; width:27%; font-size:calc(var(--ui-unit) * 2.2); }
+.is-landscape .last-event { top:10.3%; left:56%; width:17%; font-size:calc(var(--ui-unit) * 1.8); }
 .is-landscape .action-zone { top:auto; bottom:19%; left:auto; right:2%; width:min(calc(var(--ui-unit) * 24),calc(var(--stage-width) * .105)); transform:none; z-index:5; }
 .is-landscape .action-buttons { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:calc(var(--ui-unit) * 1.3); }
 .is-landscape .action-button { height:calc(var(--ui-unit) * 8.5); gap:0; }
@@ -552,11 +564,12 @@ html.in-room #game.is-landscape {
 
 /* At tablet/desktop ratios the side walls leave a lane for the centre river. */
 html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui-unit) * 5); }
-#game.is-landscape:not(.is-wide) .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 4.65); }
-#game.is-landscape:not(.is-wide) .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 4.65); }
+#game.is-landscape:not(.is-wide) .action-zone { right:1.5%; width:calc(var(--stage-width) * .085); }
+#game.is-landscape:not(.is-wide) .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 6.3); }
+#game.is-landscape:not(.is-wide) .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 6.3); }
 #game.is-landscape:not(.is-wide) .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 8.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); }
-#game.is-landscape:not(.is-wide) .table .opponent-rack-left { left:0; }
-#game.is-landscape:not(.is-wide) .table .opponent-rack-right { right:0; }
+#game.is-landscape:not(.is-wide) .table .opponent-rack-left { left:var(--table-unit); }
+#game.is-landscape:not(.is-wide) .table .opponent-rack-right { right:var(--table-unit); }
 #game.is-landscape:not(.is-wide) .player-seat { width:calc(var(--ui-unit) * 12); }
 #game.is-landscape:not(.is-wide) .seat-top { height:calc(var(--ui-unit) * 16); flex-direction:column; justify-content:center; }
 #game.is-landscape:not(.is-wide) .seat-top .opponent-copy { text-align:center; }
@@ -586,6 +599,8 @@ html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui
 #game.is-landscape:not(.is-wide) .top-tools .connection { position:absolute; right:0; top:calc(var(--ui-unit) * 11.5); padding:0 calc(var(--ui-unit) * 1.5); }
 
 /* Smaller river faces open a clear lane around the square compass. */
+#game.is-landscape .table .river-left { left:calc(var(--table-unit) * 11.2); }
+#game.is-landscape .table .river-right { right:calc(var(--table-unit) * 11.2); }
 #game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { grid-template-columns:repeat(6,calc(var(--table-unit) * 4.6)); grid-auto-rows:calc(var(--table-unit) * 6.44); max-height:calc(var(--table-unit) * 13.38); }
 #game.is-landscape .table .river-left,#game.is-landscape .table .river-right { grid-template-columns:repeat(3,calc(var(--table-unit) * 4.6)); grid-auto-rows:calc(var(--table-unit) * 6.44); max-height:calc(var(--table-unit) * 13.38); }
 #game.is-landscape .table .river-top { top:calc(var(--table-unit) * 12); }

@@ -494,7 +494,9 @@ function interactionChanged() {
 
 // Keep the word on the actual concealed hand's centreline, facing the felt.
 // Public combinations can move that hand within its rack, so table percentages
-// cannot describe its position. Layout reads happen only on renders/resizes.
+// cannot describe its position. Notices live on the flat stage HUD, so projected
+// card bounds are measured once without applying the table perspective again.
+// Layout reads happen only on renders/resizes.
 function positionActionNotice() {
   const element = document.querySelector('.seat-action-notice:not([hidden])');
   if (!element) return;
@@ -525,7 +527,6 @@ function positionActionNotice() {
   const edge = player === 0 ? rect($('.hand-zone')).top
     : forward > 0 ? Math.max(...cards.map(card => card[axisEnd])) : Math.min(...cards.map(card => card[axisStart]));
   const board = {left:0, top:0, right:stage.clientWidth, bottom:stage.clientHeight};
-  const table = rect($('.table'));
   element.style.removeProperty('width');
   element.style.removeProperty('height');
   element.style.removeProperty('font-size');
@@ -547,30 +548,36 @@ function positionActionNotice() {
   // A crowded river can leave only a narrow lane in front of its wall. Prefer
   // the large word, then reduce it within that same centreline rather than
   // drifting to a different player's corner or covering physical tiles.
-  for (let size = preferredSize; size >= 2 * unit - .01 && !placement; size -= .25 * unit) {
-    let distance = gap;
-    const crossLow = centre - size / 2;
-    const crossHigh = centre + size / 2;
-    for (let attempts = 0; attempts <= obstacles.length; attempts++) {
-      const low = forward > 0 ? edge + distance : edge - distance - size;
-      const high = low + size;
-      if (distance + size > (player === 0 ? 16 : 23) * unit) break;
-      const collision = obstacles.find(area => area[crossEnd] > crossLow + .1 && area[crossStart] < crossHigh - .1
-        && area[axisEnd] + gap > low && area[axisStart] - gap < high);
-      if (collision) {
-        distance = forward > 0 ? collision[axisEnd] + gap - edge : edge - collision[axisStart] + gap;
-        continue;
+  const availableDistance = forward > 0 ? board[axisEnd] - edge : edge - board[axisStart];
+  // Full public racks can put the local hand behind a side rack and an action
+  // button. Keep the nearby lane first, then continue along the same centreline
+  // instead of leaving a previous viewport's coordinates when that lane fills.
+  for (const distanceLimit of [(player === 0 ? 16 : 23) * unit, availableDistance]) {
+    for (let size = preferredSize; size >= 2 * unit - .01 && !placement; size -= .25 * unit) {
+      let distance = gap;
+      const crossLow = centre - size / 2;
+      const crossHigh = centre + size / 2;
+      for (let attempts = 0; attempts <= obstacles.length; attempts++) {
+        const low = forward > 0 ? edge + distance : edge - distance - size;
+        const high = low + size;
+        if (distance + size > distanceLimit) break;
+        const collision = obstacles.find(area => area[crossEnd] > crossLow + .1 && area[crossStart] < crossHigh - .1
+          && area[axisEnd] + gap > low && area[axisStart] - gap < high);
+        if (collision) {
+          distance = forward > 0 ? collision[axisEnd] + gap - edge : edge - collision[axisStart] + gap;
+          continue;
+        }
+        const left = horizontal ? crossLow : low;
+        const top = horizontal ? low : crossLow;
+        if (left >= board.left && top >= board.top && left + size <= board.right && top + size <= board.bottom) placement = {left, top, size};
+        break;
       }
-      const left = horizontal ? crossLow : low;
-      const top = horizontal ? low : crossLow;
-      if (left >= board.left && top >= board.top && left + size <= board.right && top + size <= board.bottom) placement = {left, top, size};
-      break;
     }
+    if (placement) break;
   }
   if (!placement) return;
-  // The existing nodes stay in the table; include its border in the conversion.
-  element.style.left = `${placement.left - table.left - $('.table').clientLeft}px`;
-  element.style.top = `${placement.top - table.top - $('.table').clientTop}px`;
+  element.style.left = `${placement.left - stage.clientLeft}px`;
+  element.style.top = `${placement.top - stage.clientTop}px`;
   element.style.width = element.style.height = `${placement.size}px`;
   element.style.fontSize = `${placement.size * .93}px`;
 }

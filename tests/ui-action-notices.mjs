@@ -146,7 +146,7 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
         if(Number.isFinite(top)&&height>0&&area.right>area.left)areas.push({...area,top,bottom:top+height,area:`${river.id}::before`});
       }
       const collisions=note?areas.filter(area=>Math.min(note.right,area.right)-Math.max(note.left,area.left)>.5&&Math.min(note.bottom,area.bottom)-Math.max(note.top,area.top)>.5):[];
-      return {note,screenNote:element&&screenRect(element),anchor,player,handCount:cards.length,collisions,rotated,landscape:game.clientWidth>game.clientHeight,pointerEvents:element&&getComputedStyle(element).pointerEvents};
+      return {note,screenNote:element&&screenRect(element),anchor,player,handCount:cards.length,collisions,rotated,landscape:game.clientWidth>game.clientHeight,pointerEvents:element&&getComputedStyle(element).pointerEvents,hudLayer:element?.parentElement===game};
     });
     const context=JSON.stringify({label,viewport,viewer,data});
     assert.ok(data.note,`${label} notice visible for viewer ${viewer}`);
@@ -154,7 +154,8 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
     assert.equal(data.player,(actor-viewer+4)%4,'notice is anchored to the acting relative seat');
     assert.equal(data.landscape,true,'in-room game surface must remain landscape');
     assert.equal(data.rotated,viewport.height>viewport.width,'physical portrait viewport uses the landscape rotation fallback');
-    assert.ok(data.screenNote.left>=0&&data.screenNote.right<=viewport.width+1&&data.screenNote.top>=0&&data.screenNote.bottom<=viewport.height+1,'notice remains inside the physical screen');
+    assert.equal(data.hudLayer,true,'notice uses the flat stage HUD so projected card coordinates are not transformed twice');
+    assert.ok(data.screenNote.left>=0&&data.screenNote.right<=viewport.width+1&&data.screenNote.top>=0&&data.screenNote.bottom<=viewport.height+1,`notice remains inside the physical screen: ${context}`);
     const horizontal=data.player===0||data.player===2;
     const centreError=Math.abs(horizontal?(data.note.left+data.note.right-data.anchor.left-data.anchor.right)/2:(data.note.top+data.note.bottom-data.anchor.top-data.anchor.bottom)/2);
     assert.ok(centreError<=1,`notice is centred on the actual concealed hand, not the rack or table: ${context}`);
