@@ -1,117 +1,102 @@
 // @ts-check
 
-/**
- * Native direction locking is optional in browsers. The CSS stage always uses
- * landscape dimensions in a room, including on devices that reject the lock.
+/** One landscape game canvas; entry and waiting rooms keep the portrait lobby.
+ * Direction only controls the phone guide, never the game's layout or route.
  * @param {{onLayout?: () => void}} [options]
- * @returns {{setInRoom: (value: boolean) => void, prepareEntry: () => void, finishEntry: (joined: boolean) => void}}
  */
 export function createRoomOrientation({onLayout = () => {}} = {}) {
   const root = document.documentElement;
   const stage = document.getElementById('game');
-  let inRoom = false;
+  const guide = /** @type {HTMLDialogElement} */ (document.getElementById('rotate-guide'));
+  const phone = matchMedia('(pointer:coarse)');
+  const portrait = matchMedia('(orientation:portrait)');
+  let status = '';
+  let lobby = false;
+  let inGame = false;
   let entryPending = false;
   let ownsFullscreen = false;
   let ownsLock = false;
   let locking = false;
 
-  for (const side of ['top', 'right', 'bottom', 'left']) {
-    root.style.setProperty(`--device-safe-${side}`, `env(safe-area-inset-${side}, 0px)`);
-  }
-
-  /** @returns {void} */
-  function layout() {
-    const viewport = window.visualViewport;
-    const width = viewport?.width || window.innerWidth;
-    const height = viewport?.height || window.innerHeight;
-    const style = getComputedStyle(root);
-    const safe = Object.fromEntries(['top', 'right', 'bottom', 'left'].map(side => [side, parseFloat(style.getPropertyValue(`--device-safe-${side}`)) || 0]));
-    const availableWidth = Math.max(1, width - safe.left - safe.right);
-    const availableHeight = Math.max(1, height - safe.top - safe.bottom);
-    const rotated = inRoom && availableHeight > availableWidth;
-    root.classList.toggle('in-room', inRoom);
-    root.classList.toggle('landscape-rotated', rotated);
-    stage?.classList.toggle('is-landscape', inRoom);
-    // Use the rotated stage ratio as well when the device remains portrait.
-    stage?.classList.toggle('is-wide', inRoom && Math.max(availableWidth, availableHeight) / Math.min(availableWidth, availableHeight) >= 1.72);
-    root.style.setProperty('--stage-width', `${Math.max(availableWidth, availableHeight)}px`);
-    root.style.setProperty('--stage-height', `${Math.min(availableWidth, availableHeight)}px`);
-    root.style.setProperty('--stage-center-x', `${(viewport?.offsetLeft || 0) + safe.left + availableWidth / 2}px`);
-    root.style.setProperty('--stage-center-y', `${(viewport?.offsetTop || 0) + safe.top + availableHeight / 2}px`);
+  function refresh() {
+    const needsGuide = inGame && phone.matches && portrait.matches;
+    if (needsGuide) {
+      if (guide.open && document.querySelector('dialog[open]:not(#rotate-guide)')) guide.close();
+      if (!guide.open) guide.showModal();
+    } else if (guide.open) guide.close();
     onLayout();
   }
 
-  /** @returns {Promise<void>} */
-  async function releaseFullscreen() {
+  async function releaseScreen() {
+    if (ownsLock) {
+      try { screen.orientation?.unlock(); } catch { /* Optional browser API. */ }
+      ownsLock = false;
+    }
     if (ownsFullscreen && document.fullscreenElement === root) {
-      try { await document.exitFullscreen(); } catch { /* CSS layout remains available. */ }
+      try { await document.exitFullscreen(); } catch { /* Optional browser API. */ }
     }
     ownsFullscreen = false;
   }
 
-  /** @returns {Promise<void>} */
   async function lockLandscape() {
     const orientation = /** @type {ScreenOrientation & {lock?: (value: string) => Promise<void>}} */ (screen.orientation);
-    if (!inRoom || locking || !orientation?.lock) return;
+    if (!inGame || !phone.matches || locking || !orientation?.lock) return;
     locking = true;
     try {
       await orientation.lock('landscape');
       ownsLock = true;
-      if (!inRoom) { orientation.unlock(); ownsLock = false; }
-    } catch { /* iOS and ordinary tabs use the rotated CSS stage. */ }
-    finally { locking = false; layout(); }
+      if (!inGame) { orientation.unlock(); ownsLock = false; }
+    } catch { /* The visible guide handles browsers that cannot lock. */ }
+    finally { locking = false; refresh(); }
   }
 
-  /** @param {boolean} value @returns {void} */
-  function setInRoom(value) {
-    const changed = inRoom !== value;
-    inRoom = value;
-    if (inRoom) entryPending = false;
-    layout();
-    if (!changed) return;
-    if (inRoom) void lockLandscape();
-    else {
-      if (ownsLock) {
-        try { screen.orientation?.unlock(); } catch { /* Some browsers omit unlocking. */ }
-        ownsLock = false;
-      }
-      void releaseFullscreen();
-    }
+  function updateRoute() {
+    const previous = inGame;
+    inGame = !lobby && ['dealing', 'playing', 'ended'].includes(status);
+    root.classList.toggle('in-game', inGame);
+    stage?.classList.toggle('is-landscape', inGame);
+    refresh();
+    if (previous === inGame) return;
+    if (inGame) void lockLandscape();
+    else if (!entryPending) void releaseScreen();
   }
 
-  /** Request fullscreen inside the create/join gesture, before its HTTP await.
-   * @returns {void}
-   */
-  function prepareEntry() {
+  /** @param {string | null | undefined} value */
+  function setRoomState(value) {
+    if (!['dealing', 'playing', 'ended'].includes(status)) lobby = false;
+    status = value || '';
+    updateRoute();
+  }
+
+  /** Request fullscreen in the start/return gesture, before its HTTP await. */
+  function prepareGameEntry() {
+    if (!phone.matches) return;
     entryPending = true;
-    const touchDevice = navigator.maxTouchPoints > 0 || matchMedia('(pointer:coarse)').matches;
-    if (!touchDevice || document.fullscreenElement || !root.requestFullscreen) return;
+    if (document.fullscreenElement || !root.requestFullscreen) return;
     try {
       void root.requestFullscreen({navigationUI:'hide'}).then(() => {
         ownsFullscreen = document.fullscreenElement === root;
-        if (inRoom) void lockLandscape();
-        else if (!entryPending) void releaseFullscreen();
-      }).catch(() => { /* Unsupported fullscreen does not block joining. */ });
-    } catch { /* The fullscreen method can also throw synchronously. */ }
+        if (inGame) void lockLandscape();
+        else if (!entryPending) void releaseScreen();
+      }).catch(() => { /* The guide remains available without fullscreen. */ });
+    } catch { /* Some browsers throw synchronously. */ }
   }
 
-  window.addEventListener('resize', layout);
-  window.visualViewport?.addEventListener('resize', layout);
-  window.visualViewport?.addEventListener('scroll', layout);
-  screen.orientation?.addEventListener('change', layout);
+  window.addEventListener('resize', refresh);
+  portrait.addEventListener('change', refresh);
+  phone.addEventListener('change', refresh);
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement) ownsFullscreen = false;
-    layout();
-    if (inRoom && document.fullscreenElement) void lockLandscape();
+    refresh();
+    if (inGame && document.fullscreenElement) void lockLandscape();
   });
-  layout();
+  guide.addEventListener('cancel', event => { if (inGame && phone.matches && portrait.matches) event.preventDefault(); });
+  refresh();
   return {
-    setInRoom,
-    prepareEntry,
-    finishEntry(joined) {
-      entryPending = false;
-      setInRoom(joined);
-      if (!joined) void releaseFullscreen();
-    },
+    setRoomState, prepareGameEntry, refresh,
+    /** @param {boolean} value */
+    setLobby(value) { lobby = value; updateRoute(); },
+    /** @param {string | null | undefined} value */
+    finishGameEntry(value) { entryPending = false; setRoomState(value); if (!inGame) void releaseScreen(); },
   };
 }

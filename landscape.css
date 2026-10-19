@@ -1,8 +1,16 @@
-/* A room has a landscape playing surface. The entry screen keeps its original
-   portrait layout. stage-* values come from the viewport orientation adapter;
-   they describe the usable landscape surface after device safe areas. */
-html.in-room,
-html.in-room body {
+/* One landscape layout: fill wide screens, contain the canvas in tall windows. */
+html.in-game {
+  --screen-width:calc(100dvw - env(safe-area-inset-left) - env(safe-area-inset-right));
+  --screen-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  --stage-width:var(--screen-width);
+  --stage-height:min(var(--screen-height),calc(var(--screen-width) * 9 / 16));
+  --stage-center-x:calc(env(safe-area-inset-left) + var(--screen-width) / 2);
+  --stage-center-y:calc(env(safe-area-inset-top) + var(--screen-height) / 2);
+}
+
+html:not(.in-game) #game > :not(dialog) { display:none!important; }
+html.in-game,
+html.in-game body {
   width:100%;
   height:100%;
   min-height:0;
@@ -10,22 +18,19 @@ html.in-room body {
   overscroll-behavior:none;
 }
 
-html.in-room,
-html.in-room body,
-html.in-room #game.is-landscape {
+html.in-game,
+html.in-game body,
+html.in-game #game.is-landscape {
   /* A selected/discarded tile can expose the rack beneath the next tap.
      Cover the full room so rapid taps never become browser double-tap zoom. */
   touch-action:manipulation;
 }
 
-html.in-room body { padding:0; }
+html.in-game body { padding:0; }
 
-html.in-room #game.is-landscape {
+html.in-game #game.is-landscape {
   --ui-unit:calc(var(--stage-height) / 100);
   --seat-avatar-size:calc(var(--ui-unit) * 7);
-  /* 横屏四方牌桌：以高度为基准取正方形，横向居中。
-     重做后桌宽 0.88 个舞台高度、下缘几乎贴到屏幕底部，自己的手牌压在牌桌下沿，
-     牌面比 0.75 版再放大 ~17%，观感向手游麻将靠拢。 */
   --board-size:calc(var(--stage-height) * .88);
   --board-width:var(--board-size);
   --board-height:var(--board-size);
@@ -50,7 +55,6 @@ html.in-room #game.is-landscape {
   --felt-thread-step:calc(var(--ui-unit) * .24);
   --compass-rim:calc(var(--table-unit) * .65);
   --compass-pointer:calc(var(--table-unit) * .65);
-  /* 三家暗手与对手副露：2.4×3.35 → 2.8×3.9 单位（+17%）。 */
   --public-tile-width:calc(var(--table-unit) * 2.8);
   --public-tile-height:calc(var(--table-unit) * 3.9);
   --public-tile-gap:calc(var(--table-unit) * .1);
@@ -77,9 +81,6 @@ html.in-room #game.is-landscape {
   font-size:calc(var(--ui-unit) * 3);
 }
 
-html.in-room.landscape-rotated #game.is-landscape {
-  transform:translate(-50%,-50%) rotate(90deg);
-}
 
 .is-landscape .topbar { top:1.4%; left:2%; right:2%; height:10.4%; }
 .is-landscape .top-left { gap:calc(var(--ui-unit) * 1.4); }
@@ -193,8 +194,6 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .opponent-rack .back::before { inset:calc(var(--table-unit) * .35) calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .28); }
 .is-landscape .opponent-rack .wild-marker { display:none; }
 #game.is-landscape .table .wall-stack[data-side="bottom"] { left:calc(var(--table-unit) * 10.4 + var(--wall-stack-index) * var(--wall-horizontal-step)); bottom:calc(var(--table-unit) * 1.65); }
-/* 下方牌墙让位给手牌：手牌压在牌桌下沿，下边这一排牌墙不再画（余牌数在顶栏）。 */
-#game.is-landscape .table .wall-stack[data-side="bottom"] { display:none; }
 #game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); top:calc(var(--table-unit) * 5.4); }
 #game.is-landscape .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + var(--wall-stack-index) * var(--wall-stack-step)); }
 #game.is-landscape .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + (16 - var(--wall-stack-index)) * var(--wall-stack-step)); }
@@ -209,37 +208,51 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .wall-stack[data-side="left"] .wall-piece.tile svg,.is-landscape .wall-stack[data-side="right"] .wall-piece.tile svg { width:calc(var(--wall-piece-width) - var(--table-unit) * .25); height:calc(var(--wall-piece-height) - var(--table-unit) * .08); }
 
 #game.is-landscape .table .river {
-  --river-tile-width:calc(var(--table-unit) * 4);
-  --river-tile-height:calc(var(--table-unit) * 5.6);
+  position:absolute;
+  display:grid;
+  cursor:pointer;
+  --river-columns:9;
+  --river-rows:4;
+  --river-gap:calc(var(--table-unit) * .25);
+  --river-cell-width-factor:1;
+  --river-cell-height-factor:calc(5 / 7);
+  --river-tile-width:min(calc((100cqw - var(--river-gap) * (var(--river-columns) - 1)) / var(--river-columns) * var(--river-cell-width-factor)),calc((100cqh - var(--river-gap) * (var(--river-rows) - 1)) / var(--river-rows) * var(--river-cell-height-factor)));
   --river-tile-turn:0deg;
-  gap:calc(var(--table-unit) * .5);
-  min-height:var(--river-tile-height);
+  container-type:size;
+  grid-template-columns:repeat(var(--river-columns),minmax(0,1fr));
+  grid-template-rows:repeat(var(--river-rows),minmax(0,1fr));
+  grid-auto-rows:0;
+  gap:var(--river-gap);
+  min-width:0;
+  min-height:0;
+  max-height:none;
+  overflow:visible;
+  padding:0;
+  align-content:stretch;
   place-items:center;
 }
-/* 牌河维持 5:7 的实体牌比例，较上版 4.6×6.44 同比缩小约 13%。
-   上下 6×2、左右 2×3；侧家格子交换长短边，完整牌身旋转后仍在格内。 */
-#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:18%; width:64%; grid-template-columns:repeat(6,var(--river-tile-width)); grid-auto-rows:var(--river-tile-height); max-height:calc(var(--river-tile-height) * 2 + var(--table-unit) * .5); }
-#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 12); --river-tile-turn:180deg; }
-#game.is-landscape .table .river-bottom { bottom:calc(var(--table-unit) * 13.1); }
-/* 牌桌加大后四边牌河与牌墙、手牌之间只剩几像素，计数文字无处安放：横屏统一不显示，
-   张数仍在 aria-label 与点开牌河的记录里。 */
+/* 单家留河至多 27 张，固定 9×4（侧家 4×9）为吃碰杠与补牌留余量。
+   容器尺寸固定，牌宽取格子宽/高可容纳的最小值；增添弃牌不会重新分行。 */
+#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:20%; width:60%; height:calc(var(--table-unit) * 14.5); }
+#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 10.3); --river-tile-turn:180deg; }
+#game.is-landscape .table .river-bottom { top:calc(var(--table-unit) * 42); bottom:auto; }
+/* 张数仍可由无障碍标签与出牌记录读取，不在桌内挤占格子。 */
 #game.is-landscape .table .river::before { display:none; }
 #game.is-landscape .table .river .tile {
   width:var(--river-tile-width);
-  height:var(--river-tile-height);
-  --tile-depth:calc(var(--table-unit) * .42);
-  --tile-side:calc(var(--table-unit) * .156);
-  border-radius:calc(var(--table-unit) * .48);
+  height:auto;
+  aspect-ratio:5 / 7;
+  min-width:0;
+  min-height:0;
+  --tile-depth:calc(var(--table-unit) * .2);
+  --tile-side:calc(var(--table-unit) * .075);
+  border-radius:calc(var(--table-unit) * .25);
   transform:rotate(var(--river-tile-turn));
   transform-origin:center;
 }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:calc(var(--table-unit) * 26); transform:none; width:auto; grid-template-columns:repeat(2,var(--river-tile-height)); grid-auto-rows:var(--river-tile-width); max-height:calc(var(--river-tile-width) * 3 + var(--table-unit)); }
-#game.is-landscape .table .river-left { left:calc(var(--table-unit) * 11.2); --river-tile-turn:90deg; }
-#game.is-landscape .table .river-right { right:calc(var(--table-unit) * 11.2); --river-tile-turn:-90deg; }
-#game.is-landscape .table .river .tile.last-discard { outline-width:calc(var(--table-unit) * .28); outline-offset:calc(var(--table-unit) * .12); }
-#game.is-landscape .table .river .tile.last-discard::after { bottom:calc(var(--table-unit) * .3); left:calc(50% - var(--table-unit) * .45); width:calc(var(--table-unit) * .9); height:calc(var(--table-unit) * .9); }
-#game.is-landscape .table .river::before { top:calc(var(--table-unit) * -2.6); font-size:max(7px,calc(var(--table-unit) * 1.9)); letter-spacing:0; }
-#game.is-landscape .table .river-count { font-size:max(7px,calc(var(--table-unit) * 1.5)); padding:calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .6); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:4; --river-rows:9; --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:calc(var(--table-unit) * 13); height:calc(var(--table-unit) * 26); }
+#game.is-landscape .table .river-left { left:0; --river-tile-turn:90deg; }
+#game.is-landscape .table .river-right { right:0; --river-tile-turn:-90deg; }
 #game.is-landscape .table .table-center { left:calc(50% - var(--table-unit) * 8); top:calc(50% - var(--table-unit) * 9.5); width:calc(var(--table-unit) * 16); height:calc(var(--table-unit) * 16); }
 #game.is-landscape .table .table-center::before { inset:calc(var(--table-unit) * .8); }
 .is-landscape .table-dice { gap:calc(var(--table-unit) * 1); }
@@ -255,7 +268,7 @@ html.in-room.landscape-rotated #game.is-landscape {
 }
 .is-landscape .table-die i { width:calc(var(--table-unit) * 1.05); height:calc(var(--table-unit) * 1.05); }
 .is-landscape .table-die.is-key { outline-width:calc(var(--table-unit) * .2); outline-offset:calc(var(--table-unit) * .16); }
-/* 中央罗盘里的四个风位与座位卡上的风位重复，横屏让位给骰子；元素保留，竖屏入口仍可见。 */
+/* Direction labels and the dice share the table centre. */
 .is-landscape .table-center .direction { display:none; }
 .is-landscape .direction { width:calc(var(--table-unit) * 4); height:calc(var(--table-unit) * 4); font-size:calc(var(--table-unit) * 2.6); }
 .is-landscape .direction-n { top:calc(var(--table-unit) * .5); left:calc(50% - var(--table-unit) * 2); }
@@ -326,10 +339,8 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .action-hu:not(:disabled) { box-shadow:0 0 calc(var(--ui-unit) * 3.4) #e0703f77, 0 calc(var(--ui-unit) * .6) calc(var(--ui-unit) * 1.5) #00000045; }
 .is-landscape .toast { top:64%; padding:calc(var(--ui-unit) * 1.6) calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 1.5); font-size:calc(var(--ui-unit) * 2.8); }
 
-/* showModal() promotes a dialog to the top layer, outside the main transform.
-   Rotate and centre it independently so its text and pointer targets match the
-   landscape game even when a mobile browser declines native orientation lock. */
-html.in-room .modal {
+/* Game dialogs share the single landscape canvas. Lobby dialogs use rooms.css. */
+html.in-game .modal {
   --dialog-unit:calc(var(--stage-height) / 100);
   position:fixed;
   inset:auto;
@@ -347,70 +358,43 @@ html.in-room .modal {
   line-height:1.5;
   overscroll-behavior:contain;
 }
-html.in-room.landscape-rotated .modal { transform:translate(-50%,-50%) rotate(90deg); }
-html.in-room .modal-close { top:calc(var(--dialog-unit) * 2.5); right:calc(var(--dialog-unit) * 2.5); width:calc(var(--dialog-unit) * 8); height:calc(var(--dialog-unit) * 8); }
-html.in-room .modal-close svg { width:calc(var(--dialog-unit) * 4); height:calc(var(--dialog-unit) * 4); }
-html.in-room .modal-eyebrow { font-size:clamp(9px,calc(var(--dialog-unit) * 1.9),13px); letter-spacing:calc(var(--dialog-unit) * .3); }
-html.in-room .modal h2 { font-size:clamp(24px,calc(var(--dialog-unit) * 5.6),40px); margin:calc(var(--dialog-unit) * 1.5) 0; }
-html.in-room .modal .modal-lead { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); line-height:1.6; margin:calc(var(--dialog-unit) * 1.5) 0 calc(var(--dialog-unit) * 2.5); }
-html.in-room .modal .primary-button,html.in-room .modal .secondary-button { min-height:calc(var(--dialog-unit) * 9); padding:calc(var(--dialog-unit) * 1.4) calc(var(--dialog-unit) * 2); font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); border-radius:calc(var(--dialog-unit) * 1.5); margin-top:calc(var(--dialog-unit) * 2); }
-html.in-room .rules-list p { padding:calc(var(--dialog-unit) * 2) 0; gap:calc(var(--dialog-unit) * 2.5); }
-html.in-room .rules-list b { width:calc(var(--dialog-unit) * 10); }
-html.in-room .rules-list span { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
-html.in-room .rule-note { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),16px); }
-html.in-room .setting-row { padding:calc(var(--dialog-unit) * 3) 0; gap:calc(var(--dialog-unit) * 2); }
-html.in-room .setting-row>span { gap:calc(var(--dialog-unit) * 1); }
-html.in-room .setting-row b { font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); }
-html.in-room .setting-row small { font-size:clamp(11px,calc(var(--dialog-unit) * 2.3),17px); }
-html.in-room .setting-row input { width:calc(var(--dialog-unit) * 5); height:calc(var(--dialog-unit) * 5); }
-html.in-room .setting-links { gap:calc(var(--dialog-unit) * 2); margin-top:calc(var(--dialog-unit) * 3); }
-html.in-room .setting-link { min-height:calc(var(--dialog-unit) * 10); padding:0 calc(var(--dialog-unit) * 2); gap:calc(var(--dialog-unit) * 1.2); border-radius:calc(var(--dialog-unit) * 1.5); font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); }
-html.in-room .setting-link svg { width:calc(var(--dialog-unit) * 3.6); height:calc(var(--dialog-unit) * 3.6); }
-html.in-room .choice-option { padding:calc(var(--dialog-unit) * 1.8); gap:calc(var(--dialog-unit) * .6); margin:calc(var(--dialog-unit) * 1.5) 0; border-radius:calc(var(--dialog-unit) * 1.5); }
-html.in-room .choice-option .tile { width:calc(var(--dialog-unit) * 9); height:calc(var(--dialog-unit) * 12.6); --tile-depth:calc(var(--dialog-unit) * .8); --tile-side:calc(var(--dialog-unit) * .25); }
-html.in-room .choice-option>span:last-child { margin-left:calc(var(--dialog-unit) * 3); font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
-html.in-room .history-tiles { grid-template-columns:repeat(12,1fr); gap:calc(var(--dialog-unit) * .8); margin:calc(var(--dialog-unit) * 2) 0; }
-html.in-room .history-tiles .tile { --tile-depth:calc(var(--dialog-unit) * .5); --tile-side:calc(var(--dialog-unit) * .16); }
-html.in-room .result-avatar { width:calc(var(--dialog-unit) * 15); height:calc(var(--dialog-unit) * 15); margin:calc(var(--dialog-unit) * 1.5) auto; }
-html.in-room .result-hand { margin:calc(var(--dialog-unit) * 2) 0; gap:calc(var(--dialog-unit) * .6); }
-html.in-room .result-hand .tile { width:calc(var(--dialog-unit) * 5.4); height:calc(var(--dialog-unit) * 7.6); --tile-depth:calc(var(--dialog-unit) * .4); --tile-side:calc(var(--dialog-unit) * .14); }
-html.in-room .result-scores { margin-top:calc(var(--dialog-unit) * 2); display:grid; grid-template-columns:1fr 1fr; column-gap:calc(var(--dialog-unit) * 4); }
-html.in-room .result-score-row { padding:calc(var(--dialog-unit) * 1.2) 0; font-size:clamp(12px,calc(var(--dialog-unit) * 2.5),18px); }
-html.in-room .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2); }
-
-/* A compact two-column room lobby fits the same horizontal surface. The full
-   four-seat list and start/ready controls are visible together on small phones. */
-html.in-room .room-modal { width:min(calc(var(--stage-width) * .94),1000px); padding:calc(var(--dialog-unit) * 3) calc(var(--dialog-unit) * 4); scrollbar-gutter:auto; }
-html.in-room .room-modal .modal-eyebrow { font-size:clamp(9px,calc(var(--dialog-unit) * 1.7),12px); }
-html.in-room .room-modal h2 { font-size:clamp(23px,calc(var(--dialog-unit) * 4.7),36px); margin:2px 0; }
-html.in-room .room-modal .modal-lead { margin:0 0 calc(var(--dialog-unit) * 2); font-size:clamp(11px,calc(var(--dialog-unit) * 2.3),16px); }
-html.in-room #room-waiting { display:grid; grid-template-columns:minmax(0,.82fr) minmax(0,1.45fr); grid-template-rows:auto auto auto; gap:calc(var(--dialog-unit) * 1.5) calc(var(--dialog-unit) * 4); }
-html.in-room #room-waiting[hidden] { display:none!important; }
-html.in-room .room-invite { grid-column:1; grid-row:1; padding:calc(var(--dialog-unit) * 2); border-radius:calc(var(--dialog-unit) * 2); align-self:start; }
-html.in-room .room-invite-label { font-size:clamp(10px,calc(var(--dialog-unit) * 2),14px); }
-html.in-room #room-current-code { font-size:clamp(28px,calc(var(--dialog-unit) * 7.3),48px); letter-spacing:calc(var(--dialog-unit) * 1.3); }
-html.in-room .room-invite .secondary-button { width:auto; min-height:34px; margin:calc(var(--dialog-unit) * 1) auto 0; padding:5px 18px; font-size:clamp(12px,calc(var(--dialog-unit) * 2.2),16px); }
-html.in-room .room-invite small { margin-top:calc(var(--dialog-unit) * 1); font-size:clamp(10px,calc(var(--dialog-unit) * 1.9),14px); }
-html.in-room .room-members { grid-column:2; grid-row:1/3; margin:0; align-self:stretch; display:grid; grid-template-rows:repeat(4,1fr); }
-html.in-room .room-members li { min-height:44px; padding:calc(var(--dialog-unit) * .7) 0; gap:calc(var(--dialog-unit) * 1.5); }
-html.in-room .room-member-seat { width:calc(var(--dialog-unit) * 6); height:calc(var(--dialog-unit) * 6); font-size:calc(var(--dialog-unit) * 4); border-radius:calc(var(--dialog-unit) * 1.5); }
-html.in-room .room-member-name { font-size:clamp(11px,calc(var(--dialog-unit) * 2.5),18px); }
-html.in-room .room-member-state { font-size:clamp(10px,calc(var(--dialog-unit) * 2.1),15px); }
-html.in-room .room-bot-button { min-height:38px; min-width:64px; font-size:clamp(10px,calc(var(--dialog-unit) * 2.2),16px); padding:4px 7px; }
-html.in-room .room-play-controls { grid-column:2; grid-row:3; gap:calc(var(--dialog-unit) * 1.5); }
-html.in-room .room-play-controls>.primary-button,html.in-room .room-play-controls>.secondary-button { margin:0; min-height:40px; }
-html.in-room #room-waiting>.room-note { grid-column:1; grid-row:2; font-size:clamp(10px,calc(var(--dialog-unit) * 2.05),14px); line-height:1.55; margin:0; align-self:start; }
-html.in-room #room-waiting>.room-leave { grid-column:1; grid-row:3; min-height:36px; margin:0; font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),16px); }
-html.in-room .room-status { font-size:clamp(10px,calc(var(--dialog-unit) * 2.05),14px); margin:calc(var(--dialog-unit) * 1.5) 0 0; }
-html.in-room .room-error { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),16px); padding:6px 10px; margin:6px 0 0; }
+html.in-game .modal-close { top:calc(var(--dialog-unit) * 2.5); right:calc(var(--dialog-unit) * 2.5); width:calc(var(--dialog-unit) * 8); height:calc(var(--dialog-unit) * 8); }
+html.in-game .modal-close svg { width:calc(var(--dialog-unit) * 4); height:calc(var(--dialog-unit) * 4); }
+html.in-game .modal-eyebrow { font-size:clamp(9px,calc(var(--dialog-unit) * 1.9),13px); letter-spacing:calc(var(--dialog-unit) * .3); }
+html.in-game .modal h2 { font-size:clamp(24px,calc(var(--dialog-unit) * 5.6),40px); margin:calc(var(--dialog-unit) * 1.5) 0; }
+html.in-game .modal .modal-lead { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); line-height:1.6; margin:calc(var(--dialog-unit) * 1.5) 0 calc(var(--dialog-unit) * 2.5); }
+html.in-game .modal .primary-button,html.in-game .modal .secondary-button { min-height:calc(var(--dialog-unit) * 9); padding:calc(var(--dialog-unit) * 1.4) calc(var(--dialog-unit) * 2); font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); border-radius:calc(var(--dialog-unit) * 1.5); margin-top:calc(var(--dialog-unit) * 2); }
+html.in-game .rules-list p { padding:calc(var(--dialog-unit) * 2) 0; gap:calc(var(--dialog-unit) * 2.5); }
+html.in-game .rules-list b { width:calc(var(--dialog-unit) * 10); }
+html.in-game .rules-list span { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
+html.in-game .rule-note { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),16px); }
+html.in-game .setting-row { padding:calc(var(--dialog-unit) * 3) 0; gap:calc(var(--dialog-unit) * 2); }
+html.in-game .setting-row>span { gap:calc(var(--dialog-unit) * 1); }
+html.in-game .setting-row b { font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); }
+html.in-game .setting-row small { font-size:clamp(11px,calc(var(--dialog-unit) * 2.3),17px); }
+html.in-game .setting-row input { width:calc(var(--dialog-unit) * 5); height:calc(var(--dialog-unit) * 5); }
+html.in-game .setting-links { gap:calc(var(--dialog-unit) * 2); margin-top:calc(var(--dialog-unit) * 3); }
+html.in-game .setting-link { min-height:calc(var(--dialog-unit) * 10); padding:0 calc(var(--dialog-unit) * 2); gap:calc(var(--dialog-unit) * 1.2); border-radius:calc(var(--dialog-unit) * 1.5); font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); }
+html.in-game .setting-link svg { width:calc(var(--dialog-unit) * 3.6); height:calc(var(--dialog-unit) * 3.6); }
+html.in-game .choice-option { padding:calc(var(--dialog-unit) * 1.8); gap:calc(var(--dialog-unit) * .6); margin:calc(var(--dialog-unit) * 1.5) 0; border-radius:calc(var(--dialog-unit) * 1.5); }
+html.in-game .choice-option .tile { width:calc(var(--dialog-unit) * 9); height:calc(var(--dialog-unit) * 12.6); --tile-depth:calc(var(--dialog-unit) * .8); --tile-side:calc(var(--dialog-unit) * .25); }
+html.in-game .choice-option>span:last-child { margin-left:calc(var(--dialog-unit) * 3); font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
+html.in-game .history-tiles { grid-template-columns:repeat(12,1fr); gap:calc(var(--dialog-unit) * .8); margin:calc(var(--dialog-unit) * 2) 0; }
+html.in-game .history-tiles .tile { --tile-depth:calc(var(--dialog-unit) * .5); --tile-side:calc(var(--dialog-unit) * .16); }
+html.in-game .result-avatar { width:calc(var(--dialog-unit) * 15); height:calc(var(--dialog-unit) * 15); margin:calc(var(--dialog-unit) * 1.5) auto; }
+html.in-game .result-hand { margin:calc(var(--dialog-unit) * 2) 0; gap:calc(var(--dialog-unit) * .6); }
+html.in-game .result-hand .tile { width:calc(var(--dialog-unit) * 5.4); height:calc(var(--dialog-unit) * 7.6); --tile-depth:calc(var(--dialog-unit) * .4); --tile-side:calc(var(--dialog-unit) * .14); }
+html.in-game .result-scores { margin-top:calc(var(--dialog-unit) * 2); display:grid; grid-template-columns:1fr 1fr; column-gap:calc(var(--dialog-unit) * 4); }
+html.in-game .result-score-row { padding:calc(var(--dialog-unit) * 1.2) 0; font-size:clamp(12px,calc(var(--dialog-unit) * 2.5),18px); }
+html.in-game .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2); }
 
 @media(prefers-reduced-motion:reduce) {
-  .is-landscape,.is-landscape *,html.in-room .modal { transition:none!important; animation:none!important; }
+  .is-landscape,.is-landscape *,html.in-game .modal { transition:none!important; animation:none!important; }
 }
 
 /* A seated player's view: the whole physical table shares one camera, while
    the local standing hand and HUD keep their own screen-space hit targets. */
-html.in-room #game.is-landscape {
+html.in-game #game.is-landscape {
   --board-size:min(calc(var(--stage-height) * .94),calc(var(--stage-width) - var(--ui-unit) * 32));
   --table-surface-width:calc(var(--stage-width) * .84);
   --table-view-distance:calc(var(--stage-height) * 2);
@@ -584,18 +568,7 @@ html.in-room #game.is-landscape {
 .is-landscape .action-button.action-hint,.is-landscape .action-button.action-next { grid-column:1 / -1; height:calc(var(--ui-unit) * 9.5); }
 .is-landscape .action-button.action-next>span { font-size:calc(var(--ui-unit) * 4); }
 
-/* At tablet/desktop ratios the side walls leave a lane for the centre river. */
-html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui-unit) * 5); }
-#game.is-landscape:not(.is-wide) .action-zone { right:1.5%; width:calc(var(--stage-width) * .085); }
-#game.is-landscape:not(.is-wide) .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 6.3); }
-#game.is-landscape:not(.is-wide) .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 6.3); }
-#game.is-landscape:not(.is-wide) .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 8.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); }
-#game.is-landscape:not(.is-wide) .table .opponent-rack-left { left:var(--table-unit); }
-#game.is-landscape:not(.is-wide) .table .opponent-rack-right { right:var(--table-unit); }
-#game.is-landscape:not(.is-wide) .player-seat { width:calc(var(--ui-unit) * 12); }
-#game.is-landscape:not(.is-wide) .seat-top { height:calc(var(--ui-unit) * 16); flex-direction:column; justify-content:center; }
-#game.is-landscape:not(.is-wide) .seat-top .opponent-copy { text-align:center; }
-#game.is-landscape:not(.is-wide) .seat-top .opponent-score { justify-content:center; }
+
 
 /* A compact far-seat badge sits beyond the far wall, near the reference slot. */
 #game.is-landscape .seat-top {
@@ -614,27 +587,11 @@ html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui
 #game.is-landscape .seat-top .opponent-name small,#game.is-landscape .seat-top .opponent-state { display:none; }
 #game.is-landscape .seat-top .opponent-score { justify-content:flex-start; font-size:calc(var(--ui-unit) * 1.9); }
 #game.is-landscape .seat-top .seat,#game.is-landscape .seat-top .dealer-badge { width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.2); font-size:calc(var(--ui-unit) * 1.65); }
-#game.is-landscape:not(.is-wide) .seat-top { left:calc(50% + var(--table-unit) * 22); top:.2%; width:calc(var(--ui-unit) * 12); height:calc(var(--ui-unit) * 6); flex-direction:row; justify-content:flex-start; }
-#game.is-landscape:not(.is-wide) .seat-top .opponent-copy { text-align:left; }
-#game.is-landscape:not(.is-wide) .seat-top .opponent-score { justify-content:flex-start; }
-#game.is-landscape:not(.is-wide) .top-tools .connection>span { display:none; }
-#game.is-landscape:not(.is-wide) .top-tools .connection { position:absolute; right:0; top:calc(var(--ui-unit) * 11.5); padding:0 calc(var(--ui-unit) * 1.5); }
 
 /* 最近一张牌的标记和牌身一起朝向出牌者。 */
-#game.is-landscape .table .river .tile.last-discard { outline:calc(var(--table-unit) * .25) solid #ffbe46; outline-offset:calc(var(--table-unit) * .16); box-shadow:0 0 calc(var(--table-unit) * 1.1) #ffaf3c80; }
+#game.is-landscape .table .river .tile.last-discard { outline:calc(var(--table-unit) * .12) solid #ffbe46; outline-offset:calc(var(--table-unit) * .04); box-shadow:0 0 calc(var(--table-unit) * .45) #ffaf3c80; }
 #game.is-landscape .table .river .tile.last-discard::after {
-  content:"";
-  top:calc(var(--table-unit) * -1.8);
-  bottom:auto;
-  left:calc(50% - var(--table-unit) * .85);
-  width:calc(var(--table-unit) * 1.7);
-  height:calc(var(--table-unit) * 1.7);
-  border:1px solid #fff0a1;
-  border-radius:65% 65% 65% 0;
-  transform:rotate(-45deg);
-  background:linear-gradient(145deg,#ffe15b,#ff970d 75%);
-  box-shadow:0 1px 3px #70410080;
-  pointer-events:none;
+  content:none;
 }
 
 /* The opening is readable for 1.5 seconds; the resting pair stays unobtrusive. */
@@ -668,7 +625,7 @@ html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui
   border-radius:calc(var(--table-unit) * .48);
   pointer-events:none;
 }
-#game.is-landscape .discard-focus .tile { transform:scale(1.5); transform-origin:center; outline:1px solid #ffdb81; box-shadow:0 0 calc(var(--table-unit) * 1.4) #ffe4a34d,0 calc(var(--table-unit) * .4) calc(var(--table-unit) * .8) #001c1980; }
+#game.is-landscape .discard-focus .tile { transform:scale(var(--discard-focus-scale,1.5)); transform-origin:center; outline:1px solid #ffdb81; box-shadow:0 0 calc(var(--table-unit) * 1.4) #ffe4a34d,0 calc(var(--table-unit) * .4) calc(var(--table-unit) * .8) #001c1980; }
 #game.is-landscape .discard-flight { position:absolute; z-index:8; transform-origin:50% 50%; margin:0; }
 
 /* Selected tiles keep the pointer target and get immediate, steady light. */
@@ -677,13 +634,31 @@ html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui
 .is-landscape .ting-button { right:1.8%; bottom:2%; width:calc(var(--ui-unit) * 8.4); height:calc(var(--ui-unit) * 11); border-radius:calc(var(--ui-unit) * 1.5); }
 .is-landscape .ting-button>span { font-size:calc(var(--ui-unit) * 6); }
 .is-landscape .ting-button small { font-size:calc(var(--ui-unit) * 2); }
-html.in-room .ting-tiles { grid-template-columns:repeat(auto-fill,minmax(calc(var(--dialog-unit) * 10),1fr)); gap:calc(var(--dialog-unit) * 3) calc(var(--dialog-unit) * 1.3); margin:calc(var(--dialog-unit) * 3) 0; }
-html.in-room .ting-wait { gap:calc(var(--dialog-unit) * .8); font-size:calc(var(--dialog-unit) * 2.5); }
-html.in-room .ting-wait .tile { width:calc(var(--dialog-unit) * 9); height:calc(var(--dialog-unit) * 12.6); --tile-depth:calc(var(--dialog-unit) * .6); --tile-side:calc(var(--dialog-unit) * .2); }
-html.in-room .ting-wait small { font-size:calc(var(--dialog-unit) * 2); }
-html.in-room .ting-note { font-size:calc(var(--dialog-unit) * 2.3); }
+html.in-game .ting-tiles { grid-template-columns:repeat(auto-fill,minmax(calc(var(--dialog-unit) * 10),1fr)); gap:calc(var(--dialog-unit) * 3) calc(var(--dialog-unit) * 1.3); margin:calc(var(--dialog-unit) * 3) 0; }
+html.in-game .ting-wait { gap:calc(var(--dialog-unit) * .8); font-size:calc(var(--dialog-unit) * 2.5); }
+html.in-game .ting-wait .tile { width:calc(var(--dialog-unit) * 9); height:calc(var(--dialog-unit) * 12.6); --tile-depth:calc(var(--dialog-unit) * .6); --tile-side:calc(var(--dialog-unit) * .2); }
+html.in-game .ting-wait small { font-size:calc(var(--dialog-unit) * 2); }
+html.in-game .ting-note { font-size:calc(var(--dialog-unit) * 2.3); }
 
-@container (max-width:720px) {
-  .is-landscape .top-tools .connection>span { display:none; }
-  .is-landscape .top-tools .connection { padding:0 calc(var(--ui-unit) * 1.5); }
+.rotate-guide {
+  position:fixed;
+  inset:0;
+  margin:0;
+  width:100dvw;
+  height:100dvh;
+  max-width:none;
+  max-height:none;
+  border:0;
+  padding:24px;
+  background:radial-gradient(ellipse at center,#234e3e,#0c241e 80%);
+  color:var(--cream);
+  text-align:center;
+  font:16px/1.7 "Microsoft YaHei","PingFang SC",sans-serif;
+  touch-action:manipulation;
 }
+.rotate-guide[open] { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+.rotate-guide::backdrop { background:#0c241e; }
+.rotate-guide h2 { margin:0; color:var(--gold-light); font-size:28px; }
+.rotate-guide p { margin:0; max-width:22em; color:#bdcbb6; }
+.rotate-device { font-size:72px; line-height:1; color:var(--gold); }
+.rotate-guide .secondary-button { width:min(100%,220px); min-height:44px; margin-top:12px; font-size:16px; }

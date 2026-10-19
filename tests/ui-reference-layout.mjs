@@ -20,13 +20,8 @@ for (const source of [
 assert.ok(playwright, 'An installed Playwright runtime is required');
 
 const viewports = [
-  { width: 844, height: 390 },
-  { width: 667, height: 375 },
-  { width: 932, height: 430 },
-  { width: 1440, height: 900 },
-  { width: 390, height: 844 },
-  { width: 1024, height: 768 },
-  { width: 1280, height: 1024 },
+  { width: 640, height: 360 }, { width: 844, height: 390 },
+  { width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 },
 ];
 const output = path.resolve('output');
 mkdirSync(output, { recursive: true });
@@ -48,7 +43,7 @@ report.browser = browser.version();
 const context = await browser.newContext({ viewport: viewports[0], hasTouch: true, deviceScaleFactor: 1 });
 await context.addInitScript(() => {
   localStorage.setItem('queqi-settings', JSON.stringify({ sound: false, names: false, laizi: true }));
-  // Force the browser's CSS orientation fallback; headless fullscreen is not a physical phone.
+  // Exercise the game without native fullscreen or orientation locking.
   if (screen.orientation) Object.defineProperty(screen.orientation, 'lock', {
     configurable: true, value: () => Promise.reject(new DOMException('Headless fallback', 'NotSupportedError')),
   });
@@ -163,7 +158,7 @@ async function measure(viewport, label) {
     const first = selector => document.querySelector(selector) ? box(document.querySelector(selector)) : null;
     return {
       stage: { width: document.querySelector('#game').clientWidth, height: document.querySelector('#game').clientHeight, box: first('#game') },
-      rotated: document.documentElement.classList.contains('landscape-rotated'),
+
       table: first('.table'), compass: first('.table-center'), dice: collect('.table-die'),
       hand, counts: Object.fromEntries(Object.entries(groups).map(([name, tiles]) => [name, tiles.length])),
       riverTile: Object.values(groups).flat()[0] || null,
@@ -188,7 +183,7 @@ async function measure(viewport, label) {
   const outside = Object.entries(data.structures).flatMap(([kind, nodes]) => nodes.filter(node => !inViewport(node)).map(node => ({ kind, ...node })));
   check(outside.length === 0, 'rack/wall tiles outside viewport', { viewport, label, outside });
   check(data.actionButtons.every(button => inViewport(button.box) && button.hit), 'action button outside viewport or obstructed', { viewport, label, buttons: data.actionButtons });
-  if (label === 'filled') check(data.counts.top === 12 && data.counts.bottom === 12 && data.counts.left === 6 && data.counts.right === 6, 'river limit differs from 12/6', { viewport, counts: data.counts });
+  if (label === 'filled') check(Object.values(data.counts).every(count => count === 24), 'all fixture discards must be rendered', { viewport, counts: data.counts });
   const filename = path.join(output, `reference-${label}-${viewport.width}x${viewport.height}.png`);
   await page.screenshot({ path: filename });
   report.screenshots.push(filename);

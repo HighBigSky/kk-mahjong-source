@@ -164,7 +164,7 @@ function updateRoom() {
   const busy = roomBusy || network.busy;
   $('#room-entry').hidden = Boolean(room);
   $('#room-waiting').hidden = !room;
-  $('#room-close').hidden = false;
+  $('#room-close').hidden = !room || room.status === 'waiting';
   $('#room-create').disabled = busy;
   $('#room-join').disabled = busy;
   $('#connection-status').dataset.state = network.status;
@@ -224,7 +224,7 @@ function updateRoom() {
 
 function roomChanged() {
   const room = network.room;
-  roomOrientation.setInRoom(Boolean(room));
+  roomOrientation.setRoomState(room?.status);
   const changedRoom = (room?.code || null) !== previousRoomCode;
   const changedRound = changedRoom || game.round !== previousRound;
   if (changedRound) { clearTimeout(resultTimer); resultShown = 0; }
@@ -255,7 +255,10 @@ function roomChanged() {
   }
   $('.my-seat').textContent = seats[0];
   if (changedRound || previousStatus === 'waiting' && room?.status === 'playing') {
-    document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
+    const keepLobby = $('#room-dialog').open && previousStatus !== 'waiting' && !changedRoom;
+    document.querySelectorAll('dialog[open]:not(#rotate-guide)').forEach(dialog => {
+      if (!keepLobby || dialog.id !== 'room-dialog') dialog.close();
+    });
     if (!room || room.status === 'waiting') openModal('#room-dialog');
   }
   const lastEvent = game.events.at(-1);
@@ -468,16 +471,12 @@ function renderDiceIntro() {
 function stageRect(element) {
   const stage = $('#game').getBoundingClientRect();
   const rect = element.getBoundingClientRect();
-  return document.documentElement.classList.contains('landscape-rotated')
-    ? {left:rect.top - stage.top, top:stage.right - rect.right, width:rect.height, height:rect.width}
-    : {left:rect.left - stage.left, top:rect.top - stage.top, width:rect.width, height:rect.height};
+  return {left:rect.left - stage.left, top:rect.top - stage.top, width:rect.width, height:rect.height};
 }
 
 function discardRiverTile(discard) {
   if (game.players[discard.from]?.discards[discard.index] !== discard.tile) return null;
-  const limit = discard.from === 0 || discard.from === 2 ? 12 : 6;
-  const offset = Math.max(0, game.players[discard.from].discards.length - limit);
-  return $(`#river-${discard.from}`).children[discard.index - offset] || null;
+  return $(`#river-${discard.from}`).children[discard.index] || null;
 }
 
 // Undo the table's camera projection for a point measured in logical stage
@@ -505,21 +504,43 @@ function positionDiscardFocus() {
   const sourceRect = JSON.stringify([rect.left, rect.top, rect.width, rect.height, width, height]);
   if (discardFocusGeometry?.sourceRect === sourceRect) return;
   const centre = {x:rect.left + rect.width / 2, y:rect.top + rect.height / 2};
-  const anchor = {...centre};
   const angle = [0, -90, 180, 90][focusedDiscard.from];
   const holder = $('#discard-focus');
+  const face = holder.querySelector('.tile');
+  for (const animation of face.getAnimations()) animation.cancel();
   // Enlarging in perspective shifts the projected bounding-box centre slightly.
   // Correct that screen-space shift while keeping the card on the same plane.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const point = tablePoint(anchor.x, anchor.y);
-    discardFocusGeometry = {...point, width, height, angle, sourceRect};
-    holder.style.cssText = `left:${point.x}px;top:${point.y}px;width:${width}px;height:${height}px;--discard-turn:${angle}deg`;
-    const preview = stageRect(holder.querySelector('.tile'));
-    const dx = centre.x - preview.left - preview.width / 2;
-    const dy = centre.y - preview.top - preview.height / 2;
-    if (Math.hypot(dx, dy) < .1) break;
-    anchor.x += dx;
-    anchor.y += dy;
+  const place = scale => {
+    const anchor = {...centre};
+    let preview;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const point = tablePoint(anchor.x, anchor.y);
+      discardFocusGeometry = {...point, width, height, angle, scale, sourceRect};
+      holder.style.cssText = `left:${point.x}px;top:${point.y}px;width:${width}px;height:${height}px;--discard-turn:${angle}deg;--discard-focus-scale:${scale}`;
+      preview = stageRect(face);
+      const dx = centre.x - preview.left - preview.width / 2;
+      const dy = centre.y - preview.top - preview.height / 2;
+      if (Math.hypot(dx, dy) < .1) break;
+      anchor.x += dx;
+      anchor.y += dy;
+    }
+    return preview;
+  };
+  const obstacles = [...document.querySelectorAll('.river .tile,.opponent-rack .tile,.opponent-rack .back,.my-melds .tile,#wall-tail .wall-piece:not(.is-empty),.table-center,.player-seat,.action-zone:not([hidden])')]
+    .filter(element => element !== target && element.getClientRects().length).map(stageRect);
+  const stage = $('#game');
+  const fits = box => box.left >= 0 && box.top >= 0 && box.left + box.width <= stage.clientWidth && box.top + box.height <= stage.clientHeight
+    && obstacles.every(other => Math.min(box.left + box.width, other.left + other.width) <= Math.max(box.left, other.left)
+      || Math.min(box.top + box.height, other.top + other.height) <= Math.max(box.top, other.top));
+  // Keep the original enlargement when space permits. A dense river caps it
+  // at the available gap instead of covering an earlier discard or a control.
+  if (!fits(place(DISCARD_FOCUS_SCALE))) {
+    let lower = 1, upper = DISCARD_FOCUS_SCALE;
+    for (let step = 0; step < 6; step++) {
+      const middle = (lower + upper) / 2;
+      if (fits(place(middle))) lower = middle; else upper = middle;
+    }
+    place(lower);
   }
 }
 
@@ -533,7 +554,7 @@ function settleDiscardFocus() {
   // that empty slot or into the next tile which happened to occupy its index.
   const target = discardRiverTile(previous);
   if (target && face && discardFocusGeometry && !holder.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const {x, y, width, height, angle} = discardFocusGeometry;
+    const {x, y, width, height, angle, scale} = discardFocusGeometry;
     const flight = face.cloneNode(true);
     flight.classList.add('discard-flight');
     flight.setAttribute('aria-hidden', 'true');
@@ -541,7 +562,7 @@ function settleDiscardFocus() {
     $('.table').append(flight);
     discardFlights.add(flight);
     const animation = flight.animate([
-      {transform:`rotate(${angle}deg) scale(${DISCARD_FOCUS_SCALE})`, opacity:1},
+      {transform:`rotate(${angle}deg) scale(${scale})`, opacity:1},
       {transform:`rotate(${angle}deg) scale(1)`, opacity:0},
     ], {duration:260, easing:'cubic-bezier(.22,.65,.25,1)', fill:'forwards'});
     const remove = () => { flight.remove(); discardFlights.delete(flight); };
@@ -580,7 +601,7 @@ function renderDiscardFocus() {
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
     holder.querySelector('.tile').animate([
       {transform:'scale(1)', opacity:.7},
-      {transform:`scale(${DISCARD_FOCUS_SCALE})`, opacity:1},
+      {transform:`scale(${discardFocusGeometry.scale})`, opacity:1},
     ], {duration:180, easing:'ease-out'});
   }
 }
@@ -631,15 +652,10 @@ function positionActionNotice() {
   if (!element) return;
   const stage = $('#game');
   const stageBounds = stage.getBoundingClientRect();
-  const rotated = document.documentElement.classList.contains('landscape-rotated');
-  // DOMRects use physical screen axes. Convert them back to the stage's
-  // logical axes before aligning text on a CSS-rotated phone display.
   const rect = item => {
     const area = item.getBoundingClientRect();
-    return rotated ? {left:area.top - stageBounds.top, right:area.bottom - stageBounds.top,
-      top:stageBounds.right - area.right, bottom:stageBounds.right - area.left}
-      : {left:area.left - stageBounds.left, right:area.right - stageBounds.left,
-        top:area.top - stageBounds.top, bottom:area.bottom - stageBounds.top};
+    return {left:area.left - stageBounds.left, right:area.right - stageBounds.left,
+      top:area.top - stageBounds.top, bottom:area.bottom - stageBounds.top};
   };
   const player = Number(element.dataset.player);
   const hand = $(player === 0 ? '#hand' : `#backs-${player}`);
@@ -857,14 +873,13 @@ function render() {
   for (let player = 0; player < 4; player++) {
     const seat = game.players[player];
     const river = $(`#river-${player}`);
-    // 牌河四边同尺寸同行数：上下各 6 列×2 行（12 张），左右各 3 列×2 行（6 张）。
-    // 所有横屏尺寸保持同一上限，避免侧边牌河侵入中央罗盘。
-    const limit = player === 0 || player === 2 ? 12 : 6;
-    const offset = Math.max(0, seat.discards.length - limit);
+    // 每家固定预留 36 格，展示全部弃牌，既不截断也不随张数改变行列。
+    // 136 张减翻皮与起手后最多 83 次摸牌；每家最多 4 组普通副露，
+    // 计入吃碰跳家与已被取走的牌，单家留河上界 27 张。补牌只消耗牌墙。
     const recent = game.lastDiscard || (game.pendingDiscard && {...game.pendingDiscard,index:seat.discards.length - 1});
-    setHTMLIfChanged(river, seat.discards.slice(offset).map((type, index) => tile(type, recent?.from === player && recent.index === index + offset && recent.tile === type ? 'last-discard' : '')).join(''));
-    river.dataset.label = `${seats[player]} · ${seat.discards.length} 张${offset ? ' ›' : ''}`;
-    river.setAttribute('aria-label', `${displayNames[player]}的出牌，共${seat.discards.length}张，点击查看全部`);
+    setHTMLIfChanged(river, seat.discards.map((type, index) => tile(type, recent?.from === player && recent.index === index && recent.tile === type ? 'last-discard' : '')).join(''));
+    river.dataset.label = `${seats[player]} · ${seat.discards.length} 张`;
+    river.setAttribute('aria-label', `${displayNames[player]}的出牌，共${seat.discards.length}张，点击查看记录`);
     river.setAttribute('role', 'button');
     river.tabIndex = 0;
     const piziGangs = seat.piziGangs || [];
@@ -950,7 +965,9 @@ async function moveDone(operation) {
 }
 
 function openModal(id) {
+  if (id === '#room-dialog') roomOrientation.setLobby(true);
   if (!$(id).open) $(id).showModal();
+  roomOrientation.refresh();
 }
 
 function selectOptions(title, options) {
@@ -993,6 +1010,7 @@ function performAction(action) {
 
 function showResult() {
   if (game.phase.kind !== PHASE.ENDED) return;
+  if ($('#room-dialog').open) { resultShown = 0; return; }
   const result = game.result;
   $('#result-title').textContent = result.kind === 'draw' ? '好牌，下局再来' : game.winner === 0 ? '好牌，胡了！' : `${displayNames[game.winner]}胡牌`;
   $('#result-avatar').src = avatars[((network.room?.seat || 0) + (game.winner ?? 0)) % 4];
@@ -1069,23 +1087,20 @@ $('#action-next').addEventListener('click', async () => {
   const dialog = $('#result-dialog');
   if (dialog?.open) dialog.close();
 });
-$('#room-create').addEventListener('click', () => roomOperation(async () => {
-  const name = nickname();
-  roomOrientation.prepareEntry();
-  try { return await network.create(name, true); }
-  finally { roomOrientation.finishEntry(Boolean(network.room)); }
-}));
+$('#room-create').addEventListener('click', () => roomOperation(() => network.create(nickname(), true)));
 $('#room-join').addEventListener('click', () => roomOperation(async () => {
   const code = $('#room-code').value.trim();
   if (!/^\d{6}$/.test(code)) throw new Error('请输入 6 位数字房间码');
   const name = nickname();
-  roomOrientation.prepareEntry();
-  try { return await network.join(code, name); }
-  finally { roomOrientation.finishEntry(Boolean(network.room)); }
+  return network.join(code, name);
 }));
 $('#room-code').addEventListener('keydown', event => { if (event.key === 'Enter') $('#room-join').click(); });
 $('#room-ready').addEventListener('click', () => roomOperation(() => network.ready(!network.room.seats[0].ready)));
-$('#room-start').addEventListener('click', () => roomOperation(() => network.start()));
+$('#room-start').addEventListener('click', () => roomOperation(async () => {
+  roomOrientation.prepareGameEntry();
+  try { return await network.start(); }
+  finally { roomOrientation.finishGameEntry(network.room?.status); }
+}));
 $('#room-members').addEventListener('click', event => {
   const button = event.target.closest('.room-bot-button');
   if (!button || button.disabled) return;
@@ -1094,7 +1109,13 @@ $('#room-members').addEventListener('click', event => {
     : button.classList.contains('room-bot-add') ? network.addBot(seat) : network.removeBot(seat));
 });
 $('#room-leave').addEventListener('click', () => roomOperation(() => network.leave()));
-$('#room-close').addEventListener('click', () => $('#room-dialog').close());
+$('#room-close').addEventListener('click', () => {
+  roomOrientation.prepareGameEntry();
+  $('#room-dialog').close();
+  roomOrientation.setLobby(false);
+  roomOrientation.finishGameEntry(network.room?.status);
+});
+$('#rotate-return').addEventListener('click', () => openModal('#room-dialog'));
 $('#room-options').addEventListener('click', () => openModal('#settings-dialog'));
 $('#room-copy').addEventListener('click', () => roomOperation(async () => {
   const url = new URL(location.href); url.search = ''; url.hash = ''; url.searchParams.set('room', network.room.code);
@@ -1177,8 +1198,9 @@ window.renderMahjong = () => { selected = -1; hinted = -1; render(); };
 const invitedRoom = new URL(location.href).searchParams.get('room');
 if (/^\d{6}$/.test(invitedRoom || '')) $('#room-code').value = invitedRoom;
 $('#room-dialog').addEventListener('cancel', event => {
-  if (network.room?.status === 'waiting') event.preventDefault();
+  if (!network.room || network.room.status === 'waiting') event.preventDefault();
 });
+$('#room-dialog').addEventListener('close', () => { roomOrientation.setLobby(false); render(); });
 roomChanged();
 const actionNoticeLayout = new ResizeObserver(positionOverlays);
 for (const element of [$('#game'), ...document.querySelectorAll('.opponent-rack,.hand-zone')]) actionNoticeLayout.observe(element);

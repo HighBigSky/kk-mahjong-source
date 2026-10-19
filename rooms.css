@@ -165,9 +165,3 @@
   box-shadow:0 0 0 .6cqw #e7c97966,0 0 2.4cqw #e7c97999;
 }
 .player-seat.is-speaking .opponent-name { color:#f6e2ae; }
-
-@media(max-height:500px) {
-  .room-modal,.voice-modal { padding:18px; max-height:calc(100dvh - 20px); }
-  .room-modal .modal-lead,.voice-modal .modal-lead { margin-bottom:12px; }
-  .room-separator { margin:14px 0 10px; }
-}

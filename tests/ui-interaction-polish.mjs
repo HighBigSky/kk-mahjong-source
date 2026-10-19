@@ -24,8 +24,8 @@ mkdirSync(output, { recursive: true });
 const report = { passed: false, baseline, createdAt: new Date().toISOString(), browser: '', errors: [], checks: [], screenshots: [], geometry: [], actions: [], mutations: [], fixtureNote: 'Four independent real Edge sessions use HTTP commands and SSE snapshots. Injected action states conserve all 136 tiles; they are not claimed to be naturally dealt complete rounds.' };
 if (baseline) report.baselineCommit = execFileSync('git', ['rev-parse', baselineRef], { encoding: 'utf8', windowsHide: true }).trim();
 const sizes = [
-  { width: 844, height: 390 }, { width: 667, height: 375 }, { width: 932, height: 430 },
-  { width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 1024, height: 768 }, { width: 1280, height: 1024 },
+  { width: 640, height: 360 }, { width: 844, height: 390 },
+  { width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 },
 ];
 const service = new RoomService({ disconnectGraceMs: 100, botDelayMs: 60000 });
 const server = createServer({ roomService: service });
@@ -258,8 +258,8 @@ async function geometry(page, viewport) {
     const ting = box(document.querySelector('#ting-btn'));
     const tingCenter = [(ting.left + ting.right) / 2, (ting.top + ting.bottom) / 2];
     const marker = document.querySelector('.river .last-discard');
-    const markerStyle = marker && getComputedStyle(marker, '::after');
-    return { stage: { width: document.querySelector('#game').clientWidth, height: document.querySelector('#game').clientHeight }, rotated: document.documentElement.classList.contains('landscape-rotated'), table, avatar, avatarFace, avatarOverlap, avatarToolbarOverlaps, hand, rivers, overlaps, ting, tingHit: document.elementFromPoint(...tingCenter)?.closest('#ting-btn') !== null, marker: marker ? { box: box(marker), content: markerStyle.content, color: markerStyle.backgroundColor, width: markerStyle.width, height: markerStyle.height } : null, scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight };
+    const markerStyle = marker && getComputedStyle(marker);
+    return { stage: { width: document.querySelector('#game').clientWidth, height: document.querySelector('#game').clientHeight },  table, avatar, avatarFace, avatarOverlap, avatarToolbarOverlaps, hand, rivers, overlaps, ting, tingHit: document.elementFromPoint(...tingCenter)?.closest('#ting-btn') !== null, marker: marker ? { box: box(marker), outlineWidth: markerStyle.outlineWidth, color: markerStyle.backgroundColor, width: markerStyle.width, height: markerStyle.height } : null, scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight };
   });
   report.geometry.push({ viewport, ...measured });
   await screenshot(page, `layout-${viewport.width}x${viewport.height}`);
@@ -272,9 +272,9 @@ async function geometry(page, viewport) {
   assert.deepEqual(measured.avatarOverlap, [], `Top avatar does not cover tiles ${JSON.stringify(viewport)}`);
   assert.deepEqual(measured.avatarToolbarOverlaps, [], `Top avatar avoids toolbar ${JSON.stringify(viewport)}`);
   assert.deepEqual(measured.overlaps, [], `River clearances ${JSON.stringify({ viewport, overlaps: measured.overlaps })}`);
-  assert.equal(measured.rivers.length, 36, 'Rivers display 12 / 6 / 12 / 6 real tiles');
+  assert.equal(measured.rivers.length, 36, 'All 36 physical discards in this fixture are displayed');
   assert.ok(measured.rivers.every(tile => inside(tile.box)));
-  assert.ok(measured.marker && !['none', 'normal'].includes(measured.marker.content));
+  assert.ok(measured.marker && parseFloat(measured.marker.outlineWidth) > 0);
   assert.ok(measured.scrollWidth <= viewport.width + 1 && measured.scrollHeight <= viewport.height + 1);
 }
 async function diceChecks(room, names) {

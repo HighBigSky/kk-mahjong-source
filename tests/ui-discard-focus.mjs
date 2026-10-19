@@ -17,8 +17,8 @@ for (const location of [import.meta.url, 'C:/Users/gk200/.cache/codex-runtimes/c
 }
 assert.ok(playwright, 'An installed Playwright runtime is required');
 const viewports = [
-  { width: 844, height: 390 }, { width: 667, height: 375 }, { width: 932, height: 430 },
-  { width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 1024, height: 768 }, { width: 1280, height: 1024 },
+  { width: 640, height: 360 }, { width: 844, height: 390 },
+  { width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 },
 ];
 const output = path.resolve('output');
 mkdirSync(output, { recursive: true });
@@ -162,7 +162,7 @@ async function assertLocalFocus(page, label) {
   if (row.centerError > 1) report.focusGeometryFailure = { label, ...row };
   assert.equal(row.sameTable, true, `${label}: enlarged tile uses its river's table perspective`);
   assert.ok(row.centerError <= 1, `${label}: enlarged tile remains at the actual discard position (${row.centerError.toFixed(3)}px)`);
-  for (const ratio of [row.widthRatio, row.heightRatio]) assert.ok(ratio >= 1.35 && ratio <= 1.7, `${label}: enlargement is a readable, moderate 1.5 times the original (${ratio.toFixed(3)})`);
+  for (const ratio of [row.widthRatio, row.heightRatio]) assert.ok(ratio >= .99 && ratio <= 1.7, `${label}: enlargement fits the available river space, up to 1.5 times the original (${ratio.toFixed(3)})`);
   const expected = [0, -90, 180, 90][row.player];
   for (const actual of [row.angle, row.originalAngle]) {
     const difference = ((actual - expected + 540) % 360) - 180;
@@ -244,9 +244,9 @@ async function shrinkEvidence(room, before, from, tile) {
     assert.equal(destination.yUnit, origin.yUnit, 'shrink retains the same vertical coordinate space');
     const displacement = Math.hypot(destination.x - origin.x, destination.y - origin.y);
     const relativeEndScale = scale(end) / scale(start);
-    assert.ok(scale(start) >= 1.35 && scale(start) <= 1.7, 'shrink starts at the full enlarged 1.5-times size');
+    assert.ok(scale(start) >= 1 && scale(start) <= 1.5, 'shrink starts at the actual enlargement fitted to the river');
     assert.equal(start.opacity, 1, 'shrink starts opaque');
-    assert.ok(relativeEndScale >= .60 && relativeEndScale <= .74, 'shrink returns the 1.5-times preview to its physical river size');
+    assert.ok(Math.abs(relativeEndScale * scale(start) - 1) < .001, 'shrink returns the fitted preview to its physical river size');
     assert.ok(displacement <= 1, `shrink stays at the original discard location (${displacement.toFixed(3)})`);
     assert.equal(end.opacity, 0, 'the temporary tile fades into its physical river tile');
     assert.equal(flight.duration, 260, 'the actual shrink animation uses the intended 260ms duration');
@@ -361,7 +361,7 @@ async function geometry(room, names) {
       };
       const angle = element => {
         // Include the complete tile and all transforms inside its river. The
-        // table perspective and portrait screen rotation are shared view transforms.
+        // table perspective and canvas scaling are shared view transforms.
         const river = element.closest('.river');
         let matrix = new DOMMatrix();
         for (let node = element; node && node !== river.parentElement; node = node.parentElement) {
@@ -374,8 +374,8 @@ async function geometry(room, names) {
         rivers: [0, 1, 2, 3].map(player => {
           const river = document.querySelector(`#river-${player}`), tiles = [...river.querySelectorAll('.tile')];
           const style = getComputedStyle(river), tile = tiles[0], slot = tile.parentElement;
-          const tileBox = rect(tile), rotated = document.documentElement.classList.contains('landscape-rotated');
-          return { player, angle: angle(tile), box: rect(river), tile: tileBox, logicalTileWidth: rotated ? tileBox.height : tileBox.width, logicalTileHeight: rotated ? tileBox.width : tileBox.height, slot: rect(slot), count: tiles.length, columns: style.gridTemplateColumns.split(/\s+/).length, tileReachable: tiles.some(reachable) };
+          const tileBox = rect(tile);
+          return { player, angle: angle(tile), box: rect(river), tile: tileBox, logicalTileWidth: tileBox.width, logicalTileHeight: tileBox.height, slot: rect(slot), count: tiles.length, columns: style.gridTemplateColumns.split(/\s+/).length, tileReachable: tiles.some(reachable) };
         }),
         handReachable: [...document.querySelectorAll('#hand button[aria-disabled="false"]')].some(reachable),
         focus: rect(document.querySelector('#discard-focus .tile')),
@@ -386,7 +386,7 @@ async function geometry(room, names) {
     for (const row of rows.rivers) {
       const difference = ((row.angle - expected[row.player] + 540) % 360) - 180;
       assert.ok(Math.abs(difference) < .05, `whole river tile faces seat ${row.player}: ${row.angle}deg`);
-      assert.equal(row.columns, row.player % 2 ? 2 : 6, `river ${row.player} keeps intended grid columns`);
+      assert.equal(row.columns, row.player % 2 ? 4 : 9, `river ${row.player} keeps intended grid columns`);
       assert.equal(row.tileReachable, true, `river ${row.player} remains clickable at ${viewport.width}x${viewport.height}`);
       if (row.player % 2) assert.ok(row.logicalTileWidth > row.logicalTileHeight, 'sideways whole tiles occupy landscape grid slots');
       await page.locator(`#river-${row.player} .tile`).first().click();
@@ -417,7 +417,7 @@ async function geometry(room, names) {
   assert.deepEqual(await animationCounts(), animationsBefore, 'reduced-motion pass settles without launching a shrink animation');
   for (const page of pages) assert.equal(await page.locator('.discard-flight').count(), 0, 'reduced-motion leaves no temporary animation tiles');
   await Promise.all(pages.map(page => page.emulateMedia({ reducedMotion: 'no-preference' })));
-  report.checks.push({ sevenViewportRiverAndHandAccess: true, sevenViewportResponseButtonAccess: true, fourViewerLocalFocusTracksSevenViewports: true, maximumFocusCenterErrorPx: 1, moderateEnlargementRange: [1.35, 1.7], wholeTileSeatAngles: [0, -90, 180, 90], reducedMotionPassSettlesWithoutAnimation: true });
+  report.checks.push({ supportedViewportRiverAndHandAccess: true, supportedViewportResponseButtonAccess: true, fourViewerLocalFocusTracksSupportedViewports: true, maximumFocusCenterErrorPx: 1, moderateEnlargementRange: [1, 1.5], wholeTileSeatAngles: [0, -90, 180, 90], reducedMotionPassSettlesWithoutAnimation: true });
 }
 
 try {

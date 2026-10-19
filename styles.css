@@ -492,45 +492,12 @@ svg {
   border-bottom-width:1px
 }
 
-.river {
-  position:absolute;
-  display:grid;
-  gap:.5cqw;
-  align-content:start;
-  justify-content:center
-}
 
-.river-top,.river-bottom {
-  left:18%;
-  width:64%;
-  grid-template-columns:repeat(6,5.4cqw);
-  grid-auto-rows:7.6cqw;
-  max-height:23.8cqw
-}
 
-.river-top {
-  top:11cqw
-}
 
-.river-bottom {
-  bottom:7cqw
-}
 
-.river-left,.river-right {
-  top:31%;
-  width:13cqw;
-  grid-template-columns:repeat(2,5.4cqw);
-  grid-auto-rows:7.6cqw;
-  max-height:46cqw
-}
 
-.river-left {
-  left:8.2cqw
-}
 
-.river-right {
-  right:8.2cqw
-}
 
 .tile {
   display:block;
@@ -549,27 +516,8 @@ svg {
   stroke:none
 }
 
-.river .tile {
-  width:5.4cqw;
-  height:7.6cqw;
-  border-radius:.55cqw
-}
 
-.river .tile.last-discard {
-  outline:.45cqw solid #dfbd70;
-  outline-offset:.2cqw
-}
 
-.river .tile.last-discard::after {
-  content:"";
-  position:absolute;
-  bottom:.3cqw;
-  left:calc(50% - .45cqw);
-  width:.9cqw;
-  height:.9cqw;
-  border-radius:50%;
-  background:#c34536
-}
 
 .table-center {
   position:absolute;
@@ -1319,36 +1267,10 @@ svg {
   font-weight:400
 }
 
-.river {
-  cursor:pointer;
-  min-height:7.6cqw
-}
 
-.river::before {
-  content:attr(data-label);
-  position:absolute;
-  top:-2.6cqw;
-  left:0;
-  width:100%;
-  text-align:center;
-  color:#8fae8c;
-  font-size:1.45cqw;
-  white-space:nowrap
-}
 
-.river-top,.river-bottom {
-  max-height:15.7cqw
-}
 
-.river-left,.river-right {
-  top:34%;
-  grid-auto-rows:7.3cqw;
-  max-height:30.7cqw
-}
 
-.river-left .tile,.river-right .tile {
-  height:7.3cqw
-}
 
 .turn-message {
   top:71.9%
@@ -1535,35 +1457,4 @@ svg {
     animation:none!important;
     transition:none!important
   }
-}
-
-@media(max-width:540px) {
-  .game {
-    border:none;
-    box-shadow:none
-  }
-  body {
-    background:#123c32
-  }
-}
-
-/* Keep the complete table and hand inside short windows too. Text scales with
-   the game here, so its minimum pixel size cannot push the hand into the footer. */
-@media(max-height:500px) {
-  .game .hand-heading { font-size:2.6cqw }
-  .game .hand-heading small { font-size:1.9cqw }
-  .game .hand-instruction { font-size:1.8cqw }
-  .game .connection { font-size:1.8cqw }
-  .game .wallet-copy small { font-size:1.8cqw }
-  .game .room-meta { font-size:1.95cqw }
-  .game .player-seat .opponent-name { font-size:2.6cqw }
-  .game .player-seat .opponent-name small { font-size:1.65cqw }
-  .game .player-seat .opponent-score { font-size:2.2cqw }
-  .game .player-seat .opponent-state { font-size:1.9cqw }
-  .game .player-seat .seat,.game .dealer-badge { font-size:2cqw }
-  .game .red-gang-badge { font-size:1.6cqw }
-  .game .last-event { font-size:1.95cqw }
-  .game .action-heading { font-size:1.9cqw }
-  .game .laizi-summary>div>span:first-child { font-size:1.8cqw }
-  .game .wild-marker,.game .red-kong-marker,.game .pizi-marker { font-size:1.5cqw }
 }

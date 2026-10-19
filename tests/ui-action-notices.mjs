@@ -113,7 +113,7 @@ async function expiredReplay(room){
   await sleep(150);await none('an already expired same-id snapshot cannot replay a notice');
   report.checks.push({realTimerExpiry:true,sameSnapshotDoesNotExtend:true,expiredSnapshotDoesNotReplay:true,elapsedMs:elapsed});
 }
-const geometryViewports=[{width:390,height:844},{width:375,height:667},{width:1080,height:1920},{width:1440,height:900}];
+const geometryViewports=[{width:640,height:360},{width:844,height:390},{width:1280,height:720},{width:1440,height:900},{width:1920,height:1080}];
 async function geometry(room,actor,{label='hu',viewports=geometryViewports,screenshots=true}={}){
   for(const viewport of viewports)for(let viewer=0;viewer<4;viewer++){
     const page=pages[viewer];await page.setViewportSize(viewport);
@@ -122,13 +122,8 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
       // the new viewport layout and its observer callback before measuring it.
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
       const game=document.querySelector('#game'),gameBox=game.getBoundingClientRect();
-      const rotated=document.documentElement.classList.contains('landscape-rotated');
       const screenRect=element=>{const r=element.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};};
-      // Seat numbers describe the game surface, so its front/centre assertions
-      // use logical landscape coordinates even on a physically portrait phone.
-      const rect=element=>{const r=screenRect(element);return rotated
-        ?{left:r.top-gameBox.top,right:r.bottom-gameBox.top,top:gameBox.right-r.right,bottom:gameBox.right-r.left}
-        :{left:r.left-gameBox.left,right:r.right-gameBox.left,top:r.top-gameBox.top,bottom:r.bottom-gameBox.top};};
+      const rect=element=>{const r=screenRect(element);return {left:r.left-gameBox.left,right:r.right-gameBox.left,top:r.top-gameBox.top,bottom:r.bottom-gameBox.top};};
       const element=[...document.querySelectorAll('.seat-action-notice')].find(element=>!element.hidden&&element.getClientRects().length);
       const note=element&&rect(element);
       const player=element?Number(element.dataset.player):null;
@@ -146,14 +141,14 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
         if(Number.isFinite(top)&&height>0&&area.right>area.left)areas.push({...area,top,bottom:top+height,area:`${river.id}::before`});
       }
       const collisions=note?areas.filter(area=>Math.min(note.right,area.right)-Math.max(note.left,area.left)>.5&&Math.min(note.bottom,area.bottom)-Math.max(note.top,area.top)>.5):[];
-      return {note,screenNote:element&&screenRect(element),anchor,player,handCount:cards.length,collisions,rotated,landscape:game.clientWidth>game.clientHeight,pointerEvents:element&&getComputedStyle(element).pointerEvents,hudLayer:element?.parentElement===game};
+      return {note,screenNote:element&&screenRect(element),anchor,player,handCount:cards.length,collisions,stageWidth:game.clientWidth,stageHeight:game.clientHeight,landscape:game.classList.contains('is-landscape'),pointerEvents:element&&getComputedStyle(element).pointerEvents,hudLayer:element?.parentElement===game};
     });
     const context=JSON.stringify({label,viewport,viewer,data});
     assert.ok(data.note,`${label} notice visible for viewer ${viewer}`);
     assert.ok(data.anchor,`${label} notice has a real hand stack anchor`);
     assert.equal(data.player,(actor-viewer+4)%4,'notice is anchored to the acting relative seat');
-    assert.equal(data.landscape,true,'in-room game surface must remain landscape');
-    assert.equal(data.rotated,viewport.height>viewport.width,'physical portrait viewport uses the landscape rotation fallback');
+    assert.equal(data.landscape,true,'active game uses the shared landscape surface');
+    assert.ok(data.stageWidth/data.stageHeight>=16/9-.01,'active game keeps the same landscape layout');
     assert.equal(data.hudLayer,true,'notice uses the flat stage HUD so projected card coordinates are not transformed twice');
     assert.ok(data.screenNote.left>=0&&data.screenNote.right<=viewport.width+1&&data.screenNote.top>=0&&data.screenNote.bottom<=viewport.height+1,`notice remains inside the physical screen: ${context}`);
     const horizontal=data.player===0||data.player===2;
@@ -163,8 +158,8 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
     assert.ok(facesFelt,`notice sits in front of its own hand toward the table centre: ${context}`);
     assert.deepEqual(data.collisions,[],`notice avoids cards, wall, portraits, controls and text: ${context}`);
     assert.equal(data.pointerEvents,'none','decorative notice must not block game hit targets');
-    report.geometry.push({label,...viewport,viewer,relative:data.player,handCount:data.handCount,centreError,rotated:data.rotated,landscape:true,inBounds:true,noOverlap:true,facesFelt:true});
-    if(screenshots&&viewport.width===390){const screenshot=path.join(output,`ui-action-notice-${label}-seat${viewer}-390x844.png`);await page.screenshot({path:screenshot});report.screenshots.push(screenshot);}
+    report.geometry.push({label,...viewport,viewer,relative:data.player,handCount:data.handCount,centreError,landscape:true,inBounds:true,noOverlap:true,facesFelt:true});
+    if(screenshots&&viewport.width===844){const screenshot=path.join(output,`ui-action-notice-${label}-seat${viewer}-844x390.png`);await page.screenshot({path:screenshot});report.screenshots.push(screenshot);}
   }
 }
 try{
@@ -172,7 +167,9 @@ try{
   const code=(await pages[0].locator('#room-current-code').textContent()).trim();
   for(const name of ['动作乙','动作丙','动作丁']){const page=await player(name);pages.push(page);await page.locator('#room-code').fill(code);await page.locator('#room-join').click();await page.locator('#room-waiting:not([hidden])').waitFor();}
   const room=service.rooms.get(code);await waitFor(()=>room.seats.every(seat=>seat.connected),'four real SSE identities');
+  for(const page of pages)assert.equal(await page.evaluate(()=>!document.documentElement.classList.contains('in-game')&&document.querySelector('#game').clientWidth<document.querySelector('#game').clientHeight),true,'waiting room keeps the portrait lobby');
   for(const page of pages)await page.locator('#room-ready:enabled').click();await waitFor(()=>room.seats.every(seat=>seat.ready),'all ready');
+  for(const page of pages)await page.setViewportSize({width:844,height:390});
   await pages[0].locator('#room-start:enabled').click();await waitFor(()=>room.game,'real game start');await sync(room);await none('ordinary dealing has no action notice');
   const names=room.seats.map(seat=>seat.name);
   await publish(room,actionFixture({names}));await click(room,0,{kind:'redGang'});await notice(room,'gang',0,'red single kong');await expiredReplay(room);

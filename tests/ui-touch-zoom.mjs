@@ -19,7 +19,7 @@ const server = createServer({roomService:service});
 server.listen(0, '127.0.0.1'); await once(server, 'listening');
 const edge = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const browser = await playwright.chromium.launch({headless:true, ...(existsSync(edge) ? {executablePath:edge} : {})});
-const context = await browser.newContext({viewport:{width:390, height:844}, hasTouch:true, isMobile:true});
+const context = await browser.newContext({viewport:{width:640, height:360}, hasTouch:true, isMobile:true});
 const output = path.resolve('output'); mkdirSync(output, {recursive:true});
 const report = {passed:false, cases:[], errors:[], fixtureNote:'One human with three idle bots; each injected pre-discard fixture conserves all 136 tiles. Real touch input sends HTTP actions and receives SSE updates.'};
 try {
@@ -72,7 +72,7 @@ try {
   const tap = point => page.touchscreen.tap(point.x, point.y);
   const doubleTap = async point => { await tap(point); await page.waitForTimeout(80); await tap(point); await page.waitForTimeout(350); };
   const stable = async before => { assert.deepEqual(await measure(), before, 'Rapid touch input must preserve viewport scale and table dimensions'); };
-  for (const viewport of [{width:390,height:844}, {width:844,height:390}, {width:375,height:667}, {width:932,height:430}]) {
+  for (const viewport of [{width:640,height:360}, {width:844,height:390}, {width:1280,height:720}, {width:1920,height:1080}]) {
     await page.setViewportSize(viewport); await frames(); await fixture();
     const before = await measure(); assert.equal(before.scale, 1);
     const tile = page.locator('#hand button[data-index="0"]');
@@ -85,7 +85,7 @@ try {
     await fixture();
     const lowerEdge = await tile.evaluate(element => {
       const r = element.getBoundingClientRect();
-      return document.documentElement.classList.contains('landscape-rotated') ? {x:r.left+2,y:r.y+r.height/2} : {x:r.x+r.width/2,y:r.bottom-2};
+      return {x:r.x+r.width/2,y:r.bottom-2};
     });
     await tap(lowerEdge); await page.waitForTimeout(100);
     assert.equal(await tile.getAttribute('aria-pressed'), 'true');

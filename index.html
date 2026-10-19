@@ -183,6 +183,12 @@
     </dialog>
     <dialog id="result-dialog" class="modal result-modal"><span class="modal-eyebrow">ROUND COMPLETE</span><img class="result-avatar" id="result-avatar" src="assets/avatar-player.svg" alt="本局结果头像"><h2 id="result-title">好牌，胡了！</h2><p class="modal-lead" id="result-detail"></p><div class="result-hand" id="result-hand"></div><div class="result-scores" id="result-scores"></div><button class="primary-button" id="next-round">房主开始下一局</button><button class="secondary-button" data-close>查看牌桌</button></dialog>
   </main>
+  <dialog id="rotate-guide" class="rotate-guide" aria-labelledby="rotate-title" aria-describedby="rotate-description">
+    <span class="rotate-device" aria-hidden="true">↻</span>
+    <h2 id="rotate-title">请横屏使用</h2>
+    <p id="rotate-description">将手机横置后继续对局。若屏幕未旋转，请关闭手机的方向锁定。</p>
+    <button id="rotate-return" class="secondary-button">返回房间</button>
+  </dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>

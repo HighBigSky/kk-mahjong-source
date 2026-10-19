@@ -34,10 +34,15 @@ async function waitFor(test, message, timeout = 5000) {
   }
 }
 
-async function openPlayer(name, viewport = { width: 390, height: 844 }, url = baseURL) {
+async function openPlayer(name, viewport = {width:844,height:390}, url = baseURL) {
   const context = await browser.newContext({ viewport });
   contexts.push(context);
   await context.addInitScript(() => {
+    window.__sseStateCount = 0;
+    const NativeEventSource = window.EventSource;
+    window.EventSource = class extends NativeEventSource {
+      constructor(...args) { super(...args); this.addEventListener('state', () => window.__sseStateCount++); }
+    };
     try { localStorage.setItem('queqi-settings', JSON.stringify({ sound: false, names: false, laizi: false })); }
     catch { /* about:blank has no storage origin during the intentional disconnect. */ }
   });
@@ -69,21 +74,22 @@ async function checkActionVisibility(page, room) {
     return {
       seat: window.mahjongRoom.room.seat,
       zone: visible(document.querySelector('.action-zone')),
-      shown: [...document.querySelectorAll('.action-button')].filter(visible).map(button => button.dataset.action),
-      enabled: [...document.querySelectorAll('.action-button:not(:disabled)')].map(button => button.dataset.action),
+      shown: [...document.querySelectorAll('.action-button[data-action]')].filter(visible).map(button => button.dataset.action),
+      enabled: [...document.querySelectorAll('.action-button[data-action]:not(:disabled)')].map(button => button.dataset.action),
+      utilityShown: [...document.querySelectorAll('#hint-btn,#action-next')].some(visible),
     };
   });
   const actions = room.game && !room.seats.some(seat => !seat.connected) ? room.game.getActions(actual.seat) : null;
   const expected = actions ? [
     ...(actions.chi.length ? ['chi'] : []),
     ...(actions.peng ? ['peng'] : []),
-    ...(actions.redGang || actions.piziGang || actions.gang || actions.concealedGangs.length || actions.addedGangs.length ? ['gang'] : []),
+    ...(actions.redGang || actions.piziGang || actions.wildGang || actions.gang || actions.concealedGangs.length || actions.addedGangs.length ? ['gang'] : []),
     ...(actions.hu ? ['hu'] : []),
     ...(actions.pass ? ['pass'] : []),
   ] : [];
   assert.deepEqual(actual.shown, expected, 'only currently legal actions occupy visible space');
   assert.deepEqual(actual.enabled, expected, 'hidden actions cannot be submitted');
-  assert.equal(actual.zone, expected.length > 0, 'empty action zone is hidden');
+  assert.equal(actual.zone, expected.length > 0 || actual.utilityShown, 'empty action zone is hidden unless a hint/next-round control is available');
   report.actionVisibility.checks++;
   if (!expected.length) report.actionVisibility.empty++;
   for (const action of expected) report.actionVisibility.shown[action]++;
@@ -207,18 +213,18 @@ async function checkHandSelectionStability(page, room) {
     assert.equal(state.focused, String(previous));
 
     const actions = room.game.getActions(0);
-    await page.locator('#hint-btn').click();
-    state = await unchanged('discard hint');
-    if (actions.redGang || actions.piziGang) {
-      assert.deepEqual(state.selected, []);
-      assert.deepEqual(state.hinted, []);
-      assert.equal(state.focused, 'action-gang', 'red dragon hint directs focus to the legal kong action');
-    } else {
+    const hintVisible = await page.locator('#hint-btn').isVisible();
+    if (hintVisible) {
+      await page.locator('#hint-btn').click();
+      state = await unchanged('discard hint');
       const visible = [...room.game.players.flatMap(player => [...player.discards, ...player.redGangs, ...player.piziGangs, ...player.melds.flatMap(meld => meld.tiles)]), ...(room.game.indicatorTile == null ? [] : [room.game.indicatorTile])];
       const expected = chooseDiscard(room.game.players[0].hand, room.game.players[0].melds, visible, room.game.wildTile, room.game.indicatorTile);
       assert.deepEqual(state.hinted, [expected]);
       assert.deepEqual(state.selected, [expected]);
       assert.deepEqual(state.pressed, [expected]);
+    } else {
+      assert.ok(actions.redGang || actions.piziGang || actions.wildGang || actions.hu || actions.concealedGangs.length || actions.addedGangs.length, 'legal Hu/Kong actions take precedence over the hint');
+      state = await unchanged('hidden hint leaves selection unchanged');
     }
     const redIndex = room.game.players[0].hand.indexOf(RED_DRAGON);
     if (redIndex >= 0) {
@@ -231,12 +237,13 @@ async function checkHandSelectionStability(page, room) {
       assert.match(await page.locator('#toast').textContent(), /红中只能/);
     }
     const beforeRefresh = state;
+    const beforeStateEvents = await page.evaluate(() => window.__sseStateCount);
     for (const stream of room.seats[0].streams) service._write(stream, service.snapshot(room, 0));
-    await waitFor(() => page.evaluate(() => window.mahjongGame.players !== window.__handSelectionRegression.players), 'same-version SSE snapshot received');
+    await waitFor(() => page.evaluate(count => window.__sseStateCount > count, beforeStateEvents), 'same-version SSE snapshot received');
     state = await unchanged('same-version server snapshot');
     assert.deepEqual(state.selected, beforeRefresh.selected, 'same-version snapshot preserves local selection');
     assert.deepEqual(state.hinted, beforeRefresh.hinted, 'same-version snapshot preserves local hint');
-    report.selectionStability = { clicks: 6, arrowKeys: 2, hint: actions.redGang ? 'redGang' : 'discard', redClick: redIndex >= 0, sameVersionSnapshot: true, nodesRetained: true, removedFaces: 0, navigations: 0, gameUnchanged: true };
+    report.selectionStability = { clicks: 6, arrowKeys: 2, hint: hintVisible ? 'discard' : 'hiddenDuringHuOrKong', redClick: redIndex >= 0, sameVersionSnapshot: true, nodesRetained: true, removedFaces: 0, navigations: 0, gameUnchanged: true };
     report.steps.push('Alternating hand clicks, arrow keys, hint and same-version SSE retained tile nodes and local selection without navigation or any game action; red dragon click checked when dealt.');
   } finally {
     page.off('framenavigated', navigated);
@@ -359,7 +366,7 @@ try {
   assert.deepEqual((await snapshot(pages[3])).hand, room.game.players[3].hand);
   assert.equal(JSON.stringify(room.game), beforeDisconnect, 'reconnect must not play a turn');
   report.steps.push('Leaving one browser paused all actions; returning to the original tab restored its seat/hand; no AI takeover or unsolicited turn.');
-  const dimensions = [{ width: 375, height: 667 }, { width: 390, height: 844 }, { width: 1080, height: 1920 }, { width: 1440, height: 900 }];
+  const dimensions = [{width:640,height:360}, {width:844,height:390}, {width:1920,height:1080}, { width: 1440, height: 900 }];
   for (const viewport of dimensions) {
     await pages[0].setViewportSize(viewport);
     const geometry = await pages[0].evaluate(() => {

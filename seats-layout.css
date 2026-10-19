@@ -248,36 +248,12 @@
   height:45%;
 }
 
-.river-top,.river-bottom {
-  grid-template-columns:repeat(6,5cqw);
-  grid-auto-rows:7cqw;
-  max-height:14.5cqw;
-}
 
-.river-top {
-  top:9.2cqw;
-}
 
-.river-bottom {
-  bottom:7cqw;
-}
 
-.river-top .tile,.river-bottom .tile {
-  width:5cqw;
-  height:7cqw;
-}
 
-.river-left,.river-right {
-  top:36%;
-}
 
-.river-left {
-  left:6cqw;
-}
 
-.river-right {
-  right:6cqw;
-}
 
 .table-center {
   width:20cqw;

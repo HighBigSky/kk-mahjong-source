@@ -2458,40 +2458,7 @@ node output/domain-validation-evidence.mjs
 }
 ```
 
-浏览器实际命令（使用现成 webapp-testing 工作流与本机已提供的 Playwright/Edge，不添加项目依赖）：
-
-```sh
-node tests/ui-smoke.mjs
-node tests/ui-laizi.mjs
-node tests/ui-hand-visibility.mjs
-node output/domain-ui-complete-round.mjs
-```
-
-```json
-[
-  {
-    "report": "output/ui-test-report.json",
-    "viewports": 4,
-    "errors": [],
-    "failures": []
-  },
-  {
-    "report": "output/ui-laizi-report.json",
-    "viewports": 4,
-    "errors": [],
-    "failures": []
-  },
-  {
-    "report": "output/hand-visibility-report.json",
-    "viewports": 8,
-    "errors": [],
-    "failures": [],
-    "fixtures": 160,
-    "selections": 1040,
-    "orientationTransitions": 16
-  }
-]
-```
+历史单机竖屏布局测试已移除；当前展示验收命令见 README 的验证章节。
 
 完整新发牌对局通过真实提示、手牌及过牌按钮和现有 AI 定时器推进。只用 newRound(seed) 初始化，没有直接调用 discard/claim/advanceAI 推进；19 次出牌、11 次过后云舟自摸，phase ended，结算弹窗开启，四家分数 [980,1060,980,980]，控制台/网络错误 0。已目视检查结算截图 output/domain-ui-complete-round.png；完整事件见 output/domain-ui-complete-round.json。
 

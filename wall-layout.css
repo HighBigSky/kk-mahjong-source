@@ -1,5 +1,5 @@
 /* The physical wall is four runs of 17 double-height stacks. Its dimensions
-   scale with the portrait board. Only the public indicator has a tile face. */
+   scale with the table. Only the public indicator has a tile face. */
 :root {
   --wall-piece-width:2.7cqw;
   --wall-piece-height:3.78cqw;
@@ -216,30 +216,7 @@
 .table:has(.wall-tail:not([hidden])) .backs-left .back,
 .table:has(.wall-tail:not([hidden])) .backs-right .back { width:3.1cqw; }
 
-.table:has(.wall-tail:not([hidden])) .river-top,
-.table:has(.wall-tail:not([hidden])) .river-bottom {
-  grid-template-columns:repeat(6,4.5cqw);
-  grid-auto-rows:6.3cqw;
-  max-height:13.1cqw;
-}
-.table:has(.wall-tail:not([hidden])) .river-top { top:11.5cqw; }
-.table:has(.wall-tail:not([hidden])) .river-bottom { bottom:7cqw; }
-.table:has(.wall-tail:not([hidden])) .river-top .tile,
-.table:has(.wall-tail:not([hidden])) .river-bottom .tile { width:4.5cqw; height:6.3cqw; }
-.table:has(.wall-tail:not([hidden])) .river-top::before,
-.table:has(.wall-tail:not([hidden])) .river-bottom::before { top:-1.8cqw; }
 
-.table:has(.wall-tail:not([hidden])) .river-left { left:10.7cqw; }
-.table:has(.wall-tail:not([hidden])) .river-right { right:10.7cqw; }
-.table:has(.wall-tail:not([hidden])) .river-left,
-.table:has(.wall-tail:not([hidden])) .river-right {
-  width:8.2cqw;
-  grid-template-columns:repeat(2,3.7cqw);
-  grid-auto-rows:5.2cqw;
-  max-height:22.3cqw;
-}
-.table:has(.wall-tail:not([hidden])) .river-left .tile,
-.table:has(.wall-tail:not([hidden])) .river-right .tile { width:3.7cqw; height:5.2cqw; }
 .table:has(.wall-tail:not([hidden])) .table-center {
   left:calc(50% - 9cqw);
   top:calc(50% - 9cqw);

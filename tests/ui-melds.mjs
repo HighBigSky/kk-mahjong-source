@@ -32,7 +32,7 @@ async function sync(room) {
   for (const page of pages) await waitFor(() => page.evaluate(version => window.mahjongRoom.room?.version >= version && !window.mahjongRoom.busy, room.version), 'all four SSE states rendered');
 }
 async function player(name) {
-  const context = await browser.newContext({viewport:{width:390, height:844}}); contexts.push(context);
+  const context = await browser.newContext({viewport:{width:844,height:390}}); contexts.push(context);
   await context.addInitScript(() => localStorage.setItem('queqi-settings', JSON.stringify({sound:false, laizi:true, names:false})));
   const page = await context.newPage();
   page.on('pageerror', error => report.errors.push(redact(error.message)));
@@ -154,7 +154,7 @@ try {
   await publish(room, maximumPublicFixture(names));
   await assertAllPublic(room, 'maximum physical public groups');
   report.maximum = {physicalTiles:collectPhysicalTiles(room.game).length, red:4, indicators:3, ordinaryGangsPerSeat:4, concealedCounts:room.game.players.map(player => player.hand.length), publicTiles:room.game.players.map(player => expectedGroups(player).flatMap(group => group.codes).length)};
-  for (const viewport of [{width:375, height:667}, {width:390, height:844}, {width:1080, height:1920}, {width:1440, height:900}]) {
+  for (const viewport of [{width:640,height:360}, {width:844,height:390}, {width:1920,height:1080}, {width:1440, height:900}]) {
     for (let viewer = 0; viewer < 4; viewer++) {
       const page = pages[viewer]; await page.setViewportSize(viewport);
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -188,7 +188,7 @@ try {
   await publish(room, maximumSpecialHandFixture(names));
   await assertAllPublic(room, 'seven special kongs with fourteen concealed tiles');
   report.specialFullHandViewports = [];
-  for (const viewport of [{width:375, height:667}, {width:390, height:844}, {width:1080, height:1920}, {width:1440, height:900}]) {
+  for (const viewport of [{width:640,height:360}, {width:844,height:390}, {width:1920,height:1080}, {width:1440, height:900}]) {
     for (let viewer = 0; viewer < 4; viewer++) {
       const page = pages[viewer]; await page.setViewportSize(viewport);
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -217,7 +217,7 @@ try {
 
   await publish(room, maximumPublicFixture(names));
 
-  await pages[0].setViewportSize({width:390, height:844});
+  await pages[0].setViewportSize({width:844,height:390});
   await pages[0].evaluate(() => {
     window.__meldNodes = {nodes:[...document.querySelectorAll('[id^="melds-"] *')], players:window.mahjongGame.players, removed:0};
     window.__meldNodes.observer = new MutationObserver(records => { for (const record of records) for (const node of record.removedNodes) if (node.nodeType === 1 && (node.matches('.tile, svg') || node.querySelector('.tile, svg'))) window.__meldNodes.removed++; });

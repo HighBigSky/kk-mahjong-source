@@ -509,7 +509,7 @@ export class MahjongGame {
       for (const player of this.players) player.hand.push(/** @type {TileCode} */ (this.wall.pop()));
     }
     for (const player of this.players) player.hand.sort((a, b) => a - b);
-    this.current = this.dealer;
+    this.current = /** @type {PlayerId} */ (this.dealer);
     this._setPhase({ kind: PHASE.DISCARD, seat: this.current });
     this.pendingDiscard = null;
     this.lastDiscard = null;
@@ -520,7 +520,7 @@ export class MahjongGame {
     this._responses = Array(4).fill(null);
     this._log(`第 ${this.round} 局开始，${this.players[this.dealer].name}坐庄，庄家先出牌。`);
     if (this.laiziEnabled) this._log(`翻出皮子${tileName(this.indicatorTile)}，${tileName(this.wildTile)}为本局癞子。`);
-    this._drawTile(this.dealer);
+    this._drawTile(/** @type {PlayerId} */ (this.dealer));
     return this;
   }
 

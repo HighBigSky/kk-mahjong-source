@@ -23,6 +23,7 @@ const output = path.resolve('output');
 mkdirSync(output, { recursive: true });
 const report = { baseURL, steps: [], errors: [], screenshots: [], viewports: [], round: null };
 const contexts = [];
+const gameViewports = [{ width: 640, height: 360 }, { width: 844, height: 390 }, { width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 }];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const redact = text => text.replace(/[a-f0-9]{48}/g, '[redacted]');
 
@@ -134,29 +135,25 @@ async function checkDialog(page, viewport, expectedAdd, expectedRemove) {
   assert.equal(await page.locator('.room-bot-remove:visible').count(), expectedRemove);
   const geometry = await page.evaluate(async () => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    const game = document.querySelector('#game'), gameBox = game.getBoundingClientRect();
-    const rotated = document.documentElement.classList.contains('landscape-rotated');
-    const logicalRect = r => rotated
-      ? { left: r.top - gameBox.top, right: r.bottom - gameBox.top, top: gameBox.right - r.right, bottom: gameBox.right - r.left, width: r.height, height: r.width }
-      : { left: r.left - gameBox.left, right: r.right - gameBox.left, top: r.top - gameBox.top, bottom: r.bottom - gameBox.top, width: r.width, height: r.height };
+    const game = document.querySelector('#game');
+    const rect = r => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height });
     const dialog = document.querySelector('#room-dialog');
     const box = dialog.getBoundingClientRect();
     return {
       bodyWidth: document.body.scrollWidth,
       dialog: { x: box.x, right: box.right, top: box.top, bottom: box.bottom, width: box.width },
-      logicalDialog: logicalRect(box), rotated, landscape: game.clientWidth > game.clientHeight,
+      portrait: game.clientWidth < game.clientHeight && !document.documentElement.classList.contains('in-game'),
       contentFits: dialog.scrollWidth <= dialog.clientWidth + 1,
       buttons: [...dialog.querySelectorAll('.room-bot-add, .room-bot-remove')]
         .filter(button => button.getClientRects().length)
-        .map(button => ({ ...logicalRect(button.getBoundingClientRect()), text: button.textContent })),
+        .map(button => ({ ...rect(button.getBoundingClientRect()), text: button.textContent })),
     };
   });
-  assert.equal(geometry.landscape, true, 'waiting room uses a landscape game surface');
-  assert.equal(geometry.rotated, viewport.height > viewport.width, 'portrait screen rotates the landscape waiting room');
+  assert.equal(geometry.portrait, true, 'waiting room keeps the portrait lobby');
   assert.ok(geometry.bodyWidth <= viewport.width + 1, 'page must not overflow horizontally');
   assert.ok(geometry.contentFits, 'room dialog content must not overflow horizontally');
   assert.ok(geometry.dialog.x >= -1 && geometry.dialog.right <= viewport.width + 1 && geometry.dialog.top >= -1 && geometry.dialog.bottom <= viewport.height + 1, 'waiting dialog remains inside the physical screen');
-  assert.ok(geometry.buttons.every(button => button.left >= geometry.logicalDialog.left && button.right <= geometry.logicalDialog.right && button.width >= 44 && button.height >= 36), 'buttons retain their logical touch-target dimensions and fit the dialog width');
+  assert.ok(geometry.buttons.every(button => button.left >= geometry.dialog.x && button.right <= geometry.dialog.right && button.width >= 44 && button.height >= 36), 'buttons retain their touch-target dimensions and fit the dialog width');
   // A short dialog may scroll, but every operation must remain reachable.
   for (const button of await page.locator('.room-bot-add:visible, .room-bot-remove:visible').all()) {
     await button.scrollIntoViewIfNeeded();
@@ -165,8 +162,27 @@ async function checkDialog(page, viewport, expectedAdd, expectedRemove) {
     assert.ok(box && box.x >= -1 && box.y >= -1 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1, 'each scrolled bot operation is reachable inside the physical screen');
   }
   await page.locator('#room-current-code').scrollIntoViewIfNeeded();
-  report.viewports.push({ ...viewport, dialog: true, landscape: true, rotated: geometry.rotated, noOverflow: true, addButtons: expectedAdd, removeButtons: expectedRemove });
+  report.viewports.push({ ...viewport, dialog: true, portrait: true, noOverflow: true, addButtons: expectedAdd, removeButtons: expectedRemove });
   await screenshot(page, `ui-bots-room-${viewport.width}x${viewport.height}.png`);
+}
+
+async function checkGame(page) {
+  for (const viewport of gameViewports) {
+    await page.setViewportSize(viewport);
+    const geometry = await page.evaluate(async () => {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const stage = document.querySelector('#game'), box = stage.getBoundingClientRect();
+      return { landscape: stage.classList.contains('is-landscape'), width: stage.clientWidth, height: stage.clientHeight,
+        left: box.left, right: box.right, top: box.top, bottom: box.bottom,
+        scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight };
+    });
+    assert.equal(geometry.landscape, true, 'bot game uses the shared landscape surface');
+    assert.ok(geometry.width / geometry.height >= 16 / 9 - .01, 'bot game keeps the same landscape layout');
+    assert.ok(geometry.left >= -1 && geometry.right <= viewport.width + 1 && geometry.top >= -1 && geometry.bottom <= viewport.height + 1, 'bot game stays inside its viewport');
+    assert.ok(geometry.scrollWidth <= viewport.width + 1 && geometry.scrollHeight <= viewport.height + 1, 'bot game has no page overflow');
+    report.viewports.push({ ...viewport, landscape: true, stageRatio: 'at-least-16:9', noOverflow: true });
+  }
+  await page.setViewportSize({ width: 844, height: 390 });
 }
 
 function humanCommand(game, player) {
@@ -204,12 +220,17 @@ async function clickCommand(page, room, command) {
 }
 
 async function startRoom(owner, room, humans = [owner]) {
+  for (const page of humans) await page.setViewportSize({ width: 844, height: 390 });
   for (const page of humans) await page.locator('#room-ready:enabled').click();
   await waitFor(() => room.seats.every(seat => seat?.ready && seat.connected), 'humans and bots ready');
   await owner.locator('#room-start:enabled').click();
   await waitFor(() => !!room.game, 'game started');
   for (const page of humans) await page.locator('#room-dialog:not([open])').waitFor({ state: 'attached' });
   await synchronized(humans, room);
+  for (const page of humans) assert.equal(await page.evaluate(() => {
+    const stage = document.querySelector('#game');
+    return stage.classList.contains('is-landscape') && stage.clientWidth / stage.clientHeight >= 16 / 9 - .01;
+  }), true, 'started room uses the shared landscape game');
   assertInvariants(room.game);
 }
 
@@ -225,8 +246,8 @@ try {
   assert.equal(await owner.locator('.room-bot-add[data-seat="1"]:visible').count(), 1);
   for (const seat of [1, 2, 3]) await addBot(owner, room, seat);
   assert.equal(room.seats.filter(seat => seat?.bot).length, 3);
-  for (const viewport of [{ width: 375, height: 667 }, { width: 390, height: 844 }]) await checkDialog(owner, viewport, 0, 3);
-  report.steps.push('Owner added, removed and re-added bots through actual room buttons; bots auto-ready; 375×667 and 390×844 dialogs fit and operations remain reachable.');
+  for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }]) await checkDialog(owner, viewport, 0, 3);
+  report.steps.push('Owner added, removed and re-added bots through actual room buttons; bots auto-ready; 360×640 and 390×844 portrait waiting dialogs fit and operations remain reachable.');
   await startRoom(owner, room);
   const seed = 'online-room-bots-2026';
   room.game = new MahjongGame({ seed, names: room.seats.map(seat => seat.name), laizi: room.laizi });
@@ -236,7 +257,8 @@ try {
   await sleep(180);
   assert.equal(JSON.stringify(room.game), beforeHuman, 'bots cannot play the human dealer turn');
   assert.equal(room.game.current, 0);
-  await screenshot(owner, 'ui-bots-playing-390x844.png');
+  await checkGame(owner);
+  await screenshot(owner, 'ui-bots-playing-844x390.png');
   report.steps.push('One human + three bots started normally; human dealer remained untouched while idle.');
   const clicks = { discard: 0, pass: 0, redGang: 0, piziGang: 0, gang: 0, hu: 0 };
   let humanActions = 0;
@@ -275,7 +297,7 @@ try {
     report.round.revealedHands = await assertRevealedHands(owner, room);
     await owner.locator('#result-dialog [data-close]').click();
     await owner.locator('#result-dialog:not([open])').waitFor({ state: 'attached' });
-    await screenshot(owner, 'ui-bots-revealed-hands-390x844.png');
+    await screenshot(owner, 'ui-bots-revealed-hands-844x390.png');
     report.steps.push('After Hu, own data-index SVG faces and all three bot racks exactly matched the relative server hands; no concealed backs remained; the result dialog closed to reveal the table.');
   }
 

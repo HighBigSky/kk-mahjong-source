@@ -20,7 +20,7 @@ const edge = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const browser = await playwright.chromium.launch({headless:true, ...(existsSync(edge) ? {executablePath:edge} : {})});
 const contexts = [], pages = [];
 const output = path.resolve('output'); mkdirSync(output, {recursive:true});
-const viewports = [{width:390,height:844}, {width:375,height:667}, {width:1080,height:1920}, {width:1440,height:900}];
+const viewports = [{width:844,height:390}, {width:640,height:360}, {width:1920,height:1080}, {width:1440,height:900}];
 const report = {passed:false, errors:[], scenarios:[], views:[], geometry:[], screenshots:[], lifecycle:[],
   fixtureNote:'Fixtures allocate exactly four copies of every face across all 136 physical tiles. Four genuine browser sessions perform create/join/ready/start, Hu, pass, next-round and exhausted-wall discard actions over HTTP/SSE. Prepared hands are explicit conserved fixtures, not naturally dealt complete rounds.'};
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

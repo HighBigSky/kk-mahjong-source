@@ -41,7 +41,7 @@ async function synchronize(page, room) {
 }
 
 async function createPlayingRoom(name, laizi) {
-  const context = await browser.newContext({viewport:{width:390, height:844}});
+  const context = await browser.newContext({viewport:{width:844,height:390}});
   contexts.push(context);
   await context.addInitScript(laizi => {
     try { localStorage.setItem('queqi-settings', JSON.stringify({sound:false, names:false, laizi})); }
@@ -329,7 +329,7 @@ try {
   await publish(page, room, maximum);
   assertPublicWall(await wallState(page), maximum);
   report.fixtures.maximumMelds = {description:'Display fixture only: each opponent has four real four-copy gang groups and one concealed tile; self has fourteen tiles, all rivers reach their visible caps, and the original indicator is owned once.', physicalTiles:collectPhysicalTiles(maximum).length, remaining:maximum.wall.length};
-  for (const viewport of [{width:375, height:667}, {width:390, height:844}, {width:1080, height:1920}, {width:1440, height:900}]) {
+  for (const viewport of [{width:640,height:360}, {width:844,height:390}, {width:1920,height:1080}, {width:1440, height:900}]) {
     await page.setViewportSize(viewport);
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const geometry = await page.evaluate(() => {
@@ -374,7 +374,7 @@ try {
   assert.ok(lateState.stacks.includes(Math.floor(nextSlot(late) / 2) + 1), 'Current supplement stack remains visible after twenty draws.');
   assert.ok(lateState.empty > 0);
   report.fixtures.late = {description:'Twenty engine replacement draws retained as real river tiles; ordinary engine draws fill four rivers to their visible caps.', tailDraws:20, totalPhysicalTiles:collectPhysicalTiles(late).length, nextPhysicalSlot:nextSlot(late), visibleStacks:lateState.stacks};
-  for (const viewport of [{width:375, height:667}, {width:390, height:844}, {width:1080, height:1920}, {width:1440, height:900}]) {
+  for (const viewport of [{width:640,height:360}, {width:844,height:390}, {width:1920,height:1080}, {width:1440, height:900}]) {
     await page.setViewportSize(viewport);
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const geometry = await page.evaluate(() => {
@@ -402,14 +402,14 @@ try {
     report.viewports.push({...viewport, noOverlap:true, allFixedStacksInsideTable:geometry.stacks.length, visiblePiecesChecked:geometry.pieces.length, nextPhysicalSlot:lateState.next[0]});
     await screenshot(page, `ui-wall-late-${viewport.width}x${viewport.height}.png`);
   }
-  report.checks.push('The late-wall fixture preserves all 68 stack boxes inside the table; every live back and indicator avoids every visible river tile, compass and hand at 375×667, 390×844, 1080×1920 and 1440×900.');
+  report.checks.push('The late-wall fixture preserves all 68 stack boxes inside the table; every live back and indicator avoids every visible river tile, compass and hand at 640×360, 844×390, 1920×1080 and 1440×900.');
 
   // End-of-wall fixture only: retain each drawn physical tile in a river.
   // Alternate head and tail on the final two draws to exercise the converging
   // markers without presenting the synthetic sequence as a legal whole game.
   const boundary = new MahjongGame({seed:normal.seed, laizi:true});
   while (boundary.wall.length > 2) drawIntoRiver(boundary, boundary.wall.length % 4, false);
-  await page.setViewportSize({width:390, height:844});
+  await page.setViewportSize({width:844,height:390});
   for (const remaining of [2, 1, 0]) {
     await publish(page, room, boundary);
     const state = await wallState(page);
@@ -432,7 +432,7 @@ try {
   });
   assert.equal(redReveal.game.indicatorTile, TILE.WHITE);
   assert.equal(redReveal.game.wildTile, TILE.GREEN);
-  await page.setViewportSize({width:390, height:844});
+  await page.setViewportSize({width:844,height:390});
   await publish(page, room, redReveal.game);
   const redState = await wallState(page);
   assertPublicWall(redState, redReveal.game);
