@@ -200,20 +200,34 @@ html.in-room.landscape-rotated #game.is-landscape {
 .is-landscape .wall-stack[data-side="bottom"] .wall-stack-number { top:calc(var(--table-unit) * -2.2); }
 .is-landscape .wall-stack[data-side="left"] .wall-piece.tile svg,.is-landscape .wall-stack[data-side="right"] .wall-piece.tile svg { width:calc(var(--wall-piece-width) - var(--table-unit) * .25); height:calc(var(--wall-piece-height) - var(--table-unit) * .08); }
 
-#game.is-landscape .table .river { gap:calc(var(--table-unit) * .5); min-height:calc(var(--table-unit) * 5.2); }
-/* 四边牌河统一牌张尺寸与行数，牌张放大到 5.2×7.28 单位（早先 4.5×6.3）：
-   上下各 6 列×2 行、左右各 3 列×2 行，围绕中央罗盘对称摆放。 */
-#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:18%; width:64%; grid-template-columns:repeat(6,calc(var(--table-unit) * 5.2)); grid-auto-rows:calc(var(--table-unit) * 7.28); max-height:calc(var(--table-unit) * 15.06); }
-#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 10); }
+#game.is-landscape .table .river {
+  --river-tile-width:calc(var(--table-unit) * 4);
+  --river-tile-height:calc(var(--table-unit) * 5.6);
+  --river-tile-turn:0deg;
+  gap:calc(var(--table-unit) * .5);
+  min-height:var(--river-tile-height);
+  place-items:center;
+}
+/* 牌河维持 5:7 的实体牌比例，较上版 4.6×6.44 同比缩小约 13%。
+   上下 6×2、左右 2×3；侧家格子交换长短边，完整牌身旋转后仍在格内。 */
+#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:18%; width:64%; grid-template-columns:repeat(6,var(--river-tile-width)); grid-auto-rows:var(--river-tile-height); max-height:calc(var(--river-tile-height) * 2 + var(--table-unit) * .5); }
+#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 12); --river-tile-turn:180deg; }
 #game.is-landscape .table .river-bottom { bottom:calc(var(--table-unit) * 13.1); }
 /* 牌桌加大后四边牌河与牌墙、手牌之间只剩几像素，计数文字无处安放：横屏统一不显示，
    张数仍在 aria-label 与点开牌河的记录里。 */
 #game.is-landscape .table .river::before { display:none; }
-#game.is-landscape .table .river-top .tile,#game.is-landscape .table .river-bottom .tile { width:calc(var(--table-unit) * 5.2); height:calc(var(--table-unit) * 7.28); }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:calc(var(--table-unit) * 26); transform:none; width:auto; grid-template-columns:repeat(3,calc(var(--table-unit) * 5.2)); grid-auto-rows:calc(var(--table-unit) * 7.28); max-height:calc(var(--table-unit) * 15.06); }
-#game.is-landscape .table .river-left { left:calc(var(--table-unit) * 9.6); }
-#game.is-landscape .table .river-right { right:calc(var(--table-unit) * 9.6); }
-#game.is-landscape .table .river-left .tile,#game.is-landscape .table .river-right .tile { width:calc(var(--table-unit) * 5.2); height:calc(var(--table-unit) * 7.28); }
+#game.is-landscape .table .river .tile {
+  width:var(--river-tile-width);
+  height:var(--river-tile-height);
+  --tile-depth:calc(var(--table-unit) * .42);
+  --tile-side:calc(var(--table-unit) * .156);
+  border-radius:calc(var(--table-unit) * .48);
+  transform:rotate(var(--river-tile-turn));
+  transform-origin:center;
+}
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { top:calc(var(--table-unit) * 26); transform:none; width:auto; grid-template-columns:repeat(2,var(--river-tile-height)); grid-auto-rows:var(--river-tile-width); max-height:calc(var(--river-tile-width) * 3 + var(--table-unit)); }
+#game.is-landscape .table .river-left { left:calc(var(--table-unit) * 11.2); --river-tile-turn:90deg; }
+#game.is-landscape .table .river-right { right:calc(var(--table-unit) * 11.2); --river-tile-turn:-90deg; }
 #game.is-landscape .table .river .tile.last-discard { outline-width:calc(var(--table-unit) * .28); outline-offset:calc(var(--table-unit) * .12); }
 #game.is-landscape .table .river .tile.last-discard::after { bottom:calc(var(--table-unit) * .3); left:calc(50% - var(--table-unit) * .45); width:calc(var(--table-unit) * .9); height:calc(var(--table-unit) * .9); }
 #game.is-landscape .table .river::before { top:calc(var(--table-unit) * -2.6); font-size:max(7px,calc(var(--table-unit) * 1.9)); letter-spacing:0; }
@@ -598,13 +612,7 @@ html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui
 #game.is-landscape:not(.is-wide) .top-tools .connection>span { display:none; }
 #game.is-landscape:not(.is-wide) .top-tools .connection { position:absolute; right:0; top:calc(var(--ui-unit) * 11.5); padding:0 calc(var(--ui-unit) * 1.5); }
 
-/* Smaller river faces open a clear lane around the square compass. */
-#game.is-landscape .table .river-left { left:calc(var(--table-unit) * 11.2); }
-#game.is-landscape .table .river-right { right:calc(var(--table-unit) * 11.2); }
-#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { grid-template-columns:repeat(6,calc(var(--table-unit) * 4.6)); grid-auto-rows:calc(var(--table-unit) * 6.44); max-height:calc(var(--table-unit) * 13.38); }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { grid-template-columns:repeat(3,calc(var(--table-unit) * 4.6)); grid-auto-rows:calc(var(--table-unit) * 6.44); max-height:calc(var(--table-unit) * 13.38); }
-#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 12); }
-#game.is-landscape .table .river .tile { width:calc(var(--table-unit) * 4.6); height:calc(var(--table-unit) * 6.44); }
+/* 最近一张牌的标记和牌身一起朝向出牌者。 */
 #game.is-landscape .table .river .tile.last-discard { outline:calc(var(--table-unit) * .25) solid #ffbe46; outline-offset:calc(var(--table-unit) * .16); box-shadow:0 0 calc(var(--table-unit) * 1.1) #ffaf3c80; }
 #game.is-landscape .table .river .tile.last-discard::after {
   content:"";
@@ -620,8 +628,6 @@ html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui
   box-shadow:0 1px 3px #70410080;
   pointer-events:none;
 }
-#game.is-landscape .table .river-left .tile.last-discard::after { top:calc(50% - var(--table-unit) * .85); left:calc(var(--table-unit) * -2.4); transform:rotate(-135deg); }
-#game.is-landscape .table .river-right .tile.last-discard::after { top:calc(50% - var(--table-unit) * .85); left:auto; right:calc(var(--table-unit) * -2.4); transform:rotate(45deg); }
 
 /* The opening is readable for 1.5 seconds; the resting pair stays unobtrusive. */
 #game.is-landscape .table-die { width:calc(var(--table-unit) * 2.4); height:calc(var(--table-unit) * 2.4); padding:calc(var(--table-unit) * .4); }
@@ -633,6 +639,48 @@ html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui
 #game.is-landscape .dice-intro .table-die i { width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.2); }
 .is-landscape .dice-intro-note { font-size:calc(var(--ui-unit) * 2.6); }
 .is-landscape .dice-intro small { font-size:calc(var(--ui-unit) * 2); }
+
+/* A public discard is briefly brought into the viewer's reading direction.
+   Its real tile remains in its owner's oriented river throughout the preview. */
+.discard-focus[hidden] { display:none; }
+.is-landscape .discard-focus {
+  position:absolute;
+  z-index:7;
+  left:50%;
+  top:43%;
+  transform:translate(-50%,-50%);
+  display:grid;
+  justify-items:center;
+  gap:calc(var(--ui-unit) * 2);
+  pointer-events:none;
+  user-select:none;
+  filter:drop-shadow(0 calc(var(--ui-unit) * 1.4) calc(var(--ui-unit) * 2) #001d1abb);
+}
+.is-landscape .discard-focus-label {
+  max-width:calc(var(--ui-unit) * 32);
+  padding:calc(var(--ui-unit) * 1) calc(var(--ui-unit) * 2.2);
+  border:1px solid #dfc88a88;
+  border-radius:calc(var(--ui-unit) * 3);
+  background:#082c28ed;
+  color:#f8e6b8;
+  font-size:calc(var(--ui-unit) * 2.6);
+  line-height:1.2;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.is-landscape .discard-focus-tile { display:block; }
+#game.is-landscape .discard-focus .tile,
+#game.is-landscape .discard-flight {
+  --tile-depth:calc(var(--ui-unit) * 1.1);
+  --tile-side:calc(var(--ui-unit) * .35);
+  width:calc(var(--ui-unit) * 15);
+  height:calc(var(--ui-unit) * 21);
+  border-radius:calc(var(--ui-unit) * 1);
+  pointer-events:none;
+}
+#game.is-landscape .discard-focus .tile { box-shadow:0 0 calc(var(--ui-unit) * 4) #ffe4a348,0 calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * 2) #001c1999; }
+#game.is-landscape .discard-flight { position:absolute; z-index:8; transform-origin:50% 50%; margin:0; }
 
 /* Selected tiles keep the pointer target and get immediate, steady light. */
 #game.is-landscape .hand .tile { transition:transform 80ms,box-shadow 80ms; }

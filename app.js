@@ -7,6 +7,7 @@ import { renderWall } from './src/network/wall-view.js';
 import { createRoomOrientation } from './src/ui/orientation.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
 import { getTingHints } from './src/ui/ting.js';
+import { createDiscardFocusState } from './src/ui/discard-focus.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
@@ -47,6 +48,11 @@ let actionNoticeDeadline = 0;
 let voiceAnnouncing = false;
 let diceIntroKey = null;
 let diceIntroTimer = null;
+const discardFocusState = createDiscardFocusState({storage:(() => {
+  try { return sessionStorage; } catch { return null; }
+})()});
+let focusedDiscard = null;
+const discardFlights = new Set();
 let tingCacheKey = '';
 let tingCache = null;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
@@ -456,6 +462,80 @@ function renderDiceIntro() {
   diceIntroTimer = setTimeout(dismissDiceIntro, 1500);
 }
 
+function stageRect(element) {
+  const stage = $('#game').getBoundingClientRect();
+  const rect = element.getBoundingClientRect();
+  return document.documentElement.classList.contains('landscape-rotated')
+    ? {left:rect.top - stage.top, top:stage.right - rect.right, width:rect.height, height:rect.width}
+    : {left:rect.left - stage.left, top:rect.top - stage.top, width:rect.width, height:rect.height};
+}
+
+function settleDiscardFocus() {
+  if (!focusedDiscard) return;
+  const previous = focusedDiscard;
+  const holder = $('#discard-focus');
+  const face = holder.querySelector('.tile');
+  focusedDiscard = null;
+  // A claimed tile has already left the river. Never fly a duplicate back into
+  // that empty slot or into the next tile which happened to occupy its index.
+  const stillInRiver = game.players[previous.from]?.discards[previous.index] === previous.tile;
+  const river = $(`#river-${previous.from}`);
+  const limit = previous.from === 0 || previous.from === 2 ? 12 : 6;
+  const offset = Math.max(0, game.players[previous.from].discards.length - limit);
+  const target = stillInRiver && river.children[previous.index - offset];
+  if (target && face && !holder.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const start = stageRect(face);
+    const end = stageRect(target);
+    const flight = face.cloneNode(true);
+    flight.classList.add('discard-flight');
+    flight.setAttribute('aria-hidden', 'true');
+    flight.style.cssText = `left:${start.left}px;top:${start.top}px;width:${start.width}px;height:${start.height}px`;
+    $('#game').append(flight);
+    discardFlights.add(flight);
+    const dx = end.left + end.width / 2 - start.left - start.width / 2;
+    const dy = end.top + end.height / 2 - start.top - start.height / 2;
+    const scale = Math.sqrt(end.width * end.height / (start.width * start.height));
+    const angle = [0, -90, 180, 90][previous.from];
+    const animation = flight.animate([
+      {transform:'translate(0,0) rotate(0deg) scale(1)', opacity:1},
+      {transform:`translate(${dx}px,${dy}px) rotate(${angle}deg) scale(${scale})`, opacity:0},
+    ], {duration:260, easing:'cubic-bezier(.22,.65,.25,1)', fill:'forwards'});
+    const remove = () => { flight.remove(); discardFlights.delete(flight); };
+    animation.finished.then(remove, remove);
+  }
+  holder.hidden = true;
+}
+
+function renderDiscardFocus() {
+  const focus = discardFocusState.update({game, room:network.room, connected:network.status === 'connected'});
+  if (!network.room || network.room.status !== 'playing') {
+    focusedDiscard = null;
+    $('#discard-focus').hidden = true;
+    for (const flight of discardFlights) flight.remove();
+    discardFlights.clear();
+    return;
+  }
+  if (focus?.key === focusedDiscard?.key) return;
+  if (focusedDiscard) settleDiscardFocus();
+  const holder = $('#discard-focus');
+  if (!focus) {
+    holder.hidden = true;
+    return;
+  }
+  focusedDiscard = focus;
+  holder.dataset.key = focus.key;
+  holder.dataset.player = String(focus.from);
+  holder.dataset.tile = String(focus.tile);
+  $('#discard-focus-label').textContent = `${focus.from === 0 ? '你' : displayNames[focus.from]}打出`;
+  setHTMLIfChanged($('#discard-focus-tile'), tile(focus.tile));
+  holder.setAttribute('aria-label', `${displayNames[focus.from]}打出${tileName(focus.tile)}`);
+  dismissDiceIntro();
+  holder.hidden = false;
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    holder.animate([{opacity:0, scale:.72}, {opacity:1, scale:1}], {duration:180, easing:'ease-out'});
+  }
+}
+
 function tingHints() {
   const seat = game.players[0];
   const visibleTiles = [...game.players.flatMap(player => [...player.discards, ...player.redGangs, ...(player.piziGangs || []), ...player.melds.flatMap(meld => meld.tiles)]), ...(game.indicatorTile == null ? [] : [game.indicatorTile])];
@@ -772,6 +852,7 @@ function render() {
   syncSettings();
   renderTing();
   renderActionNotice();
+  renderDiscardFocus();
   if (game.phase.kind === PHASE.ENDED && resultShown !== game.round) {
     resultShown = game.round;
     persist();
