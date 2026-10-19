@@ -52,11 +52,14 @@ const discardFocusState = createDiscardFocusState({storage:(() => {
   try { return sessionStorage; } catch { return null; }
 })()});
 let focusedDiscard = null;
+let discardFocusGeometry = null;
+const DISCARD_FOCUS_SCALE = 1.5;
 const discardFlights = new Set();
 let tingCacheKey = '';
 let tingCache = null;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
-const roomOrientation = createRoomOrientation({onLayout:positionActionNotice});
+const positionOverlays = () => { positionActionNotice(); positionDiscardFocus(); };
+const roomOrientation = createRoomOrientation({onLayout:positionOverlays});
 
 try {
   const saved = JSON.parse(localStorage.getItem('queqi-settings') || '{}');
@@ -470,6 +473,56 @@ function stageRect(element) {
     : {left:rect.left - stage.left, top:rect.top - stage.top, width:rect.width, height:rect.height};
 }
 
+function discardRiverTile(discard) {
+  if (game.players[discard.from]?.discards[discard.index] !== discard.tile) return null;
+  const limit = discard.from === 0 || discard.from === 2 ? 12 : 6;
+  const offset = Math.max(0, game.players[discard.from].discards.length - limit);
+  return $(`#river-${discard.from}`).children[discard.index - offset] || null;
+}
+
+// Undo the table's camera projection for a point measured in logical stage
+// coordinates. The focus then shares the real tile's plane and perspective.
+function tablePoint(x, y) {
+  const style = getComputedStyle($('.table'));
+  const matrix = new DOMMatrix(style.transform);
+  const [ox, oy] = style.transformOrigin.split(' ').map(parseFloat);
+  const px = x - parseFloat(style.left) - ox;
+  const py = y - parseFloat(style.top) - oy;
+  const a = matrix.m11 - px * matrix.m14, b = matrix.m21 - px * matrix.m24;
+  const c = matrix.m12 - py * matrix.m14, d = matrix.m22 - py * matrix.m24;
+  const u = px * matrix.m44 - matrix.m41, v = py * matrix.m44 - matrix.m42;
+  const determinant = a * d - b * c;
+  return {x:ox + (u * d - b * v) / determinant, y:oy + (a * v - u * c) / determinant};
+}
+
+function positionDiscardFocus() {
+  if (!focusedDiscard) return;
+  const target = discardRiverTile(focusedDiscard);
+  if (!target) return;
+  const rect = stageRect(target);
+  const style = getComputedStyle(target);
+  const width = parseFloat(style.width), height = parseFloat(style.height);
+  const sourceRect = JSON.stringify([rect.left, rect.top, rect.width, rect.height, width, height]);
+  if (discardFocusGeometry?.sourceRect === sourceRect) return;
+  const centre = {x:rect.left + rect.width / 2, y:rect.top + rect.height / 2};
+  const anchor = {...centre};
+  const angle = [0, -90, 180, 90][focusedDiscard.from];
+  const holder = $('#discard-focus');
+  // Enlarging in perspective shifts the projected bounding-box centre slightly.
+  // Correct that screen-space shift while keeping the card on the same plane.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const point = tablePoint(anchor.x, anchor.y);
+    discardFocusGeometry = {...point, width, height, angle, sourceRect};
+    holder.style.cssText = `left:${point.x}px;top:${point.y}px;width:${width}px;height:${height}px;--discard-turn:${angle}deg`;
+    const preview = stageRect(holder.querySelector('.tile'));
+    const dx = centre.x - preview.left - preview.width / 2;
+    const dy = centre.y - preview.top - preview.height / 2;
+    if (Math.hypot(dx, dy) < .1) break;
+    anchor.x += dx;
+    anchor.y += dy;
+  }
+}
+
 function settleDiscardFocus() {
   if (!focusedDiscard) return;
   const previous = focusedDiscard;
@@ -478,31 +531,23 @@ function settleDiscardFocus() {
   focusedDiscard = null;
   // A claimed tile has already left the river. Never fly a duplicate back into
   // that empty slot or into the next tile which happened to occupy its index.
-  const stillInRiver = game.players[previous.from]?.discards[previous.index] === previous.tile;
-  const river = $(`#river-${previous.from}`);
-  const limit = previous.from === 0 || previous.from === 2 ? 12 : 6;
-  const offset = Math.max(0, game.players[previous.from].discards.length - limit);
-  const target = stillInRiver && river.children[previous.index - offset];
-  if (target && face && !holder.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const start = stageRect(face);
-    const end = stageRect(target);
+  const target = discardRiverTile(previous);
+  if (target && face && discardFocusGeometry && !holder.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const {x, y, width, height, angle} = discardFocusGeometry;
     const flight = face.cloneNode(true);
     flight.classList.add('discard-flight');
     flight.setAttribute('aria-hidden', 'true');
-    flight.style.cssText = `left:${start.left}px;top:${start.top}px;width:${start.width}px;height:${start.height}px`;
-    $('#game').append(flight);
+    flight.style.cssText = `left:${x - width / 2}px;top:${y - height / 2}px;width:${width}px;height:${height}px`;
+    $('.table').append(flight);
     discardFlights.add(flight);
-    const dx = end.left + end.width / 2 - start.left - start.width / 2;
-    const dy = end.top + end.height / 2 - start.top - start.height / 2;
-    const scale = Math.sqrt(end.width * end.height / (start.width * start.height));
-    const angle = [0, -90, 180, 90][previous.from];
     const animation = flight.animate([
-      {transform:'translate(0,0) rotate(0deg) scale(1)', opacity:1},
-      {transform:`translate(${dx}px,${dy}px) rotate(${angle}deg) scale(${scale})`, opacity:0},
+      {transform:`rotate(${angle}deg) scale(${DISCARD_FOCUS_SCALE})`, opacity:1},
+      {transform:`rotate(${angle}deg) scale(1)`, opacity:0},
     ], {duration:260, easing:'cubic-bezier(.22,.65,.25,1)', fill:'forwards'});
     const remove = () => { flight.remove(); discardFlights.delete(flight); };
     animation.finished.then(remove, remove);
   }
+  discardFocusGeometry = null;
   holder.hidden = true;
 }
 
@@ -510,12 +555,13 @@ function renderDiscardFocus() {
   const focus = discardFocusState.update({game, room:network.room, connected:network.status === 'connected'});
   if (!network.room || network.room.status !== 'playing') {
     focusedDiscard = null;
+    discardFocusGeometry = null;
     $('#discard-focus').hidden = true;
     for (const flight of discardFlights) flight.remove();
     discardFlights.clear();
     return;
   }
-  if (focus?.key === focusedDiscard?.key) return;
+  if (focus?.key === focusedDiscard?.key) { positionDiscardFocus(); return; }
   if (focusedDiscard) settleDiscardFocus();
   const holder = $('#discard-focus');
   if (!focus) {
@@ -526,13 +572,16 @@ function renderDiscardFocus() {
   holder.dataset.key = focus.key;
   holder.dataset.player = String(focus.from);
   holder.dataset.tile = String(focus.tile);
-  $('#discard-focus-label').textContent = `${focus.from === 0 ? '你' : displayNames[focus.from]}打出`;
   setHTMLIfChanged($('#discard-focus-tile'), tile(focus.tile));
   holder.setAttribute('aria-label', `${displayNames[focus.from]}打出${tileName(focus.tile)}`);
   dismissDiceIntro();
   holder.hidden = false;
+  positionDiscardFocus();
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    holder.animate([{opacity:0, scale:.72}, {opacity:1, scale:1}], {duration:180, easing:'ease-out'});
+    holder.querySelector('.tile').animate([
+      {transform:'scale(1)', opacity:.7},
+      {transform:`scale(${DISCARD_FOCUS_SCALE})`, opacity:1},
+    ], {duration:180, easing:'ease-out'});
   }
 }
 
@@ -1131,8 +1180,8 @@ $('#room-dialog').addEventListener('cancel', event => {
   if (network.room?.status === 'waiting') event.preventDefault();
 });
 roomChanged();
-const actionNoticeLayout = new ResizeObserver(positionActionNotice);
+const actionNoticeLayout = new ResizeObserver(positionOverlays);
 for (const element of [$('#game'), ...document.querySelectorAll('.opponent-rack,.hand-zone')]) actionNoticeLayout.observe(element);
-document.fonts.ready.then(positionActionNotice);
+document.fonts.ready.then(positionOverlays);
 openModal('#room-dialog');
 network.restore();

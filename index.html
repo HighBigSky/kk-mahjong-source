@@ -76,6 +76,7 @@
       </div>
       <span class="table-caption">闲来一局 · 好牌常来</span>
       <section class="wall-tail" id="wall-tail" role="group" aria-label="四方剩余牌墙、翻皮位置与摸补牌位置" hidden></section>
+      <div class="discard-focus" id="discard-focus" role="status" aria-live="polite" aria-atomic="true" hidden><span id="discard-focus-tile" class="discard-focus-tile"></span></div>
     </section>
 
     <span class="seat-action-notice" data-player="0" role="status" aria-live="polite" aria-atomic="true" hidden></span>
@@ -109,7 +110,6 @@
 
     <button class="ting-button" id="ting-btn" aria-label="查看听胡的牌" aria-haspopup="dialog" hidden><span aria-hidden="true">听</span><small>听胡</small></button>
     <button class="dice-intro" id="dice-intro" aria-label="开局骰子，点击收起" hidden><span class="dice-intro-label">开局掷骰</span><span class="dice-intro-dice" id="dice-intro-dice"></span><span class="dice-intro-note" id="dice-intro-note"></span><small>点击收起</small></button>
-    <div class="discard-focus" id="discard-focus" role="status" aria-live="polite" aria-atomic="true" hidden><span id="discard-focus-label" class="discard-focus-label"></span><span id="discard-focus-tile" class="discard-focus-tile"></span></div>
     <dialog id="ting-dialog" class="modal ting-modal" aria-labelledby="ting-title"><button class="modal-close" data-close aria-label="关闭听胡提示"><svg><use href="#i-close"></use></svg></button><h2 id="ting-title">听胡的牌</h2><p class="modal-lead" id="ting-description"></p><div id="ting-tiles" class="ting-tiles"></div><p class="ting-note">仅按自己的手牌与公开牌计算，实际能否胡牌以对局判定为准。</p><button class="primary-button" data-close>返回牌桌</button></dialog>
 
     <dialog id="rules-dialog" class="modal">

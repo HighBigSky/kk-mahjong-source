@@ -640,46 +640,27 @@ html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui
 .is-landscape .dice-intro-note { font-size:calc(var(--ui-unit) * 2.6); }
 .is-landscape .dice-intro small { font-size:calc(var(--ui-unit) * 2); }
 
-/* A public discard is briefly brought into the viewer's reading direction.
-   Its real tile remains in its owner's oriented river throughout the preview. */
+/* A newly discarded tile grows gently at its real river position. The focus
+   shares the table camera and its owner's direction, rather than using a HUD. */
 .discard-focus[hidden] { display:none; }
 .is-landscape .discard-focus {
   position:absolute;
   z-index:7;
-  left:50%;
-  top:43%;
-  transform:translate(-50%,-50%);
-  display:grid;
-  justify-items:center;
-  gap:calc(var(--ui-unit) * 2);
+  transform:translate(-50%,-50%) rotate(var(--discard-turn,0deg));
   pointer-events:none;
   user-select:none;
-  filter:drop-shadow(0 calc(var(--ui-unit) * 1.4) calc(var(--ui-unit) * 2) #001d1abb);
 }
-.is-landscape .discard-focus-label {
-  max-width:calc(var(--ui-unit) * 32);
-  padding:calc(var(--ui-unit) * 1) calc(var(--ui-unit) * 2.2);
-  border:1px solid #dfc88a88;
-  border-radius:calc(var(--ui-unit) * 3);
-  background:#082c28ed;
-  color:#f8e6b8;
-  font-size:calc(var(--ui-unit) * 2.6);
-  line-height:1.2;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.is-landscape .discard-focus-tile { display:block; }
+.is-landscape .discard-focus-tile { display:block; width:100%; height:100%; }
 #game.is-landscape .discard-focus .tile,
 #game.is-landscape .discard-flight {
-  --tile-depth:calc(var(--ui-unit) * 1.1);
-  --tile-side:calc(var(--ui-unit) * .35);
-  width:calc(var(--ui-unit) * 15);
-  height:calc(var(--ui-unit) * 21);
-  border-radius:calc(var(--ui-unit) * 1);
+  --tile-depth:calc(var(--table-unit) * .42);
+  --tile-side:calc(var(--table-unit) * .156);
+  width:100%;
+  height:100%;
+  border-radius:calc(var(--table-unit) * .48);
   pointer-events:none;
 }
-#game.is-landscape .discard-focus .tile { box-shadow:0 0 calc(var(--ui-unit) * 4) #ffe4a348,0 calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * 2) #001c1999; }
+#game.is-landscape .discard-focus .tile { transform:scale(1.5); transform-origin:center; outline:1px solid #ffdb81; box-shadow:0 0 calc(var(--table-unit) * 1.4) #ffe4a34d,0 calc(var(--table-unit) * .4) calc(var(--table-unit) * .8) #001c1980; }
 #game.is-landscape .discard-flight { position:absolute; z-index:8; transform-origin:50% 50%; margin:0; }
 
 /* Selected tiles keep the pointer target and get immediate, steady light. */
