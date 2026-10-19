@@ -14,6 +14,7 @@ html.in-room body { padding:0; }
 
 html.in-room #game.is-landscape {
   --ui-unit:calc(var(--stage-height) / 100);
+  --seat-avatar-size:calc(var(--ui-unit) * 7);
   /* 横屏四方牌桌：以高度为基准取正方形，横向居中。
      重做后桌宽 0.88 个舞台高度、下缘几乎贴到屏幕底部，自己的手牌压在牌桌下沿，
      牌面比 0.75 版再放大 ~17%，观感向手游麻将靠拢。 */
@@ -142,7 +143,7 @@ html.in-room.landscape-rotated #game.is-landscape {
   padding:calc(var(--ui-unit) * .4);
   border-radius:calc(var(--ui-unit) * 5) calc(var(--ui-unit) * 2) calc(var(--ui-unit) * 2) calc(var(--ui-unit) * 5);
 }
-.is-landscape .player-seat .portrait { width:calc(var(--ui-unit) * 9); height:calc(var(--ui-unit) * 9); padding:calc(var(--ui-unit) * .35); }
+.is-landscape .player-seat .portrait { width:var(--seat-avatar-size); height:var(--seat-avatar-size); padding:calc(var(--ui-unit) * .35); }
 .is-landscape .player-seat .seat,.is-landscape .dealer-badge { width:calc(var(--ui-unit) * 3.1); height:calc(var(--ui-unit) * 3.1); font-size:calc(var(--ui-unit) * 2.2); border-radius:calc(var(--ui-unit) * .7); }
 .is-landscape .red-gang-badge { min-width:calc(var(--ui-unit) * 4.6); height:calc(var(--ui-unit) * 2.7); font-size:calc(var(--ui-unit) * 1.85); border-radius:calc(var(--ui-unit) * .6); }
 .is-landscape .player-seat .opponent-copy { gap:calc(var(--ui-unit) * .35); }
@@ -404,20 +405,17 @@ html.in-room #game.is-landscape {
   box-shadow:inset 0 0 calc(var(--ui-unit) * 12) #002b2c9c;
 }
 
-/* A pair of wooden rails tapers toward the far edge, like the reference. */
-#game.is-landscape::before,
-#game.is-landscape::after {
+/* Four joined walnut rails follow the existing perspective. The frame is a
+   background layer, leaving seat, wall, river and hand coordinates intact. */
+#game.is-landscape::before {
   content:"";
   position:absolute;
   inset:0;
   z-index:0;
   pointer-events:none;
-  background:
-    repeating-linear-gradient(104deg,#e49f5f09 0 2px,transparent 3px 9px,#160a0730 10px 12px),
-    linear-gradient(100deg,#2e1512 0%,#673122 31%,#a45d37 57%,#d08b51 66%,#401d16 82%,#170e0c 100%);
-  clip-path:polygon(0 0,13% 0,2.8% 100%,0 100%);
+  background:url("assets/table-wood-frame.svg") center / 100% 100% no-repeat;
 }
-#game.is-landscape::after { transform:scaleX(-1); }
+#game.is-landscape::after { content:none; }
 
 #game.is-landscape .table {
   top:0;
@@ -522,7 +520,6 @@ html.in-room #game.is-landscape {
 .is-landscape .seat-right { right:1.4%; top:30%; }
 .is-landscape .seat-bottom { left:1.4%; bottom:12%; }
 .is-landscape .seat-top { left:auto; right:1.4%; top:12%; width:calc(var(--ui-unit) * 16); height:calc(var(--ui-unit) * 10.5); transform:none; }
-.is-landscape .seat-top .portrait { width:calc(var(--ui-unit) * 7); height:calc(var(--ui-unit) * 7); }
 .is-landscape .seat-top .opponent-score svg { display:none; }
 .is-landscape .seat-top .opponent-score { font-size:calc(var(--ui-unit) * 2.2); }
 .is-landscape .seat-top .opponent-state { font-size:calc(var(--ui-unit) * 1.8); }
@@ -554,6 +551,7 @@ html.in-room #game.is-landscape {
 .is-landscape .action-button.action-next>span { font-size:calc(var(--ui-unit) * 4); }
 
 /* At tablet/desktop ratios the side walls leave a lane for the centre river. */
+html.in-room #game.is-landscape:not(.is-wide) { --seat-avatar-size:calc(var(--ui-unit) * 5); }
 #game.is-landscape:not(.is-wide) .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 4.65); }
 #game.is-landscape:not(.is-wide) .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 4.65); }
 #game.is-landscape:not(.is-wide) .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 8.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); }
@@ -569,21 +567,19 @@ html.in-room #game.is-landscape {
   left:calc(50% + var(--table-unit) * 25.8);
   right:auto;
   top:1.4%;
-  width:calc(var(--ui-unit) * 13);
-  height:calc(var(--ui-unit) * 6.5);
+  width:calc(var(--ui-unit) * 15.5);
+  height:calc(var(--ui-unit) * 8.5);
   padding:calc(var(--ui-unit) * .25);
   gap:calc(var(--ui-unit) * .7);
   flex-direction:row;
   border-radius:calc(var(--ui-unit) * 1.2);
 }
-#game.is-landscape .seat-top .portrait { width:calc(var(--ui-unit) * 5.5); height:calc(var(--ui-unit) * 5.5); }
 #game.is-landscape .seat-top .opponent-copy { text-align:left; gap:calc(var(--ui-unit) * .25); }
 #game.is-landscape .seat-top .opponent-name { font-size:calc(var(--ui-unit) * 2.1); }
 #game.is-landscape .seat-top .opponent-name small,#game.is-landscape .seat-top .opponent-state { display:none; }
 #game.is-landscape .seat-top .opponent-score { justify-content:flex-start; font-size:calc(var(--ui-unit) * 1.9); }
 #game.is-landscape .seat-top .seat,#game.is-landscape .seat-top .dealer-badge { width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.2); font-size:calc(var(--ui-unit) * 1.65); }
 #game.is-landscape:not(.is-wide) .seat-top { left:calc(50% + var(--table-unit) * 22); top:.2%; width:calc(var(--ui-unit) * 12); height:calc(var(--ui-unit) * 6); flex-direction:row; justify-content:flex-start; }
-#game.is-landscape:not(.is-wide) .seat-top .portrait { width:calc(var(--ui-unit) * 5); height:calc(var(--ui-unit) * 5); }
 #game.is-landscape:not(.is-wide) .seat-top .opponent-copy { text-align:left; }
 #game.is-landscape:not(.is-wide) .seat-top .opponent-score { justify-content:flex-start; }
 #game.is-landscape:not(.is-wide) .top-tools .connection>span { display:none; }
