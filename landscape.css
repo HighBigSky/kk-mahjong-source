@@ -10,6 +10,14 @@ html.in-room body {
   overscroll-behavior:none;
 }
 
+html.in-room,
+html.in-room body,
+html.in-room #game.is-landscape {
+  /* A selected/discarded tile can expose the rack beneath the next tap.
+     Cover the full room so rapid taps never become browser double-tap zoom. */
+  touch-action:manipulation;
+}
+
 html.in-room body { padding:0; }
 
 html.in-room #game.is-landscape {
