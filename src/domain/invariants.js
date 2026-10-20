@@ -63,7 +63,7 @@ export function assertInvariants(state, previousPhase) {
     if (++counts[tile] > COPIES_PER_TILE) throw new Error(`Tile ${tile} has more than ${COPIES_PER_TILE} copies.`);
   }
   for (const player of state.players) {
-    if ((player.piziGangs || []).some(tile => (tile !== state.indicatorTile && tile !== state.wildTile) || tile === RED_DRAGON)) {
+    if ((player.piziGangs || []).some(tile => (tile !== state.indicatorTile && tile !== state.wildTile) || (tile === RED_DRAGON && tile !== state.indicatorTile))) {
       throw new Error('A declared indicator kong must contain this round\'s indicator tile or wild tile.');
     }
   }

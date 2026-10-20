@@ -327,7 +327,7 @@ test('a single-red kong replaces exactly one tile and keeps the player’s turn 
   assert.deepEqual(game.lastDraw, {
     player: 0, tile: 28, index: game.players[0].hand.indexOf(28), replacement: true,
   });
-  assert.deepEqual(game.players.map(player => player.score), scores, 'no unspecified red-kong score is applied');
+  assert.deepEqual(game.players.map(player => player.score), scores.map((score,index) => score + (index === 0 ? 30 : -10)), 'red gang charges each opponent one base');
   assertConservation(game);
 });
 
@@ -456,7 +456,7 @@ test('restarting or advancing a round clears every declared red and redeals all 
     game.newRound('reset-reds', { restart });
     assert.equal(game.round, previousRound + (restart ? 0 : 1));
     assert.ok(game.players.every(player => player.redGangs.length === 0));
-    assert.deepEqual(game.players.map(player => player.score), [1050, 950, 1000, 1000]);
+    assert.deepEqual(game.players.map(player => player.score), [1050, 950, 990, 990]);
     assertConservation(game);
   }
 });

@@ -22,6 +22,7 @@
     "test:ui:notices": "node tests/ui-action-notices.mjs",
     "test:ui:orientation": "node tests/ui-orientation.mjs",
     "test:ui:layout": "node tests/ui-layout-acceptance.mjs",
-    "test:ui:hud": "node tests/ui-room-hud.mjs"
+    "test:ui:hud": "node tests/ui-room-hud.mjs",
+    "test:ui:assist": "node tests/ui-play-assist.mjs"
   }
 }

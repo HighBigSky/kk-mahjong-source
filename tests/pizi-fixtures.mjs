@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { MahjongGame } from '../engine.js';
+import { MahjongGame, nextWildTile } from '../engine.js';
 import { assertInvariants } from '../src/domain/invariants.js';
 import { TILE, RED_DRAGON } from '../src/domain/tile.js';
 
@@ -7,9 +7,11 @@ import { TILE, RED_DRAGON } from '../src/domain/tile.js';
 // four real copies, but they are not claimed to be naturally dealt whole games.
 export const scattered = [0, 2, 4, 6, 8, 9, 11, 13, 15, 17, 18, 20, 22];
 
-export function actionFixture({seat = 0, hand = [...scattered.slice(0, 12), RED_DRAGON, TILE.WHITE], melds = [], discard = null, names} = {}) {
+export function actionFixture({seat = 0, hand = [...scattered.slice(0, 12), RED_DRAGON, TILE.WHITE], melds = [], discard = null, names, indicator = TILE.WHITE} = {}) {
   const game = new MahjongGame({seed:'wall-candidate-21', laizi:true, names});
   assert.equal(game.indicatorTile, TILE.WHITE);
+  game.indicatorTile = indicator;
+  game.wildTile = nextWildTile(indicator);
   const counts = Array(34).fill(4);
   const take = tiles => tiles.map(tile => {
     assert.ok(--counts[tile] >= 0, `fixture exceeds four copies of ${tile}`);

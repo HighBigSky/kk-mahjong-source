@@ -118,7 +118,7 @@ test('a single indicator kong moves its actual tile into the public group and su
   assert.deepEqual(game.players[0].piziGangs, [PIZI]);
   assert.deepEqual(game.players[0].melds, []);
   assert.equal(game.indicatorTile, PIZI, 'the exposed physical indicator remains in its wall slot');
-  assert.deepEqual(game.players.map(player => player.score), scores, 'special kongs do not change scoring');
+  assert.deepEqual(game.players.map(player => player.score), scores.map((score,index) => score + (index === 0 ? 30 : -10)), 'single indicator gang charges each opponent one base');
   assert.equal(game.events.at(-2), '你皮子杠五万，补摸一张牌。');
   assertConservation(game);
 });
@@ -184,7 +184,7 @@ test('concealed indicators block self-draw Hu until each has been declared, incl
   assert.equal(game.getActions(0).hu, true);
   assert.equal(game.claim(0, 'hu'), true);
   assert.equal(game.result.kind, 'win');
-  assert.equal(game.result.points, 20, 'the existing base and self-draw scoring remains unchanged');
+  assert.equal(game.result.points, 30, 'existing base and self-draw plus one base for replacement Hu');
   assert.deepEqual(game.players[0].piziGangs, [PIZI, PIZI]);
   assertConservation(game);
   const wildcardHand = [...ordinary.slice(0, 12), PIZI, PIZI + 1];

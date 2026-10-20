@@ -8,6 +8,7 @@ import {
 } from './src/domain/tile.js';
 import { PHASE, ACTION, isPlayerId } from './src/domain/model.js';
 import { assertPhaseTransition } from './src/domain/invariants.js';
+import { SCORE_RULES, SCORING_TEXT } from './src/domain/scoring.js';
 
 /** @typedef {import('./src/domain/model.js').TileCode} TileCode */
 /** @typedef {import('./src/domain/model.js').PlayerId} PlayerId */
@@ -381,6 +382,33 @@ export function makeRandom(seed) {
   };
 }
 
+/** 原结算表的纯函数版本，供结算与提示排序共用；不改变分值。
+ * @param {readonly TileCode[]} hand @param {readonly MeldLike[]} melds @param {boolean} selfDraw @param {boolean} [replacement]
+ * @returns {import('./src/domain/model.js').ScoreBreakdown[]}
+ */
+export function getWinBreakdown(hand, melds, selfDraw, replacement = false) {
+  const allTiles = [...hand, ...melds.flatMap(meld => meld.tiles)];
+  const breakdown = [{ name: '基础胡牌', points: 10 }];
+  // Shape bonuses use only an independently valid natural interpretation;
+  // wildcard substitutions have no specified bonus schedule yet.
+  const naturalCounts = countsOf(hand);
+  const naturalWin = naturalCounts !== null &&
+    ((melds.length === 0 && isSevenPairs(hand)) || groupedShape(naturalCounts, 0, melds.length, false));
+  if (naturalWin && melds.length === 0 && isSevenPairs(hand)) breakdown.push({ name: '七对', points: 10 });
+  else if (naturalWin) {
+    const counts = countsOf(hand);
+    if (melds.every(meld => meld.kind !== 'chi') && counts &&
+        counts.filter(count => count === 2).length === 1 && counts.every(count => count === 0 || count === 2 || count === 3)) {
+      breakdown.push({ name: '碰碰胡', points: 10 });
+    }
+  }
+  const suits = new Set(allTiles.map(tileSuit));
+  if (naturalWin && suits.size === 1) breakdown.push({ name: suits.has('honor') ? '字一色' : '清一色', points: suits.has('honor') ? 30 : 20 });
+  if (selfDraw) breakdown.push({ name: '自摸', points: 10 });
+  if (selfDraw && replacement) breakdown.push({name:SCORING_TEXT.replacementWin, points:SCORE_RULES.base * SCORE_RULES.replacementWin});
+  return breakdown;
+}
+
 /** @returns {AvailableActions} */
 function emptyActions() {
   return { hu: false, peng: false, gang: false, redGang: false, piziGang: false, wildGang: false, chi: [], pass: false, concealedGangs: [], addedGangs: [] };
@@ -444,6 +472,8 @@ export class MahjongGame {
   wildTile = null;
   /** @type {WallInfo} */
   wallInfo = { dice: [1, 1], indicatorPosition: null, tailDraws: 0 };
+  /** @type {number[]} */
+  gangScoreDelta = [0, 0, 0, 0];
 
   /** @param {GameOptions|string|number|boolean|null} [options] */
   constructor(options = {}) {
@@ -471,6 +501,7 @@ export class MahjongGame {
       this._diceRandom = makeRandom(`dice:${String(seed)}`);
     }
     if (!restart || this.round === 0) this.round++;
+    this.gangScoreDelta = [0, 0, 0, 0];
     // Seats are bottom (0), right (1), top (2), and left (3).
     this.dealer = /** @type {PlayerId} */ ((this.round - 1) % 4);
     this.wall = Array.from({ length: TOTAL_TILE_COUNT }, (_, index) => Math.floor(index / COPIES_PER_TILE));
@@ -580,10 +611,10 @@ export class MahjongGame {
     if (!counts) return actions;
     actions.hu = this.lastDraw?.player === player && canWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile);
     if (this.wall.length > 0) {
-      actions.redGang = counts[RED_DRAGON] > 0;
-      // 手上同时有皮子和癞子时先杠皮子；癞子只在没有皮子时才当皮子杠。
+      // 同牌多重身份只开放最高优先级入口：皮子 > 红中 > 癞子。
+      actions.redGang = this.indicatorTile !== RED_DRAGON && counts[RED_DRAGON] > 0;
       actions.piziGang = this.indicatorTile !== null && counts[this.indicatorTile] > 0;
-      actions.wildGang = !actions.piziGang && this.wildTile !== null && counts[this.wildTile] > 0;
+      actions.wildGang = this.wildTile !== null && this.wildTile !== RED_DRAGON && this.wildTile !== this.indicatorTile && counts[this.wildTile] > 0;
       if (seat.melds.length < 4) {
         actions.concealedGangs = counts.flatMap((count, tile) => count === COPIES_PER_TILE && !isSpecialGangTile(tile, this.indicatorTile) ? [tile] : []);
       }
@@ -628,6 +659,7 @@ export class MahjongGame {
         const seat = this.players[player];
         removeTiles(seat.hand, [RED_DRAGON]);
         seat.redGangs.push(RED_DRAGON);
+        this._scoreSpecialGang(player, 'redGang');
         this.lastDraw = null;
         this._log(`${seat.name}红中杠，补摸一张牌。`);
         this._drawTile(player, true);
@@ -637,6 +669,7 @@ export class MahjongGame {
         const seat = this.players[player];
         removeTiles(seat.hand, [this.indicatorTile]);
         seat.piziGangs.push(this.indicatorTile);
+        this._scoreSpecialGang(player, 'piziGang');
         this.lastDraw = null;
         this._log(`${seat.name}皮子杠${tileName(this.indicatorTile)}，补摸一张牌。`);
         this._drawTile(player, true);
@@ -646,6 +679,7 @@ export class MahjongGame {
         const seat = this.players[player];
         removeTiles(seat.hand, [this.wildTile]);
         seat.piziGangs.push(this.wildTile);
+        this._scoreSpecialGang(player, 'wildGang');
         this.lastDraw = null;
         this._log(`${seat.name}癞子杠${tileName(this.wildTile)}，补摸一张牌。`);
         this._drawTile(player, true);
@@ -890,36 +924,36 @@ export class MahjongGame {
       : '牌墙已空，红中无法补杠，本局流局';
   }
 
+  /** 单张杠的实牌已经移入公开区后才记账；失败请求与重放均到不了这里。
+   * @param {PlayerId} player @param {'redGang'|'piziGang'|'wildGang'} kind
+   */
+  _scoreSpecialGang(player, kind) {
+    const points = SCORE_RULES.base * SCORE_RULES[kind];
+    for (let seat = 0; seat < 4; seat++) {
+      const delta = seat === player ? points * 3 : -points;
+      this.players[seat].score += delta;
+      this.gangScoreDelta[seat] += delta;
+    }
+  }
+
   /** @param {PlayerId} winner @param {PlayerId|null} from @param {boolean} selfDraw @returns {void} */
   _finishWin(winner, from, selfDraw) {
     const seat = this.players[winner];
-    const allTiles = [...seat.hand, ...seat.melds.flatMap(meld => meld.tiles)];
-    const breakdown = [{ name: '基础胡牌', points: 10 }];
-    // Shape bonuses use only an independently valid natural interpretation;
-    // wildcard substitutions have no specified bonus schedule yet.
-    const naturalCounts = countsOf(seat.hand);
-    const naturalWin = naturalCounts !== null &&
-      ((seat.melds.length === 0 && isSevenPairs(seat.hand)) || groupedShape(naturalCounts, 0, seat.melds.length, false));
-    if (naturalWin && seat.melds.length === 0 && isSevenPairs(seat.hand)) breakdown.push({ name: '七对', points: 10 });
-    else if (naturalWin) {
-      const counts = countsOf(seat.hand);
-      if (seat.melds.every(meld => meld.kind !== 'chi') && counts &&
-          counts.filter(count => count === 2).length === 1 && counts.every(count => count === 0 || count === 2 || count === 3)) {
-        breakdown.push({ name: '碰碰胡', points: 10 });
-      }
-    }
-    const suits = new Set(allTiles.map(tileSuit));
-    if (naturalWin && suits.size === 1) breakdown.push({ name: suits.has('honor') ? '字一色' : '清一色', points: suits.has('honor') ? 30 : 20 });
-    if (selfDraw) breakdown.push({ name: '自摸', points: 10 });
+    const replacement = Boolean(selfDraw && this.lastDraw?.player === winner && this.lastDraw.replacement);
+    const breakdown = getWinBreakdown(seat.hand, seat.melds, selfDraw, replacement);
     const points = breakdown.reduce((total, item) => total + item.points, 0);
     const scoreDelta = Array(4).fill(0);
-    if (selfDraw) {
+    const classification = classifyWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile);
+    const bigWin = classification.sevenPairs || classification.allTriplets || classification.allJiang || classification.allHonors;
+    if (selfDraw || bigWin) {
       for (let player = 0; player < 4; player++) if (player !== winner) scoreDelta[player] = -points;
       scoreDelta[winner] = points * 3;
     } else {
-      scoreDelta[/** @type {PlayerId} */ (from)] = -points * 3; scoreDelta[winner] = points * 3;
+      scoreDelta[/** @type {PlayerId} */ (from)] = -points; scoreDelta[winner] = points;
     }
     for (let player = 0; player < 4; player++) this.players[player].score += scoreDelta[player];
+    // 杠分已在开杠时入账；结算界面展示整局净分，但不能再次加到余额。
+    for (let player = 0; player < 4; player++) scoreDelta[player] += this.gangScoreDelta[player];
     this.winner = winner;
     this.current = winner;
     this.pendingDiscard = null;
@@ -927,7 +961,7 @@ export class MahjongGame {
       kind: 'win', type: 'win', winner, from, selfDraw, points, scoreDelta,
       patterns: breakdown.map(item => item.name), breakdown, hand: [...seat.hand],
       reason: selfDraw ? '自摸' : `${this.players[/** @type {PlayerId} */ (from)].name}点炮`,
-      scoringNote: '演示计分：基础 10；七对、碰碰胡、自摸各加 10，清一色加 20，字一色加 30。自摸其余三家各付单份，点炮一家付三份。杠不单独计分。',
+      scoringNote: SCORING_TEXT.note,
     };
     this._setPhase({ kind: PHASE.ENDED, result: this.result });
     this._log(`${seat.name}${selfDraw ? '自摸胡牌' : '胡牌'}！${this.result.patterns.join(' · ')}，获得 ${scoreDelta[winner]} 分。`);
@@ -940,8 +974,8 @@ export class MahjongGame {
     this.lastDraw = null;
     this.result = {
       kind: 'draw', type: 'draw', winner: null, from: null, selfDraw: false,
-      points: 0, scoreDelta: [0, 0, 0, 0], patterns: [], breakdown: [],
-      reason, scoringNote: '演示计分，流局不扣分。',
+      points: 0, scoreDelta: [...this.gangScoreDelta], patterns: [], breakdown: [],
+      reason, scoringNote: SCORING_TEXT.note,
     };
     this._setPhase({ kind: PHASE.ENDED, result: this.result });
     this._log(`${reason}。`);

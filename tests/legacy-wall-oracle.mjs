@@ -13,6 +13,7 @@ export const authorizedWallChanges = Object.freeze([
   'Only ordinary wins after chi, peng, exposed or added kong are limited to one concealed wildcard; concealed and single-tile special kongs do not open the hand.',
   'An ordinary hand without chi, peng, exposed or added kong may win only by self draw; seven pairs, all triplets, all numbered 2/5/8 tiles, and all honors may still claim a winning discard while closed.',
   'AI and hints evaluate actual public groups, all four big-win distances, and legal ready draws; held red/indicator tiles are never ready, and opened hands may discard surplus wildcards. The frozen natural-shape scoring gate and all scoring values stay unchanged.',
+  '2026-10-20 authorized scoring: single red/indicator gangs charge each other player 10 immediately; replacement self-draw adds 10; ordinary discard wins charge one player one share, big wins charge all three; drawn rounds retain gang deltas.',
 ]);
 
 const bytes = await readFile(new URL('./fixtures/engine-before-domain.js', import.meta.url));
@@ -308,6 +309,23 @@ replaceOnce('calculateShanten(seat.hand, seat.melds.length, this.wildTile, this.
 replaceOnce('calculateShanten(remaining, melds.length, this.wildTile, this.indicatorTile);',
   'calculateShanten(remaining, melds, this.wildTile, this.indicatorTile);', 'bot claim distance includes actual candidate melds');
 
+// 在冻结规则的独立预期中只调整本次明确授权的结算，不读取生产结算实现。
+replaceOnce('    if (!restart || this.round === 0) this.round++;',
+  '    if (!restart || this.round === 0) this.round++;\n    this.gangScoreDelta = [0,0,0,0];', 'new-round score ledger');
+for (const anchor of ['        seat.redGangs.push(31);','        seat.piziGangs.push(this.indicatorTile);']) {
+  replaceOnce(anchor, anchor + '\n        for (let payer = 0; payer < 4; payer++) { const delta = payer === player ? 30 : -10; this.players[payer].score += delta; this.gangScoreDelta[payer] += delta; }', 'immediate special gang transfer');
+}
+replaceOnce("    if (selfDraw) breakdown.push({ name: '自摸', points: 10 });",
+  "    if (selfDraw) breakdown.push({ name: '自摸', points: 10 });\n    if (selfDraw && this.lastDraw?.player === winner && this.lastDraw.replacement) breakdown.push({name:'杠上开花',points:10});", 'replacement Hu bonus');
+replaceOnce('    if (selfDraw) {\n      for (let player',
+  '    const classification = oracleClassifyWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile);\n    if (selfDraw || classification.sevenPairs || classification.allTriplets || classification.allJiang || classification.allHonors) {\n      for (let player', 'ordinary/big win payers');
+replaceOnce('      scoreDelta[from] = -points * 3; scoreDelta[winner] = points * 3;',
+  '      scoreDelta[from] = -points; scoreDelta[winner] = points;', 'ordinary discard one share');
+replaceOnce('    for (let player = 0; player < 4; player++) this.players[player].score += scoreDelta[player];',
+  '    for (let player = 0; player < 4; player++) this.players[player].score += scoreDelta[player];\n    for (let player = 0; player < 4; player++) scoreDelta[player] += this.gangScoreDelta[player];', 'round net includes already settled gangs once');
+replaceOnce('points: 0, scoreDelta: [0, 0, 0, 0], patterns:', 'points: 0, scoreDelta: [...this.gangScoreDelta], patterns:', 'draw retains gang ledger');
+const scoreNote = '底分10；红中杠、痞子杠其余三家各付10，赖子杠各付20；开杠立即结算，荒庄保留杠分。原番型分值不变，杠上开花额外加10。屁胡自摸三家各付一份，屁胡接胡放铳一家付一份；大胡三家各付一份。';
+source = source.replace(/scoringNote: '[^']*'/g, 'scoringNote: ' + JSON.stringify(scoreNote));
 export const legacyWallOracle = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 /** Independent seeded shuffle/roll prediction for rule-specific fixtures. */

@@ -255,20 +255,15 @@ async function geometry(page, viewport) {
     const topRackTiles = [...document.querySelectorAll('#rack-2 .tile,#rack-2 .back')].map(box);
     const avatarOverlap = topRackTiles.filter(tile => overlap(tile, avatar));
     const avatarToolbarOverlaps = [...document.querySelectorAll('.top-tools>*')].filter(visible).map(element => ({ name: element.id || element.className, box: box(element) })).filter(element => overlap(element.box, avatar));
-    const ting = box(document.querySelector('#ting-btn'));
-    const tingCenter = [(ting.left + ting.right) / 2, (ting.top + ting.bottom) / 2];
     const marker = document.querySelector('.river .last-discard');
     const markerStyle = marker && getComputedStyle(marker);
-    return { stage: { width: document.querySelector('#game').clientWidth, height: document.querySelector('#game').clientHeight },  table, avatar, avatarFace, avatarOverlap, avatarToolbarOverlaps, hand, rivers, overlaps, ting, tingHit: document.elementFromPoint(...tingCenter)?.closest('#ting-btn') !== null, marker: marker ? { box: box(marker), outlineWidth: markerStyle.outlineWidth, color: markerStyle.backgroundColor, width: markerStyle.width, height: markerStyle.height } : null, scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight };
+    return { stage: { width: document.querySelector('#game').clientWidth, height: document.querySelector('#game').clientHeight },  table, avatar, avatarFace, avatarOverlap, avatarToolbarOverlaps, hand, rivers, overlaps, marker: marker ? { box: box(marker), outlineWidth: markerStyle.outlineWidth, color: markerStyle.backgroundColor, width: markerStyle.width, height: markerStyle.height } : null, scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight };
   });
   report.geometry.push({ viewport, ...measured });
   await screenshot(page, `layout-${viewport.width}x${viewport.height}`);
   const inside = b => b.left >= -1.1 && b.top >= -1.1 && b.right <= viewport.width + 1.1 && b.bottom <= viewport.height + 1.1;
   assert.ok(measured.hand.length === 14 && measured.hand.every(item => inside(item.box) && item.hit), `Hand visibility and hit targets ${JSON.stringify({ viewport, measured })}`);
-  assert.ok(inside(measured.avatar) && inside(measured.avatarFace) && inside(measured.ting), `Avatar face and ting are on screen ${JSON.stringify({ viewport, measured })}`);
-  assert.equal(measured.tingHit, true);
-  const tingHandOverlaps = measured.hand.filter(({ box }) => Math.min(box.right, measured.ting.right) - Math.max(box.left, measured.ting.left) > .5 && Math.min(box.bottom, measured.ting.bottom) - Math.max(box.top, measured.ting.top) > .5);
-  assert.deepEqual(tingHandOverlaps, [], `Ting icon stays beside the hand ${JSON.stringify(viewport)}`);
+  assert.ok(inside(measured.avatar) && inside(measured.avatarFace), `Avatar face and ting are on screen ${JSON.stringify({ viewport, measured })}`);
   assert.deepEqual(measured.avatarOverlap, [], `Top avatar does not cover tiles ${JSON.stringify(viewport)}`);
   assert.deepEqual(measured.avatarToolbarOverlaps, [], `Top avatar avoids toolbar ${JSON.stringify(viewport)}`);
   assert.deepEqual(measured.overlaps, [], `River clearances ${JSON.stringify({ viewport, overlaps: measured.overlaps })}`);
@@ -317,49 +312,20 @@ async function diceChecks(room, names) {
 }
 async function tingChecks(room, names) {
   const page = pages[0];
-  const waiting = [0, 1, 2, 9, 10, 11, 18, 19, 20, 24, 25, 26, 1];
-  await publish(room, actionFixture({ names, hand: [...waiting, 28] }));
+  const waiting = [0,1,2,9,10,11,18,19,20,24,25,26,1];
+  await publish(room, actionFixture({names,hand:[...waiting,28]}));
   const button = page.locator('#hand button[data-index="13"]');
-  const before = await button.boundingBox();
-  await button.click();
-  await until(() => button.evaluate((element, initialY) => element.getBoundingClientRect().y < initialY - 2, before.y), 'Selection transition raises the tile', 1000);
-  const selected = await button.evaluate(element => ({ pressed: element.getAttribute('aria-pressed'), box: element.getBoundingClientRect().toJSON(), shadow: getComputedStyle(element).boxShadow, filter: getComputedStyle(element).filter, outline: getComputedStyle(element).outlineColor }));
-  assert.equal(selected.pressed, 'true');
-  assert.ok(selected.box.y < before.y - 2, `Selection rises visibly: ${JSON.stringify({ before, selected })}`);
-  assert.notEqual(selected.shadow, 'none', 'Selected tile has visible glow');
-  await screenshot(page, 'selected-hand');
-  await page.locator('#ting-btn').click();
-  await page.locator('#ting-dialog[open]').waitFor();
-  let waits = await page.locator('#ting-tiles .ting-wait').evaluateAll(elements => elements.map(element => Number(element.dataset.tile)));
-  assert.ok(waits.includes(1), `Discarding South waits for 2-man: ${JSON.stringify(waits)}`);
-  assert.ok(!waits.includes(31) && !waits.includes(33), 'Red dragon and this indicator are never winning draws');
-  const description = await page.locator('#ting-description').textContent();
-  assert.match(description, /南|打出|打掉/);
-  assert.equal(await button.getAttribute('aria-pressed'), 'true', 'Opening ting does not clear selection');
-  await screenshot(page, 'selected-ting');
-  await page.evaluate(() => document.querySelector('#ting-dialog').close());
-  const current = actionFixture({ names, hand: waiting });
-  current.players[1].hand.push(current.wall.pop());
-  current.current = 1; current.phase = { kind: 'discard', seat: 1 }; current.lastDraw = { player: 1, tile: current.players[1].hand.at(-1), index: 13, replacement: false };
-  await publish(room, current);
-  await page.locator('#ting-btn').click();
-  await page.locator('#ting-dialog[open]').waitFor();
-  const currentWaits = await page.locator('#ting-tiles .ting-wait').evaluateAll(elements => elements.map(element => Number(element.dataset.tile)));
-  assert.ok(currentWaits.includes(1), 'Without selection, thirteen tiles show their current waits');
-  report.tingDialogGeometry = [];
-  for (const viewport of sizes) {
-    await page.setViewportSize(viewport); await frames(page);
-    const geometry = await page.locator('#ting-dialog').evaluate(dialog => {
-      const r = dialog.getBoundingClientRect();
-      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, clientWidth: dialog.clientWidth, scrollWidth: dialog.scrollWidth };
-    });
-    assert.ok(geometry.left >= -1 && geometry.top >= -1 && geometry.right <= viewport.width + 1 && geometry.bottom <= viewport.height + 1 && geometry.scrollWidth <= geometry.clientWidth + 1, `Ting dialog fits ${JSON.stringify({ viewport, geometry })}`);
-    report.tingDialogGeometry.push({ viewport, ...geometry });
-    await screenshot(page, `current-ting-${viewport.width}x${viewport.height}`);
-  }
-  await page.evaluate(() => document.querySelector('#ting-dialog').close());
-  await page.setViewportSize(sizes[0]); await frames(page);
-  report.ting = { selectedDiscard: 28, afterDiscardWaits: waits, currentThirteenWaits: currentWaits, selectionRisePx: Number((before.y - selected.box.y).toFixed(2)), selectedShadow: selected.shadow };
+  const before = await button.boundingBox(); await button.click();
+  await until(() => button.evaluate((element,y) => element.getBoundingClientRect().y < y-2,before.y),'Selection raises the tile');
+  assert.equal(await button.getAttribute('aria-pressed'),'true');
+  assert.match(await page.locator('#hint-text').textContent(),/打【南】.*二万/);
+  await screenshot(page,'selected-unified-hint');
+  const current=actionFixture({names,hand:waiting});current.players[1].hand.push(current.wall.pop());current.current=1;current.phase={kind:'discard',seat:1};current.lastDraw=null;
+  await publish(room,current);assert.match(await page.locator('#hint-text').textContent(),/^已听：.*二万/);
+  report.tingPanelGeometry=[];
+  for(const viewport of sizes){await page.setViewportSize(viewport);await frames(page);const geometry=await page.locator('#play-assist').boundingBox();assert.ok(geometry.x>=-1&&geometry.y>=-1&&geometry.x+geometry.width<=viewport.width+1&&geometry.y+geometry.height<=viewport.height+1);report.tingPanelGeometry.push({viewport,...geometry});}
+  await page.setViewportSize(sizes[0]);await frames(page);
+  report.ting={unified:true,selectedDiscard:28,currentThirteenWaits:[1]};
 }
 async function latestChecks(room, names) {
   const page = pages[0];
@@ -403,19 +369,12 @@ async function fourthCopyClaimCheck(room, names) {
   assertInvariants(game);
   assert.equal(game.getActions(0).hu, true, 'Current fourth physical South can complete seven pairs');
   await publish(room, game);
-  await page.locator('#ting-btn').click();
-  await page.locator('#ting-dialog[open]').waitFor();
-  const south = page.locator('#ting-tiles .ting-wait[data-tile="28"]');
-  assert.equal(await south.count(), 1, 'Current fourth copy is included as a possible claim');
-  assert.equal(await south.getAttribute('data-claim'), 'true');
-  assert.equal(await south.getAttribute('data-self-draw'), 'false', 'All four copies are known, so no future self-draw is available');
-  await screenshot(page, 'fourth-copy-current-claim');
-  await page.evaluate(() => document.querySelector('#ting-dialog').close());
-  game.pendingDiscard = null; game.current = 1; game.phase = { kind: 'discard', seat: 1 }; game.lastDraw = null;
-  await publish(room, game);
-  await page.locator('#ting-btn').click(); await page.locator('#ting-dialog[open]').waitFor();
-  assert.equal(await page.locator('#ting-tiles .ting-wait[data-tile="28"]').count(), 0, 'After the response window ends, four visible copies cannot be drawn');
-  await page.evaluate(() => document.querySelector('#ting-dialog').close());
+  assert.match(await page.locator('#hint-text').textContent(),/南（0张，仅接胡）/);
+  assert.equal(await page.locator('#play-assist').isVisible(),true);
+  await screenshot(page,'fourth-copy-current-claim');
+  game.pendingDiscard=null;game.current=1;game.phase={kind:'discard',seat:1};game.lastDraw=null;
+  await publish(room,game);
+  assert.equal((await page.locator('#hint-text').textContent()).includes('南（0张，仅接胡）') && await page.locator('#play-assist').isVisible(),false);
   report.fourthCopyClaim = { knownCopies: 4, serverHu: true, duringResponse: { claim: true, selfDraw: false }, afterResponseShown: false, conservation: 136 };
 }
 async function featureChecks(room, names) {

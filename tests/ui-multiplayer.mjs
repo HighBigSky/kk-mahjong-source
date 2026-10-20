@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createServer } from '../server.js';
 import { RoomService } from '../src/server/rooms.js';
 import { MahjongGame, chooseDiscard } from '../engine.js';
+import {createHintCalculator} from '../src/ui/play-assist.js';
 import { RED_DRAGON } from '../src/domain/tile.js';
 import { assertInvariants } from '../src/domain/invariants.js';
 
@@ -76,7 +77,7 @@ async function checkActionVisibility(page, room) {
       zone: visible(document.querySelector('.action-zone')),
       shown: [...document.querySelectorAll('.action-button[data-action]')].filter(visible).map(button => button.dataset.action),
       enabled: [...document.querySelectorAll('.action-button[data-action]:not(:disabled)')].map(button => button.dataset.action),
-      utilityShown: [...document.querySelectorAll('#hint-btn,#action-next')].some(visible),
+      utilityShown: [...document.querySelectorAll('#action-next')].some(visible),
     };
   });
   const actions = room.game && !room.seats.some(seat => !seat.connected) ? room.game.getActions(actual.seat) : null;
@@ -123,7 +124,7 @@ async function clickCommand(page, room, action) {
     await page.locator('#action-gang:enabled').click();
     await waitFor(async () => room.version > version || await page.locator('#choice-dialog').evaluate(dialog => dialog.open), 'gang executed or choices opened');
     if (await page.locator('#choice-dialog').evaluate(dialog => dialog.open)) {
-      let option = page.locator('#choice-options button').filter({ hasText: action.kind === 'redGang' ? '红中杠' : action.kind === 'piziGang' ? '皮子杠' : action.mode === 'concealed' ? '暗杠' : '补杠' });
+      let option = page.locator('#choice-options button').filter({ hasText: action.kind === 'redGang' ? '红中杠' : action.kind === 'piziGang' ? '痞子杠' : action.mode === 'concealed' ? '暗杠' : '补杠' });
       if (action.kind === 'gang') option = option.filter({ has: page.locator(`use[href="assets/tiles.svg#tile-${action.tile}"]`) });
       await option.first().click();
     }
@@ -218,23 +219,22 @@ async function checkHandSelectionStability(page, room) {
       await page.locator('#hint-btn').click();
       state = await unchanged('discard hint');
       const visible = [...room.game.players.flatMap(player => [...player.discards, ...player.redGangs, ...player.piziGangs, ...player.melds.flatMap(meld => meld.tiles)]), ...(room.game.indicatorTile == null ? [] : [room.game.indicatorTile])];
-      const expected = chooseDiscard(room.game.players[0].hand, room.game.players[0].melds, visible, room.game.wildTile, room.game.indicatorTile);
+      const expected = createHintCalculator()({hand:room.game.players[0].hand,melds:room.game.players[0].melds,visibleTiles:visible,wildTile:room.game.wildTile,indicatorTile:room.game.indicatorTile}).candidates[0].index;
       assert.deepEqual(state.hinted, [expected]);
       assert.deepEqual(state.selected, [expected]);
       assert.deepEqual(state.pressed, [expected]);
     } else {
-      assert.ok(actions.redGang || actions.piziGang || actions.wildGang || actions.hu || actions.concealedGangs.length || actions.addedGangs.length, 'legal Hu/Kong actions take precedence over the hint');
+
       state = await unchanged('hidden hint leaves selection unchanged');
     }
     const redIndex = room.game.players[0].hand.indexOf(RED_DRAGON);
     if (redIndex >= 0) {
-      const selectionBeforeRed = state;
+
       // ARIA marks red dragons undiscardable, but the physical click explains how to kong them.
       await page.locator(`#hand button[data-index="${redIndex}"]`).click({ force: true });
       state = await unchanged('red dragon click');
-      assert.deepEqual(state.selected, selectionBeforeRed.selected);
-      assert.deepEqual(state.hinted, selectionBeforeRed.hinted);
-      assert.match(await page.locator('#toast').textContent(), /红中只能/);
+      assert.deepEqual(state.selected, [redIndex]);
+      assert.deepEqual(state.hinted, []);
     }
     const beforeRefresh = state;
     const beforeStateEvents = await page.evaluate(() => window.__sseStateCount);

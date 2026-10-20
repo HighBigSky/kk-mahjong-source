@@ -57,17 +57,17 @@ test('a wild tile alone can be declared as a special gang and draws from the wal
   conservation(game);
 });
 
-test('the real indicator takes priority over the wild tile when both are held', () => {
+test('distinct indicator and wild tiles each have their own single-tile gang entry', () => {
   const hand = [0, 1, 2, 9, 10, 11, 18, 19, 20, 27, 27, PIZI, WILD, 25];
   const game = fixture({ hand });
   const actions = game.getActions(0);
   assert.equal(actions.piziGang, true, 'indicator copy is available');
-  assert.equal(actions.wildGang, false, 'wild tile is not offered while the indicator is held');
+  assert.equal(actions.wildGang, true, 'double-clicking either actual face can declare its own gang');
 
-  assert.equal(game.applyAction(0, { kind: 'wildGang', player: 0 }), false, 'a wild gang is rejected while the indicator is held');
+  assert.equal(game.applyAction(0, { kind: 'wildGang', player: 0 }), true);
   assert.equal(game.applyAction(0, { kind: 'piziGang', player: 0 }), true);
-  assert.deepEqual(game.players[0].piziGangs, [PIZI]);
-  assert.equal(game.players[0].hand.includes(WILD), true, 'the wild stays in hand as a wildcard');
+  assert.deepEqual(game.players[0].piziGangs, [WILD, PIZI]);
+  assert.equal(game.players[0].hand.includes(WILD), false);
   conservation(game);
 });
 

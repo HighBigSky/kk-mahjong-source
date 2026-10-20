@@ -55,7 +55,7 @@ async function click(room,actor,action){
     await page.locator('#action-gang:visible:enabled').click();
     await waitFor(async()=>room.version>version||await page.locator('#choice-dialog').evaluate(dialog=>dialog.open),'kong accepted or choice visible');
     if(await page.locator('#choice-dialog').evaluate(dialog=>dialog.open)){
-      const label=action.kind==='redGang'?'红中杠':action.kind==='piziGang'?'皮子杠':action.mode==='concealed'?'暗杠':'补杠';
+      const label=action.kind==='redGang'?'红中杠':action.kind==='piziGang'?'痞子杠':action.mode==='concealed'?'暗杠':'补杠';
       let option=page.locator('#choice-options button').filter({hasText:label});
       if(action.kind==='gang')option=option.filter({has:page.locator(`use[href="assets/tiles.svg#tile-${action.tile}"]`)});
       await option.first().click();

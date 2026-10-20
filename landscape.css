@@ -342,8 +342,6 @@ html.in-game #game.is-landscape {
 .is-landscape .action-button small { font-size:calc(var(--ui-unit) * 1.55); letter-spacing:calc(var(--ui-unit) * .2); }
 .is-landscape .action-button.action-next { width:100%; height:calc(var(--ui-unit) * 12.4); }
 .is-landscape .action-button.action-next>span { font-size:calc(var(--ui-unit) * 4.4); }
-.is-landscape .action-button.action-hint { height:calc(var(--ui-unit) * 9); }
-.is-landscape .action-button.action-hint>span { font-size:calc(var(--ui-unit) * 3.2); letter-spacing:calc(var(--ui-unit) * .25); }
 .is-landscape .action-hu:not(:disabled) { box-shadow:0 0 calc(var(--ui-unit) * 3.4) #e0703f77, 0 calc(var(--ui-unit) * .6) calc(var(--ui-unit) * 1.5) #00000045; }
 .is-landscape .toast { top:64%; padding:calc(var(--ui-unit) * 1.6) calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 1.5); font-size:calc(var(--ui-unit) * 2.8); }
 
@@ -407,7 +405,7 @@ html.in-game #game.is-landscape {
   --table-surface-width:calc(var(--stage-width) * .84);
   --table-view-distance:calc(var(--stage-height) * 2);
   --table-view-tilt:32deg;
-  --rack-width:calc(var(--stage-width) * .78);
+  --rack-width:calc(var(--stage-width) * .66);
   --base-hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--ui-unit) * 8) / 14));
   --hand-width:var(--base-hand-width);
   --hand-height:calc(var(--hand-width) * 1.4);
@@ -556,6 +554,16 @@ html.in-game #game.is-landscape {
 
 /* Large local tiles finish the near edge. Available width caps all 14 tiles. */
 .is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:50%; width:var(--rack-width); bottom:1.5%; transform:translateX(-50%); }
+/* 两侧对称留白保持手牌中心，提示独立定位，显隐不挤动手牌。 */
+.is-landscape .play-assist { position:absolute; right:calc(100% + var(--stage-width) * .012); top:0; width:calc(var(--stage-width) * .145); max-height:100%; z-index:7; overflow:auto; color:#ffe8a0; border:1px solid #d6c183; border-radius:calc(var(--ui-unit) * 1.2); background:linear-gradient(145deg,#225b4b,#103b32); box-shadow:0 2px 5px #002b27aa; scrollbar-width:thin; }
+.play-assist[hidden],.play-assist select[hidden] { display:none; }
+.hint-button { display:flex; flex-direction:column; gap:calc(var(--ui-unit) * .65); width:100%; border:0; padding:calc(var(--ui-unit) * 1); background:none; color:inherit; text-align:left; touch-action:manipulation; }
+.hint-button strong { font-size:calc(var(--ui-unit) * 2.8); line-height:1; }
+.hint-button span { font-size:max(9px,calc(var(--ui-unit) * 1.9)); line-height:1.3; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.play-assist select { width:100%; min-width:0; border:0; border-top:1px solid #d6c18360; background:#103b32; color:#ffe8a0; font-size:max(9px,calc(var(--ui-unit) * 1.9)); }
+.is-landscape .player-rack .special-gang .meld-label { left:50%; right:auto; transform:translateX(-50%); white-space:nowrap; font-size:max(6px,calc(var(--ui-unit) * 1.3)); }
+.is-landscape .player-rack .my-melds .special-gang .tile { width:var(--self-public-tile-height); height:var(--self-public-tile-width); }
+.is-landscape .player-rack .my-melds .special-gang .tile svg { width:var(--self-public-tile-width); height:var(--self-public-tile-height); transform:rotate(90deg); flex:none; }
 .is-landscape .hand-zone .player-rack {
   --public-reserve:0px;
   --hand-space:calc(var(--rack-width) - var(--public-reserve) * 2);
@@ -587,7 +595,7 @@ html.in-game #game.is-landscape {
 .is-landscape .action-button { height:calc(var(--ui-unit) * 8.5); gap:0; }
 .is-landscape .action-button>span { font-size:calc(var(--ui-unit) * 5.2); }
 .is-landscape .action-button small { display:none; }
-.is-landscape .action-button.action-hint,.is-landscape .action-button.action-next { grid-column:1 / -1; height:calc(var(--ui-unit) * 9.5); }
+.is-landscape .action-button.action-next { grid-column:1 / -1; height:calc(var(--ui-unit) * 9.5); }
 .is-landscape .action-button.action-next>span { font-size:calc(var(--ui-unit) * 4); }
 
 
@@ -653,14 +661,6 @@ html.in-game #game.is-landscape {
 /* Selected tiles keep the pointer target and get immediate, steady light. */
 #game.is-landscape .hand .tile { transition:transform 80ms,box-shadow 80ms; }
 #game.is-landscape .hand .tile.selected { --tile-face:linear-gradient(135deg,#ffffef,#fff2ba 72%,#ead38c); outline:calc(var(--ui-unit) * .45) solid #fff2a8; outline-offset:calc(var(--ui-unit) * .15); box-shadow:0 0 0 calc(var(--ui-unit) * .9) #fbd96e35,0 0 calc(var(--ui-unit) * 3) #ffe58a9c,0 calc(var(--ui-unit) * .7) calc(var(--ui-unit) * 1.3) #002c2a88; }
-.is-landscape .ting-button { right:1.8%; bottom:2%; width:calc(var(--ui-unit) * 8.4); height:calc(var(--ui-unit) * 11); border-radius:calc(var(--ui-unit) * 1.5); }
-.is-landscape .ting-button>span { font-size:calc(var(--ui-unit) * 6); }
-.is-landscape .ting-button small { font-size:calc(var(--ui-unit) * 2); }
-html.in-game .ting-tiles { grid-template-columns:repeat(auto-fill,minmax(calc(var(--dialog-unit) * 10),1fr)); gap:calc(var(--dialog-unit) * 3) calc(var(--dialog-unit) * 1.3); margin:calc(var(--dialog-unit) * 3) 0; }
-html.in-game .ting-wait { gap:calc(var(--dialog-unit) * .8); font-size:calc(var(--dialog-unit) * 2.5); }
-html.in-game .ting-wait .tile { width:calc(var(--dialog-unit) * 9); height:calc(var(--dialog-unit) * 12.6); --tile-depth:calc(var(--dialog-unit) * .6); --tile-side:calc(var(--dialog-unit) * .2); }
-html.in-game .ting-wait small { font-size:calc(var(--dialog-unit) * 2); }
-html.in-game .ting-note { font-size:calc(var(--dialog-unit) * 2.3); }
 
 .rotate-guide {
   position:fixed;

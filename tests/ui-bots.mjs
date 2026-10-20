@@ -211,7 +211,7 @@ async function clickCommand(page, room, command) {
     await page.locator('#action-gang:enabled').click();
     await waitFor(async () => room.version > version || await page.locator('#choice-dialog').evaluate(dialog => dialog.open), 'gang sent or choice opened');
     if (await page.locator('#choice-dialog').evaluate(dialog => dialog.open)) {
-      let option = page.locator('#choice-options button').filter({ hasText: command.kind === 'redGang' ? '红中杠' : command.kind === 'piziGang' ? '皮子杠' : command.mode === 'concealed' ? '暗杠' : '补杠' });
+      let option = page.locator('#choice-options button').filter({ hasText: command.kind === 'redGang' ? '红中杠' : command.kind === 'piziGang' ? '痞子杠' : command.mode === 'concealed' ? '暗杠' : '补杠' });
       if (command.kind === 'gang') option = option.filter({ has: page.locator(`use[href="assets/tiles.svg#tile-${command.tile}"]`) });
       await option.first().click();
     }

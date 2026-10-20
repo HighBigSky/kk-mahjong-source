@@ -1,19 +1,21 @@
-import { tileName, chooseDiscard, isSpecialGangTile, classifyWin } from './engine.js';
+import { tileName, isSpecialGangTile, classifyWin } from './engine.js';
 import { createRoomClient } from './src/network/client.js';
 import { createVoiceChat } from './src/network/voice.js';
 import { RED_DRAGON } from './src/domain/tile.js';
 import { PHASE } from './src/domain/model.js';
+import { SCORING_TEXT } from './src/domain/scoring.js';
 import { renderWall } from './src/network/wall-view.js';
 import { createRoomOrientation } from './src/ui/orientation.js';
 import { createRoomFullscreen } from './src/ui/fullscreen.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
-import { getTingHints } from './src/ui/ting.js';
+import { createHintCalculator, hintText, specialGangKind, PLAY_TEXT } from './src/ui/play-assist.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
 
 const $ = selector => document.querySelector(selector);
+$('#scoring-rules').textContent = SCORING_TEXT.note;
 const renderedHTML = new WeakMap();
 // 手牌按「牌面 + 第几张同牌」复用节点：重建 innerHTML 会让每张牌的 SVG 重新解析，
 // 出牌/接牌时会闪一下白。复用后只有真正增减的牌才新建节点。
@@ -56,8 +58,12 @@ let focusedDiscard = null;
 let discardFocusGeometry = null;
 const DISCARD_FOCUS_SCALE = 1.5;
 const discardFlights = new Set();
-let tingCacheKey = '';
-let tingCache = null;
+const calculateHints = createHintCalculator();
+let hintState = {mode:'none', candidates:[]};
+let hintChoice = 0;
+let hintStateKey = '';
+let handTap = null;
+let specialGangPending = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
 const positionOverlays = () => { positionActionNotice(); positionDiscardFocus(); };
 const roomOrientation = createRoomOrientation({onLayout:positionOverlays});
@@ -234,6 +240,7 @@ function roomChanged() {
   if (changedRound) { clearTimeout(resultTimer); resultShown = 0; }
   if (changedRoom || room?.version !== previousVersion) {
     selected = -1; hinted = -1;
+    handTap = null;
     $('#choice-dialog').close();
   }
   for (let index = 0; index < 4; index++) {
@@ -347,9 +354,8 @@ function meldHTML(meld) {
 }
 
 function specialGangHTML(type, kind) {
-  const name = kind === 'redGang' ? '红中杠' : kind === 'wildGang' ? '癞子杠' : '皮子杠';
-  const badge = kind === 'redGang' ? '红' : kind === 'wildGang' ? '癞' : '皮';
-  return `<div class="meld-group special-gang" data-kind="${kind}" aria-label="${name} ${tileName(type)}，已公开"><span class="meld-label" aria-hidden="true">${badge}</span>${tile(type)}</div>`;
+  const name = PLAY_TEXT[kind];
+  return `<div class="meld-group special-gang" data-kind="${kind}" aria-label="${name} ${tileName(type)}，已公开"><span class="meld-label" aria-hidden="true">${name}</span>${tile(type)}</div>`;
 }
 
 function specialTile(type) {
@@ -360,7 +366,7 @@ function specialTile(type) {
 // 与副露区杠出实牌的标记一致；「只能单张杠出」的提示留给 title 与提示文字。
 function specialMarker(type) {
   if (!specialTile(type)) return wildMarker(type);
-  return type === RED_DRAGON
+  return type === RED_DRAGON && type !== game.indicatorTile
     ? '<span class="red-kong-marker" aria-hidden="true">红</span>'
     : '<span class="pizi-marker" aria-hidden="true">皮</span>';
 }
@@ -436,7 +442,7 @@ function syncSettings() {
   $('#sound-btn').setAttribute('aria-pressed', String(preferences.sound));
 }
 
-function humanTurn() { return network.canAct() && game.phase.kind === PHASE.DISCARD && game.current === 0; }
+function humanTurn() { return network.canAct() && !specialGangPending && game.phase.kind === PHASE.DISCARD && game.current === 0; }
 function modalOpen() { return Boolean(document.querySelector('dialog[open]')); }
 
 // Keep existing SVG instances mounted when a snapshot has no visual changes.
@@ -469,7 +475,7 @@ function renderDiceIntro() {
   setHTMLIfChanged($('#dice-intro-dice'), diceHTML(values));
   $('#dice-intro-note').textContent = `${values[0]} 点 · ${values[1]} 点，取 ${Math.min(...values)} 点翻皮`;
   $('#dice-intro').hidden = false;
-  diceIntroTimer = setTimeout(dismissDiceIntro, 1500);
+  diceIntroTimer = setTimeout(() => { dismissDiceIntro(); renderTing(); }, 1500);
 }
 
 function stageRect(element) {
@@ -610,33 +616,34 @@ function renderDiscardFocus() {
   }
 }
 
-function tingHints() {
+function renderTing() {
   const seat = game.players[0];
   const visibleTiles = [...game.players.flatMap(player => [...player.discards, ...player.redGangs, ...(player.piziGangs || []), ...player.melds.flatMap(meld => meld.tiles)]), ...(game.indicatorTile == null ? [] : [game.indicatorTile])];
-  const key = JSON.stringify([seat.hand,seat.melds,game.wildTile,game.indicatorTile,visibleTiles,selected]);
-  if (key !== tingCacheKey) {
-    tingCacheKey = key;
-    tingCache = getTingHints({ hand:seat.hand,melds:seat.melds,wildTile:game.wildTile,indicatorTile:game.indicatorTile,visibleTiles },selected);
+  const eligible = network.status === 'connected' && network.room?.status === 'playing' && !network.room.paused && !network.busy && !specialGangPending && game.phase.kind !== PHASE.DEALING && $('#dice-intro').hidden;
+  hintState = eligible ? calculateHints({hand:seat.hand, melds:seat.melds, wildTile:game.wildTile, indicatorTile:game.indicatorTile, visibleTiles}) : {mode:'none', candidates:[]};
+  // 第四张已经打出时仍可接胡，但不能伪称墙内还有该牌。
+  const claimTile = eligible && game.phase.kind === PHASE.CLAIM && network.availableActions().hu ? game.pendingDiscard?.tile : null;
+  if (claimTile != null && !hintState.candidates[0]?.waits.some(wait => wait.type === claimTile)) {
+    const previous = hintState.candidates[0] || {index:-1, discardedTile:null, waits:[], total:0, points:0};
+    hintState = {mode:'ready', candidates:[{...previous, waits:[...previous.waits, {type:claimTile, remaining:0, selfDraw:false, claim:true}]}]};
   }
-  return tingCache;
-}
-
-function renderTing() {
-  $('#ting-btn').hidden = !network.room || network.room.status !== 'playing';
-  if (!$('#ting-dialog').open) return;
-  const hints = tingHints();
-  const waits = [...hints.waits];
-  // A fourth visible copy can still be claimed while its response is open.
-  // Only the server's Hu action can admit that already discarded physical tile.
-  const currentHu = selected < 0 && game.phase.kind === PHASE.CLAIM && network.availableActions().hu ? game.pendingDiscard?.tile : null;
-  if (currentHu != null && !waits.some(wait => wait.type === currentHu)) waits.push({type:currentHu,selfDraw:false,claim:true});
-  waits.sort((a,b) => a.type - b.type);
-  $('#ting-description').textContent = hints.status === 'select-discard' ? '先选中一张准备打出的手牌，再查看听胡。'
-    : hints.status === 'special-gang' ? '手中还有红中或皮子，须先杠出才能听胡。'
-    : hints.status === 'invalid' ? '当前手牌暂不能计算听胡。'
-    : hints.discardedTile !== null ? `打出${tileName(hints.discardedTile)}后${waits.length ? '可听以下牌' : '暂未听牌'}`
-    : waits.length ? '当前可听以下牌' : '当前暂未听牌';
-  setHTMLIfChanged($('#ting-tiles'), waits.map(wait => `<div class="ting-wait" data-tile="${wait.type}" data-claim="${wait.claim}" data-self-draw="${wait.selfDraw}">${tile(wait.type)}<span>${tileName(wait.type)}</span><small>${!wait.selfDraw ? '当前可接胡' : wait.claim ? '自摸 / 接胡' : '仅自摸'}</small></div>`).join(''));
+  const stateKey = JSON.stringify(hintState);
+  if (stateKey !== hintStateKey) { hintChoice = 0; hintStateKey = stateKey; }
+  const shown = hintState.candidates.length > 0 && (hintState.mode === 'ready' || humanTurn());
+  const panel = $('#play-assist');
+  panel.hidden = !shown;
+  if (!shown) return;
+  const candidate = hintState.candidates[hintChoice] || hintState.candidates[0];
+  const text = hintText(candidate, hintState.mode === 'ready');
+  $('#hint-label').textContent = PLAY_TEXT.hint;
+  $('#hint-text').textContent = text;
+  $('#hint-btn').setAttribute('aria-label', PLAY_TEXT.hint + '：' + text);
+  $('#hint-btn').title = text + '\n' + (hintState.mode === 'discard' ? PLAY_TEXT.confirm + '\n' : '') + PLAY_TEXT.note;
+  $('#hint-btn').disabled = false;
+  const choices = $('#hint-choice');
+  choices.hidden = hintState.mode !== 'discard' || hintState.candidates.length < 2;
+  setHTMLIfChanged(choices, hintState.candidates.map((value, index) => '<option value="' + index + '">' + (index + 1) + '. ' + hintText(value, false) + '</option>').join(''));
+  choices.value = String(hintChoice);
 }
 
 // Busy changes only lock/unlock input. They do not rebuild a room snapshot.
@@ -644,6 +651,7 @@ function interactionChanged() {
   updateHandState();
   updateActionControls();
   updateRoom();
+  renderTing();
 }
 
 // Keep the word on the actual concealed hand's centreline, facing the felt.
@@ -776,7 +784,7 @@ function updateHandState() {
     button.classList.toggle('selected', index === selected);
     button.classList.toggle('hinted', index === hinted);
     button.disabled = !myTurn;
-    button.setAttribute('aria-disabled', String(!myTurn || specialTile(game.players[0].hand[index])));
+    button.setAttribute('aria-disabled', String(!myTurn));
     button.setAttribute('aria-pressed', String(index === selected));
   }
 }
@@ -793,7 +801,7 @@ function updateTurnMessage(actions = network.availableActions()) {
   else if (room.paused) message = '有好友离线，对局暂停等待重连';
   else if (game.phase.kind === PHASE.ENDED) message = game.winner === null ? '牌墙已空，本局流局' : game.winner === 0 ? '好牌，胡了！' : `${displayNames[game.winner]}${game.result.selfDraw ? '自摸' : '胡牌'}，下局再来`;
   else if (actions.pass) message = specialName ? `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}；手中有${specialName}，不能胡牌` : `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}，请选择操作`;
-  else if (myTurn) message = actions.hu ? '好牌来了，可以自摸胡牌！' : selected >= 0 ? `已选${tileName(hand[selected])}，再点一次打出` : specialName ? `${specialName}只能杠出，全部杠出后才能胡牌` : '轮到你了，请选择一张牌打出';
+  else if (myTurn) message = actions.hu ? '好牌来了，可以自摸胡牌！' : selected >= 0 ? specialGangKind(hand[selected], game.indicatorTile, game.wildTile) ? `${PLAY_TEXT[specialGangKind(hand[selected], game.indicatorTile, game.wildTile)]}：${PLAY_TEXT.single}` : `已选${tileName(hand[selected])}，再点一次打出` : specialName ? `${specialName}只能杠出，全部杠出后才能胡牌` : '轮到你了，请选择一张牌打出';
   else message = game.phase.kind === PHASE.CLAIM ? '等待其他玩家响应…' : `${displayNames[game.current]}正在思考…`;
   $('#turn-text').textContent = message;
   $('.turn-message').classList.toggle('thinking', active && !myTurn && !actions.pass && game.phase.kind !== PHASE.ENDED);
@@ -890,7 +898,7 @@ function render() {
     const piziOnly = piziGangs.filter(tile => tile !== game.wildTile);
     const wildOnly = piziGangs.filter(tile => tile === game.wildTile);
     const melds = $(`#melds-${player}`);
-    const publicGroups = [...seat.redGangs.map(type => specialGangHTML(type, 'redGang')), ...piziGangs.map(type => specialGangHTML(type, type === game.wildTile ? 'wildGang' : 'piziGang')), ...seat.melds.map(meldHTML)];
+    const publicGroups = [...seat.redGangs.map(type => specialGangHTML(type, specialGangKind(type, game.indicatorTile, game.wildTile))), ...piziGangs.map(type => specialGangHTML(type, specialGangKind(type, game.indicatorTile, game.wildTile))), ...seat.melds.map(meldHTML)];
     setHTMLIfChanged(melds, publicGroups.join(''));
     melds.hidden = publicGroups.length === 0;
     melds.setAttribute('aria-label', `${displayNames[player]}已公开的吃碰杠牌，红中杠${seat.redGangs.length}张，皮子杠${piziOnly.length}张，癞子杠${wildOnly.length}张，普通副露${seat.melds.length}组`);
@@ -937,25 +945,21 @@ function updateActionControls() {
   const enabled = { chi: actions.chi.length > 0, peng: actions.peng, gang: actions.redGang || actions.piziGang || actions.wildGang || actions.gang || actions.concealedGangs.length > 0 || actions.addedGangs.length > 0, hu: actions.hu, pass: actions.pass };
   for (const [action, available] of Object.entries(enabled)) {
     const button = $(`#action-${action}`);
-    button.disabled = !available || network.busy;
+    button.disabled = !available || network.busy || specialGangPending;
     button.hidden = !available;
   }
-  // 「出牌提示」只在轮到自己、且没有吃碰杠胡可选时出现：有牌可吃碰杠胡时它只会分心。
-  const hintAvailable = myTurn && !(enabled.chi || enabled.peng || enabled.gang || enabled.hu || enabled.pass);
-  $('#hint-btn').disabled = !hintAvailable || network.busy;
-  $('#hint-btn').hidden = !hintAvailable;
   const canNextRound = game.phase.kind === PHASE.ENDED && room?.owner === 0;
   const nextRoundReady = canNextRound && network.status === 'connected' && !room?.seats.some(seat => !seat.connected);
   $('#action-next').hidden = !canNextRound;
   $('#action-next').disabled = !nextRoundReady || network.busy;
-  $('.action-zone').hidden = !(Object.values(enabled).some(Boolean) || canNextRound || hintAvailable);
+  $('.action-zone').hidden = !(Object.values(enabled).some(Boolean) || canNextRound);
   $('#action-gang').title = actions.redGang || actions.piziGang || actions.wildGang ? '可单张杠出红中、皮子或癞子，从墙尾补摸一张牌' : '杠牌';
 
   updateTurnMessage(actions);
   $('#last-event').textContent = game.events.at(-1) || '好友同桌，支持添加人机';
   $('#action-caption').textContent = game.phase.kind === PHASE.ENDED ? '本局结束' : actions.pass ? '响应出牌' : '对局操作';
   $('#action-context').textContent = game.phase.kind === PHASE.ENDED ? (nextRoundReady ? '可以开始下一局' : '等待好友重连') : actions.hu ? '胡牌可用' : specialName ? `先杠出${specialName}，才能胡牌` : actions.concealedGangs.length ? '可暗杠' : actions.addedGangs.length ? '可补杠' : actions.pass ? '胡 > 碰杠 > 吃' : '好牌，慢慢打';
-  $('#hand-instruction').textContent = !active ? '加入房间后由服务端发牌' : game.phase.kind === PHASE.ENDED ? '等待房主开始下一局' : !myTurn ? '等待轮到你时出牌' : '点选手牌，再点一次打出';
+  $('#hand-instruction').textContent = !active ? '加入房间后由服务端发牌' : game.phase.kind === PHASE.ENDED ? '等待房主开始下一局' : !myTurn ? '等待轮到你时出牌' : PLAY_TEXT.handInstruction;
   $('#next-round').disabled = room?.owner !== 0 || network.status !== 'connected' || network.busy || room?.seats.some(seat => !seat.connected);
   $('#next-round').textContent = room?.owner === 0 ? '开始下一局' : '等待房主开始下一局';
 }
@@ -984,7 +988,8 @@ function selectOptions(title, options) {
     button.innerHTML = option.tiles.map(value => tile(value)).join('') + `<span>${option.label}</span>`;
     button.addEventListener('click', () => {
       $('#choice-dialog').close();
-      moveDone(game.claim(0, option.action, option.value));
+      if (['redGang', 'piziGang', 'wildGang'].includes(option.action)) void executeSpecialGang(option.action);
+      else moveDone(game.claim(0, option.action, option.value));
     });
     holder.append(button);
   }
@@ -992,6 +997,7 @@ function selectOptions(title, options) {
 }
 
 function performAction(action) {
+  if (!network.canAct() || specialGangPending) return;
   const actions = game.getActions(0);
   if (action === 'pass') return moveDone(game.pass(0));
   if (action === 'chi') {
@@ -1000,13 +1006,14 @@ function performAction(action) {
   }
   if (action === 'gang' && game.phase.kind === PHASE.DISCARD) {
     const options = [
-      ...(actions.redGang ? [{ tiles: [RED_DRAGON], label: '红中杠 · 补摸1张', action: 'redGang' }] : []),
-      ...(actions.piziGang ? [{ tiles: [game.indicatorTile], label: '皮子杠 · 补摸1张', action: 'piziGang' }] : []),
-      ...(actions.wildGang ? [{ tiles: [game.wildTile], label: '癞子杠 · 补摸1张', action: 'wildGang' }] : []),
+      ...(actions.redGang ? [{ tiles: [RED_DRAGON], label: PLAY_TEXT.redGang, action: 'redGang' }] : []),
+      ...(actions.piziGang ? [{ tiles: [game.indicatorTile], label: PLAY_TEXT.piziGang, action: 'piziGang' }] : []),
+      ...(actions.wildGang ? [{ tiles: [game.wildTile], label: PLAY_TEXT.wildGang, action: 'wildGang' }] : []),
       ...actions.concealedGangs.map(type => ({ tiles: Array(4).fill(type), label: '暗杠', action: 'concealedGang', value: type })),
       ...actions.addedGangs.map(type => ({ tiles: Array(4).fill(type), label: '补杠', action: 'addedGang', value: type })),
     ];
-    if (options.length === 1) return moveDone(game.claim(0, options[0].action, options[0].value));
+    if (options.length === 1) return ['redGang', 'piziGang', 'wildGang'].includes(options[0].action)
+      ? executeSpecialGang(options[0].action) : moveDone(game.claim(0, options[0].action, options[0].value));
     return selectOptions('选择杠牌组合', options);
   }
   moveDone(game.claim(0, action));
@@ -1026,7 +1033,7 @@ function showResult() {
   ].filter(Boolean) : [];
   if (classification?.ordinary && !winTypes.length) winTypes.push('屁胡');
   const resultLabels = [...new Set([...winTypes, ...result.patterns])];
-  $('#result-detail').textContent = result.kind === 'draw' ? '余牌已用完，金币不变。' : `${result.reason} · ${resultLabels.join(' · ')} · ${result.points} 基础分`;
+  $('#result-detail').textContent = result.kind === 'draw' ? PLAY_TEXT.drawResult : `${result.reason} · ${resultLabels.join(' · ')} · ${result.points} 基础分`;
   $('#result-hand').innerHTML = result.kind === 'win' ? [...game.players[game.winner].melds.flatMap(meld => meld.tiles), ...result.hand].map(value => tile(value)).join('') : '';
   $('#result-scores').replaceChildren(...displayNames.map((name, index) => {
     const row = document.createElement('div'); row.className = 'result-score-row';
@@ -1041,40 +1048,60 @@ function showResult() {
   if (game.winner === 0) playSound('win');
 }
 
+async function executeSpecialGang(kind) {
+  if (!humanTurn() || !game.getActions(0)[kind]) return;
+  selected = -1; hinted = -1; handTap = null;
+  // 本地锁覆盖请求和开杠表现；服务端仍用版本号、requestId 和持牌校验兜底。
+  specialGangPending = true;
+  interactionChanged();
+  try { await Promise.all([moveDone(game.claim(0, kind)), new Promise(resolve => setTimeout(resolve, 420))]); }
+  finally { specialGangPending = false; interactionChanged(); }
+}
+
+async function confirmHand(index) {
+  if (!humanTurn() || !Number.isInteger(index) || index < 0 || index >= game.players[0].hand.length) return;
+  const type = game.players[0].hand[index];
+  const kind = specialGangKind(type, game.indicatorTile, game.wildTile);
+  selected = -1; hinted = -1; handTap = null;
+  renderSelection();
+  if (!kind) return moveDone(game.discard(0, index));
+  if (!game.getActions(0)[kind]) { toast(PLAY_TEXT.noSupplement); return; }
+  return executeSpecialGang(kind);
+}
+
 $('#hand').addEventListener('click', event => {
   const button = event.target.closest('button[data-index]');
   if (!button || !humanTurn()) return;
   const index = Number(button.dataset.index);
-  if (specialTile(game.players[0].hand[index])) {
-    const name = game.players[0].hand[index] === RED_DRAGON ? '红中' : '皮子';
-    toast(game.getActions(0).redGang || game.getActions(0).piziGang ? `${name}只能杠出，请点击「杠」补摸一张` : `${name}只能杠出，当前无余牌可补杠`);
-    return;
-  }
-  if (selected === index) return moveDone(game.discard(0, index));
+  const now = performance.now();
+  const sameTap = handTap?.node === button && handTap?.version === network.room.version && now - handTap.time <= 300;
+  const kind = specialGangKind(game.players[0].hand[index], game.indicatorTile, game.wildTile);
+  // 普通牌保留原来的再次点选出牌；特殊牌必须在 300ms 内双击同一实牌节点。
+  if (sameTap || (!kind && selected === index)) { void confirmHand(index); return; }
+  handTap = {node:button, version:network.room.version, time:now};
   selected = index; hinted = -1;
   playSound('select'); renderSelection();
-  $(`#hand [data-index="${index}"]`)?.focus({ preventScroll: true });
+  if (kind) button.title = PLAY_TEXT.single;
+  button.focus({preventScroll:true});
 });
-$('#ting-btn').addEventListener('click', () => { openModal('#ting-dialog'); renderTing(); });
-$('#dice-intro').addEventListener('click', dismissDiceIntro);
+$('#dice-intro').addEventListener('click', () => { dismissDiceIntro(); renderTing(); });
 $('.action-buttons').addEventListener('click', event => {
   const button = event.target.closest('button[data-action]');
   if (button && !button.disabled) performAction(button.dataset.action);
 });
-$('#hint-btn').addEventListener('click', () => {
-  if (!humanTurn()) return;
-  if (game.getActions(0).redGang || game.getActions(0).piziGang) {
-    selected = -1; hinted = -1; renderSelection();
-    $('#action-gang').focus({ preventScroll: true });
-    toast(`${heldSpecialName()}只能用于杠牌，点击「杠」补摸一张`);
-    return;
-  }
-  const visible = [...game.players.flatMap(player => [...player.discards, ...player.redGangs, ...(player.piziGangs || []), ...player.melds.flatMap(meld => meld.tiles)]), ...(game.indicatorTile === null || game.indicatorTile === undefined ? [] : [game.indicatorTile])];
-  hinted = chooseDiscard(game.players[0].hand, game.players[0].melds, visible, game.wildTile, game.indicatorTile);
-  selected = hinted;
+function selectHint() {
+  const candidate = hintState.candidates[hintChoice];
+  if (!candidate || hintState.mode !== 'discard' || !humanTurn()) return;
+  selected = candidate.index; hinted = candidate.index; handTap = null;
   renderSelection();
-  toast(hinted < 0 ? '当前没有可打出的牌，红中和皮子只能用于杠牌' : `建议打出${tileName(game.players[0].hand[hinted])}，仅供参考`);
+}
+$('#hint-btn').addEventListener('click', () => {
+  const candidate = hintState.candidates[hintChoice];
+  if (!candidate || hintState.mode !== 'discard' || !humanTurn()) return;
+  if (selected === candidate.index && hinted === candidate.index) { void confirmHand(candidate.index); return; }
+  selectHint();
 });
+$('#hint-choice').addEventListener('change', event => { hintChoice = Number(event.target.value); selectHint(); });
 // 设置里的两个入口都会先关掉设置弹窗，再开对应对弹窗，避免两层弹窗叠在一起。
 $('#settings-rules').addEventListener('click', () => {
   $('#settings-dialog').close();
@@ -1184,7 +1211,7 @@ document.querySelectorAll('.river').forEach((river, player) => {
 });
 document.addEventListener('keydown', event => {
   if (modalOpen() || !humanTurn()) return;
-  if (event.key === 'Enter' && selected >= 0 && !event.target.closest('button:not([data-index])') && event.target.closest('[aria-disabled="true"]') === null) { event.preventDefault(); moveDone(game.discard(0, selected)); }
+  if (event.key === 'Enter' && selected >= 0 && !event.target.closest('button:not([data-index])') && event.target.closest('[aria-disabled="true"]') === null) { event.preventDefault(); void confirmHand(selected); }
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
     event.preventDefault();
     const order = [...$('#hand').querySelectorAll('[data-index][aria-disabled="false"]')].map(button => Number(button.dataset.index));
