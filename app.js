@@ -10,6 +10,7 @@ import { createRoomFullscreen } from './src/ui/fullscreen.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
 import { createHintCalculator, hintText, specialGangKind, PLAY_TEXT } from './src/ui/play-assist.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
+import { riverCell } from './src/ui/river-layout.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
@@ -62,6 +63,8 @@ const calculateHints = createHintCalculator();
 let hintState = {mode:'none', candidates:[]};
 let hintChoice = 0;
 let hintStateKey = '';
+let hintDetailsClosed = false;
+let hintSession = '';
 let handTap = null;
 let specialGangPending = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
@@ -716,10 +719,21 @@ function renderTing() {
   const shown = hintState.candidates.length > 0 && (hintState.mode === 'ready' || humanTurn());
   const panel = $('#play-assist');
   panel.hidden = !shown;
-  if (!shown) return;
+  if (!shown) { updateHintDetails(); return; }
+  const session = `${network.room.code}:${game.round}`;
+  // 收起只影响本地展示；同一局的摸牌、接牌或重复快照不能把浮窗自动打开。
+  if (session !== hintSession) { hintSession = session; hintDetailsClosed = false; }
   const candidate = hintState.candidates[hintChoice] || hintState.candidates[0];
   const text = hintText(candidate, hintState.mode === 'ready');
   $('#hint-label').textContent = PLAY_TEXT.hint;
+  // 静态更新期间旧 HTML 仍可正常选牌，新结构就绪后再绘制牌面提示卡。
+  if ($('#hint-details')) {
+    $('#hint-hu').textContent = PLAY_TEXT.hu;
+    $('#hint-close').setAttribute('aria-label', PLAY_TEXT.closeHint);
+    $('#hint-details').setAttribute('aria-label', PLAY_TEXT.waits);
+    $('#hint-waits').setAttribute('aria-label', PLAY_TEXT.waits);
+    setHTMLIfChanged($('#hint-waits'), candidate.waits.map(wait => `<div class="hint-wait" role="listitem">${tile(wait.type)}<span class="hint-wait-meta"><b>${PLAY_TEXT.remaining}${wait.remaining}${PLAY_TEXT.copies}</b><small>${wait.claim ? PLAY_TEXT.claim : PLAY_TEXT.selfDrawOnly}</small></span></div>`).join(''));
+  }
   $('#hint-text').textContent = text;
   $('#hint-btn').setAttribute('aria-label', PLAY_TEXT.hint + '：' + text);
   $('#hint-btn').title = text + '\n' + (hintState.mode === 'discard' ? PLAY_TEXT.confirm + '\n' : '') + PLAY_TEXT.note;
@@ -728,6 +742,20 @@ function renderTing() {
   choices.hidden = hintState.mode !== 'discard' || hintState.candidates.length < 2;
   setHTMLIfChanged(choices, hintState.candidates.map((value, index) => '<option value="' + index + '">' + (index + 1) + '. ' + hintText(value, false) + '</option>').join(''));
   choices.value = String(hintChoice);
+  updateHintDetails();
+}
+
+function updateHintDetails() {
+  if (!$('#hint-details')) return;
+  const open = !$('#play-assist').hidden && !hintDetailsClosed;
+  $('#hint-details').hidden = !open;
+  $('#hint-btn').setAttribute('aria-expanded', String(open));
+  $('#hint-btn').setAttribute('aria-label', `${open ? PLAY_TEXT.hint : PLAY_TEXT.openHint}：${$('#hint-text').textContent}`);
+}
+
+function closeHintDetails() {
+  hintDetailsClosed = true;
+  updateHintDetails();
 }
 
 // Busy changes only lock/unlock input. They do not rebuild a room snapshot.
@@ -974,6 +1002,11 @@ function render() {
     // 计入吃碰跳家与已被取走的牌，单家留河上界 27 张。补牌只消耗牌墙。
     const recent = game.lastDiscard || (game.pendingDiscard && {...game.pendingDiscard,index:seat.discards.length - 1});
     setHTMLIfChanged(river, seat.discards.map((type, index) => tile(type, recent?.from === player && recent.index === index && recent.tile === type ? 'last-discard' : '')).join(''));
+    // 只移动实牌的显示格位，保留 DOM/数组的时间顺序供历史记录与出牌动画使用。
+    [...river.children].forEach((node, index) => {
+      const cell = riverCell(player, index);
+      node.style.gridArea = `${cell.row} / ${cell.column}`;
+    });
     river.dataset.label = `${seats[player]} · ${seat.discards.length} 张`;
     river.setAttribute('aria-label', `${displayNames[player]}的出牌，共${seat.discards.length}张，点击查看记录`);
     river.setAttribute('role', 'button');
@@ -1181,11 +1214,13 @@ function selectHint() {
   renderSelection();
 }
 $('#hint-btn').addEventListener('click', () => {
+  if (hintDetailsClosed) { hintDetailsClosed = false; updateHintDetails(); return; }
   const candidate = hintState.candidates[hintChoice];
   if (!candidate || hintState.mode !== 'discard' || !humanTurn()) return;
   if (selected === candidate.index && hinted === candidate.index) { void confirmHand(candidate.index); return; }
   selectHint();
 });
+$('#hint-close')?.addEventListener('click', closeHintDetails);
 $('#hint-choice').addEventListener('change', event => { hintChoice = Number(event.target.value); selectHint(); });
 // 设置里的两个入口都会先关掉设置弹窗，再开对应对弹窗，避免两层弹窗叠在一起。
 $('#settings-rules').addEventListener('click', () => {
@@ -1295,6 +1330,7 @@ document.querySelectorAll('.river').forEach((river, player) => {
   river.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showRiver(); } });
 });
 document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !modalOpen() && $('#hint-details') && !$('#hint-details').hidden) { event.preventDefault(); closeHintDetails(); return; }
   if (modalOpen() || !humanTurn()) return;
   if (event.key === 'Enter' && selected >= 0 && !event.target.closest('button:not([data-index])') && event.target.closest('[aria-disabled="true"]') === null) { event.preventDefault(); void confirmHand(selected); }
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {

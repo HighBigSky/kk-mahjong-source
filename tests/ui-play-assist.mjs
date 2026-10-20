@@ -56,10 +56,17 @@ try{
   assert.match(await page.locator('#hint-text').textContent(),/打【.+】→ 听【.+张/);
   for(const size of [{width:640,height:360},{width:844,height:390},{width:1280,height:720},{width:1920,height:1080}]){
    await page.setViewportSize(size);await page.waitForTimeout(80);
-   const geometry=await page.evaluate(()=>{const rect=selector=>document.querySelector(selector).getBoundingClientRect().toJSON();return {hint:rect('#play-assist'),hand:rect('.hand-zone'),rack:rect('#rack-0'),scroll:document.documentElement.scrollWidth>innerWidth+1};});
-   assert.ok(Math.abs(geometry.hint.top-geometry.hand.top)<=1);assert.ok(geometry.hint.right<geometry.hand.left);assert.ok(geometry.hint.bottom<=size.height+1);assert.equal(geometry.scroll,false);report.geometry.push({touch,size,...geometry});
+   const geometry=await page.evaluate(()=>{const rect=selector=>document.querySelector(selector).getBoundingClientRect().toJSON();return {hint:rect('#play-assist'),details:rect('#hint-details'),hand:rect('.hand-zone'),rack:rect('#rack-0'),scroll:document.documentElement.scrollWidth>innerWidth+1};});
+   assert.ok(Math.abs(geometry.hint.top-geometry.hand.top)<=1);assert.ok(geometry.hint.right<geometry.hand.left);assert.ok(geometry.details.bottom<geometry.hand.top);assert.ok(geometry.details.left>=0&&geometry.details.right<=size.width+1);assert.equal(geometry.scroll,false);report.geometry.push({touch,size,...geometry});
    await page.screenshot({path:`output/play-assist-${touch?'touch':'pc'}-${size.width}.png`});
   }
+  assert.ok(await page.locator('#hint-waits .tile').count()>0,'waits show actual tile faces');
+  assert.match(await page.locator('#hint-waits').textContent(),/剩\d+张/);
+  await page.locator('#hint-close').click();assert.equal(await page.locator('#hint-details').isVisible(),false);assert.equal(sent.length,0);
+  await page.evaluate(()=>window.renderMahjong());assert.equal(await page.locator('#hint-details').isVisible(),false,'repeated render respects manual close');
+  await page.locator('#hint-btn').click();assert.equal(await page.locator('#hint-details').isVisible(),true);assert.equal(sent.length,0);assert.equal(await page.locator('#hand .hinted').count(),0,'reopening is never a discard confirmation');
+  await page.keyboard.press('Escape');assert.equal(await page.locator('#hint-details').isVisible(),false);await page.locator('#hint-btn').click();
+  report.cases.push({touch,waitFaces:true,remainingCopies:true,closePersists:true,reopenWithoutAction:true,escapeCloses:true});
   await page.locator('#hint-btn').click();assert.equal(sent.length,0);assert.equal(await page.locator('#hand .hinted').count(),1);
   const index=Number(await page.locator('#hand .hinted').getAttribute('data-index'));assert.equal(room.game.players[0].hand[index],28);
   await page.locator('#hint-btn').click();await sync();assert.equal(sent.length,1);assert.equal(sent[0].action.kind,'discard');
@@ -72,6 +79,16 @@ try{
   const expected=createHintCalculator()({hand:open.players[0].hand,melds:open.players[0].melds,indicatorTile:open.indicatorTile,wildTile:open.wildTile,visibleTiles:[33,0,0,0]});assert.equal(expected.mode,'discard');
   await page.locator('#hint-btn').click();const chosen=page.locator('#hand .hinted');await tap(chosen);await sync();assert.equal(sent.length,1);
   report.cases.push({touch,readyOtherTurn:true,notReadyHidden:true,noWaitHidden:true,afterPengRefreshed:true,tileConfirms:true});
+  // 参考图场景：四家少量弃牌、自己的副露在右侧，别人回合仍展示实际待胡牌。
+  const reference=actionFixture({names,hand:[9,10,11,18,19,20,24,25,26,4],melds:[{kind:'peng',tiles:[0,0,0],from:1,concealed:false}]});
+  reference.players[1].hand.push(reference.wall.pop());reference.current=1;reference.phase={kind:'discard',seat:1};reference.lastDraw=null;
+  for(const [seat,count] of [[0,5],[1,7],[2,4],[3,5]])for(let index=0;index<count;index++){const at=reference.wall.findIndex(tile=>![4,27,31,33].includes(tile));assert.ok(at>=0);reference.players[seat].discards.push(reference.wall.splice(at,1)[0]);}
+  await publish(reference);await page.setViewportSize({width:844,height:390});await page.waitForTimeout(80);
+  const referenceHints=createHintCalculator()({hand:reference.players[0].hand,melds:reference.players[0].melds,wildTile:reference.wildTile,indicatorTile:reference.indicatorTile,visibleTiles:[reference.indicatorTile,...reference.players.flatMap(player=>[...player.discards,...player.melds.flatMap(meld=>meld.tiles)])]});
+  assert.equal(await page.locator('#hint-details').isVisible(),true);assert.equal(await page.locator('#hint-waits .tile').count(),referenceHints.candidates[0].waits.length);
+  await page.screenshot({path:`output/reference-table-${touch?'touch':'pc'}.png`});
+  await page.locator('#hint-close').click();service._changed(room);await sync();assert.equal(await page.locator('#hint-details').isVisible(),false);await page.locator('#hint-btn').click();assert.equal(sent.length,0);
+  report.cases.push({touch,referenceRivers:true,readyOtherTurnFaces:true,closePersistsAcrossSnapshot:true});
   const ended=actionFixture({names,hand:[...waiting,28]});ended._finishDraw();await publish(ended);assert.equal(await page.locator('#play-assist').isVisible(),false);assert.equal(await page.locator('#hand button:enabled').count(),0);
   await context.close();
  }

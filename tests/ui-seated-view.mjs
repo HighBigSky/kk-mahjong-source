@@ -160,7 +160,7 @@ try {
     const initial = await geometry(page);
     check(initial.nearWidth / size.width >= .78 && initial.nearWidth / size.width <= 1.01, 'narrower near rail fits the main landscape ratios', { size, widthRatio: initial.nearWidth / size.width });
     check(Math.abs(initial.surface.width / initial.surface.height - 1.45 / .9) < .003, 'table keeps one physical aspect ratio instead of stretching with screen width', {size, surface:initial.surface});
-    check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.facing > .5), 'side concealed hands expose a broader oblique face instead of a thin edge', {size, sideHands:initial.sideHands});
+    check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.facing > .4 && tile.facing < .5), 'side concealed hands use the reference oblique viewing angle', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
     check(initial.tableDepth / size.height >= .54 && initial.tableDepth / size.height <= .66, 'projected table depth occupies approximately 55%–65% of screen', { size, depthRatio: initial.tableDepth / size.height });
     check(initial.farTile && initial.farTile.height < initial.hand[0].height * .7, 'far hand is clearly smaller than the local hand', { size, far: initial.farTile, near: initial.hand[0] });

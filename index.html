@@ -107,9 +107,14 @@
 
     <section class="hand-zone" aria-label="玩家手牌区">
       <aside class="play-assist" id="play-assist" aria-label="出牌与听牌提示" hidden>
-        <button id="hint-btn" class="hint-button" type="button"><strong id="hint-label">提示</strong><span id="hint-text" aria-live="polite"></span></button>
-        <select id="hint-choice" aria-label="选择出牌建议" hidden></select>
+        <button id="hint-btn" class="hint-button" type="button" aria-controls="hint-details" aria-expanded="false"><strong id="hint-label">提示</strong></button>
       </aside>
+      <section class="hint-details" id="hint-details" aria-label="可胡牌" hidden>
+        <button id="hint-close" class="hint-close" type="button" aria-label="关闭胡牌提示">×</button>
+        <div class="hint-preview"><strong id="hint-hu" aria-hidden="true">胡</strong><div id="hint-waits" class="hint-waits" role="list" aria-label="可胡牌"></div></div>
+        <p id="hint-text" aria-live="polite"></p>
+        <select id="hint-choice" aria-label="选择出牌建议" hidden></select>
+      </section>
       <div class="hand-heading"><span><b class="my-seat">东</b> 我的手牌 <small id="hand-count">14 张</small></span></div>
       <div class="player-rack" id="rack-0"><div class="my-melds" id="melds-0" role="group" hidden></div><div class="hand" id="hand" role="group" aria-label="点击选牌，再次点击打出"></div></div>
       <div class="hand-instruction" id="hand-instruction">点选手牌，再点一次打出</div>

@@ -6,6 +6,8 @@ import { SCORING_TEXT } from '../domain/scoring.js';
 
 export const PLAY_TEXT = Object.freeze({
   hint: '提示', ready: '已听：', discard: '打', listen: '听', total: '共', copies: '张',
+  hu: '胡', closeHint: '关闭胡牌提示', openHint: '展开胡牌提示', waits: '可胡牌',
+  remaining: '剩', claim: '可接胡', selfDrawOnly: '仅自摸',
   confirm: '再次点击建议牌或「提示」确认出牌', claimOnly:'仅接胡',
   note: '剩余为未见张数估计，包含他人暗手，不代表牌墙实际余量。',
   redGang: SCORING_TEXT.redGang, piziGang: SCORING_TEXT.piziGang, wildGang: SCORING_TEXT.wildGang,
