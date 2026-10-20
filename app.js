@@ -65,7 +65,8 @@ let hintStateKey = '';
 let handTap = null;
 let specialGangPending = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
-const positionOverlays = () => { positionActionNotice(); positionDiscardFocus(); };
+const tableLabelNodes = new Map();
+const positionOverlays = () => { positionActionNotice(); positionDiscardFocus(); positionTableLabels(); };
 const roomOrientation = createRoomOrientation({onLayout:positionOverlays});
 const roomFullscreen = createRoomFullscreen();
 
@@ -482,6 +483,87 @@ function stageRect(element) {
   const stage = $('#game').getBoundingClientRect();
   const rect = element.getBoundingClientRect();
   return {left:rect.left - stage.left, top:rect.top - stage.top, width:rect.width, height:rect.height};
+}
+
+// 桌面实物共用透视，说明文字留在屏幕平面；只在渲染和尺寸变化时读取实际锚点。
+// 镜像不参与交互和读屏，原节点与牌组的语义仍保留，避免出现第二套游戏状态。
+function positionTableLabels() {
+  const stage = $('#game'), holder = $('#table-labels');
+  // 静态文件热更新期间兼容尚未刷新的旧页面结构，避免入口中断。
+  if (!holder) return;
+  const active = stage.classList.contains('is-landscape') && network.room && network.room.status !== 'waiting';
+  holder.hidden = !active;
+  stage.classList.toggle('has-table-labels', Boolean(active));
+  if (!active) return;
+  const stageBox = stage.getBoundingClientRect();
+  const unit = stageBox.height / 100;
+  const gap = Math.max(1, unit * .35);
+  const descriptors = [];
+  const visible = element => element.getClientRects().length && getComputedStyle(element).display !== 'none';
+  const add = (key, source, anchor, side, kind) => {
+    if (!visible(source)) return;
+    descriptors.push({key, text:source.textContent, anchor:stageRect(anchor), side, kind,
+      color:getComputedStyle(source).color, active:source.classList.contains('active')});
+  };
+  document.querySelectorAll('.table .direction').forEach(source => add(`direction-${source.dataset.player}`, source, source, 'center', 'direction'));
+  document.querySelectorAll('.table .opponent-rack').forEach(rack => {
+    const side = rack.classList.contains('opponent-rack-top') ? 'top' : rack.classList.contains('opponent-rack-left') ? 'left' : 'right';
+    rack.querySelectorAll('.meld-label').forEach((source, index) => add(`${rack.id}-meld-${index}`, source, source.parentElement, side, 'meld'));
+  });
+  document.querySelectorAll('.wall-stack').forEach(stack => {
+    const side = stack.dataset.side;
+    if (stack.classList.contains('has-indicator')) add(`wall-number-${stack.dataset.stack}`, stack.querySelector('.wall-stack-number'), stack, side, 'wall');
+    if (!stack.classList.contains('is-next') && !stack.classList.contains('is-head')) return;
+    const marker = getComputedStyle(stack, '::before');
+    const text = marker.content.replace(/^["']|["']$/g, '');
+    if (!text || text === 'none') return;
+    descriptors.push({key:`wall-marker-${stack.dataset.stack}`, text, anchor:stageRect(stack), side, kind:'marker', color:marker.color,
+      background:stack.classList.contains('is-head') ? '#b4dbc4' : '#e4c57f'});
+  });
+  const keys = new Set(descriptors.map(item => item.key));
+  for (const [key, node] of tableLabelNodes) if (!keys.has(key)) { node.remove(); tableLabelNodes.delete(key); }
+  const obstacles = [...document.querySelectorAll('.table .river .tile,.table .opponent-rack .tile,.table .opponent-rack .back,.table .wall-piece:not(.is-empty),#hand button,.my-melds .tile,.player-seat,.action-zone:not([hidden]) button,.table-die')]
+    .filter(visible).map(stageRect);
+  const occupied = [];
+  const intersects = (a, b) => a.left < b.left + b.width + .3 && a.left + a.width + .3 > b.left && a.top < b.top + b.height + .3 && a.top + a.height + .3 > b.top;
+  for (const item of descriptors) {
+    let node = tableLabelNodes.get(item.key);
+    if (!node) {
+      node = document.createElement('span');
+      node.dataset.labelKey = item.key;
+      holder.append(node); tableLabelNodes.set(item.key, node);
+    }
+    node.className = `table-label table-label-${item.kind}${item.active ? ' is-active' : ''}`;
+    node.textContent = item.text;
+    node.style.color = item.color;
+    node.style.background = item.background || '';
+    const {width, height} = node.getBoundingClientRect();
+    const a = item.anchor;
+    const preferred = {left:a.left + (a.width - width) / 2, top:a.top + (a.height - height) / 2, width, height};
+    if (item.side === 'top') preferred.top = a.top - height - gap;
+    if (item.side === 'bottom') preferred.top = a.top + a.height + gap;
+    if (item.side === 'left') preferred.left = a.left - width - gap;
+    if (item.side === 'right') preferred.left = a.left + a.width + gap;
+    const candidates = [preferred];
+    // 文字优先留在所属牌组外侧；密集副露只挪说明，不挪动实牌或改变点击区。
+    for (let lane = 1; lane <= 4; lane++) {
+      const distance = lane * (height + gap);
+      for (const tangent of [0, -1, 1, -2, 2]) {
+        const horizontal = item.side === 'top' || item.side === 'bottom' || item.side === 'center';
+        candidates.push({...preferred,
+          left:preferred.left + (horizontal ? tangent * (width + gap) : (item.side === 'left' ? -1 : 1) * distance),
+          top:preferred.top + (horizontal ? (item.side === 'bottom' ? 1 : -1) * distance : tangent * (height + gap))});
+      }
+    }
+    const inside = area => area.left >= gap && area.top >= gap && area.left + width <= stageBox.width - gap && area.top + height <= stageBox.height - gap;
+    const clear = area => inside(area) && [...obstacles, ...occupied].every(other => !intersects(area, other));
+    const placed = candidates.find(clear) || {...preferred,
+      left:Math.max(gap, Math.min(preferred.left, stageBox.width - width - gap)),
+      top:Math.max(gap, Math.min(preferred.top, stageBox.height - height - gap))};
+    node.style.left = `${placed.left}px`;
+    node.style.top = `${placed.top}px`;
+    occupied.push(placed);
+  }
 }
 
 function discardRiverTile(discard) {
@@ -929,6 +1011,7 @@ function render() {
   renderTing();
   renderActionNotice();
   renderDiscardFocus();
+  positionTableLabels();
   if (game.phase.kind === PHASE.ENDED && resultShown !== game.round) {
     resultShown = game.round;
     persist();

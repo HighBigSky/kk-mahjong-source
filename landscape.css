@@ -401,10 +401,14 @@ html.in-game .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2)
 /* A seated player's view: the whole physical table shares one camera, while
    the local standing hand and HUD keep their own screen-space hit targets. */
 html.in-game #game.is-landscape {
-  --board-size:min(calc(var(--stage-height) * .94),calc(var(--stage-width) - var(--ui-unit) * 32));
-  --table-surface-width:calc(var(--stage-width) * .84);
-  --table-view-distance:calc(var(--stage-height) * 2);
-  --table-view-tilt:32deg;
+  /* 轻微坐席透视：桌面倾斜 46°、焦距 1.8H；本家手牌保持屏幕平面。 */
+  --board-size:calc(var(--stage-height) * .94);
+  --board-height:calc(var(--stage-height) * .90);
+  --table-unit:calc(var(--board-size) / 70);
+  --table-depth-unit:calc(var(--board-height) / 70);
+  --table-surface-width:calc(var(--stage-width) * .90);
+  --table-view-distance:calc(var(--stage-height) * 1.8);
+  --table-view-tilt:46deg;
   --rack-width:calc(var(--stage-width) * .66);
   --base-hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--ui-unit) * 8) / 14));
   --hand-width:var(--base-hand-width);
@@ -414,25 +418,42 @@ html.in-game #game.is-landscape {
   --tile-resin-light:#a5ce56;
   --tile-resin:#659b22;
   --tile-resin-dark:#365c12;
-  background:radial-gradient(ellipse at 50% 75%,#31473b,#172a23 58%,#0a1714);
+  background:
+    radial-gradient(ellipse at 50% 2%,#b08e4933,transparent 47%),
+    linear-gradient(180deg,#202921,#0e1b17 60%,#070f0d);
   box-shadow:inset 0 0 calc(var(--ui-unit) * 12) #020e0b99;
+  /* 桌沿允许出画，但禁止浏览器为聚焦手牌而滚动内部画布。 */
+  overflow:clip;
 }
 
-#game.is-landscape::before,
+#game.is-landscape::before {
+  content:"";
+  position:absolute;
+  inset:10% -5% 0;
+  z-index:0;
+  background:
+    radial-gradient(ellipse at 50% 0,#dfbe7830,transparent 45%),
+    repeating-linear-gradient(95deg,transparent 0 19%,#d9b87f09 20%,transparent 21% 40%);
+  filter:blur(calc(var(--ui-unit) * 1.8));
+  pointer-events:none;
+}
 #game.is-landscape::after { content:none; }
 
 #game.is-landscape .table {
-  top:calc(var(--ui-unit) * 2);
+  /* 投影中心为 (50%W,52%H)，远沿25.5%H、近沿90.1%H。 */
+  top:calc(var(--stage-height) * .07);
   left:calc(50% - var(--board-size) / 2);
   width:var(--board-size);
-  height:var(--board-size);
+  height:var(--board-height);
   overflow:visible;
   border:0;
   border-radius:0;
   background:none;
   box-shadow:none;
-  transform-origin:50% 48%;
+  transform-origin:50% 50%;
   transform:perspective(var(--table-view-distance)) rotateX(var(--table-view-tilt));
+  transform-style:preserve-3d;
+  isolation:auto;
 }
 /* The source frame is rectangular; the same projection as the tiles makes
    its far rail shorter and its near rail wider, with no separate fake skew. */
@@ -445,14 +466,19 @@ html.in-game #game.is-landscape {
   width:var(--table-surface-width);
   height:100%;
   border:1px solid #c69c6370;
-  border-radius:calc(var(--ui-unit) * 3);
+  border-radius:calc(var(--ui-unit) * 5);
   background:
     url("assets/table-wood-frame.svg") center / 100% 100% no-repeat,
     repeating-linear-gradient(28deg,#d9ebcd04 0 1px,transparent 1px 3px),
     repeating-linear-gradient(118deg,#002c2509 0 1px,transparent 1px 4px),
-    radial-gradient(ellipse at 44% 30%,#24816a,#176451 52%,#0d4437);
-  box-shadow:0 calc(var(--ui-unit) * 2.4) calc(var(--ui-unit) * 4.5) #010b09a6;
+    radial-gradient(ellipse at 50% 42%,#38775d,#1b5543 48%,#0a3027);
+  box-shadow:
+    0 calc(var(--ui-unit) * 1.1) 0 #70462a,
+    0 calc(var(--ui-unit) * 2.2) 0 #462a1c,
+    0 calc(var(--ui-unit) * 3.3) 0 #241910,
+    0 calc(var(--ui-unit) * 6) calc(var(--ui-unit) * 5) #010b09c9;
   pointer-events:none;
+  transform:translateZ(-1px);
 }
 #game.is-landscape .table::after { content:none; }
 #game.is-landscape .table-border {
@@ -475,20 +501,20 @@ html.in-game #game.is-landscape {
 /* Concealed hands face the centre, with the remaining wall just inside. */
 #game.is-landscape .table .opponent-rack-left,
 #game.is-landscape .table .opponent-rack-right {
-  top:calc(var(--table-unit) * 12);
-  bottom:calc(var(--table-unit) * 14);
+  top:calc(var(--table-depth-unit) * 12);
+  bottom:calc(var(--table-depth-unit) * 14);
 }
 #game.is-landscape .table .opponent-rack.has-melds {
   --public-tile-width:min(calc(var(--table-unit) * 3),calc(var(--table-unit) * 39 / max(14,calc(var(--concealed-count) + var(--special-count) + var(--meld-count) * 4))));
   --public-tile-height:calc(var(--public-tile-width) * 1.4);
 }
-#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--stage-width) * .34); }
-#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--stage-width) * .34); }
+#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--stage-width) * .326); }
+#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--stage-width) * .326); }
 #game.is-landscape .table .wall-stack[data-side="left"] { left:calc(50% - var(--stage-width) * .30); }
 #game.is-landscape .table .wall-stack[data-side="right"] { right:calc(50% - var(--stage-width) * .30); }
 #game.is-landscape .table .wall-stack[data-side="bottom"] {
   display:block;
-  top:calc(var(--table-unit) * 57.4);
+  top:calc(var(--table-depth-unit) * 57.4);
   bottom:auto;
   left:calc(var(--table-unit) * 10.4 + var(--wall-stack-index) * var(--wall-horizontal-step));
 }
@@ -506,8 +532,40 @@ html.in-game #game.is-landscape {
 }
 #game.is-landscape .wall-piece.is-empty { opacity:.22; }
 
+/* 牌河仍保留每家 36 格；四区收在牌墙内，左右两区让出近家牌河。 */
+#game.is-landscape .table .opponent-rack-top { top:calc(var(--table-depth-unit) * 1.1); }
+#game.is-landscape .table .opponent-rack,
+#game.is-landscape .table .backs { transform-style:preserve-3d; }
+/* 暗手竖立在桌面上：远家背面朝镜头，侧家牌背沿桌沿朝内收窄。 */
+#game.is-landscape .table .backs-top .back {
+  transform-origin:50% 100%;
+  transform:rotateX(-90deg);
+}
+#game.is-landscape .table .backs-left .back { transform-origin:100% 50%; transform:rotateY(75deg); }
+#game.is-landscape .table .backs-right .back { transform-origin:0 50%; transform:rotateY(-75deg); }
+#game.is-landscape .table .wall-stack[data-side="top"] { top:calc(var(--table-depth-unit) * 5.4); }
+#game.is-landscape .table .wall-stack[data-side="left"] { top:calc(var(--table-depth-unit) * (11.2 + var(--wall-stack-index) * 2.9)); }
+#game.is-landscape .table .wall-stack[data-side="right"] { top:calc(var(--table-depth-unit) * (11.2 + (16 - var(--wall-stack-index)) * 2.9)); }
+#game.is-landscape .table .river-top,
+#game.is-landscape .table .river-bottom { height:calc(var(--table-depth-unit) * 14.5); }
+#game.is-landscape .table .river-top { top:calc(var(--table-depth-unit) * 10.3); }
+#game.is-landscape .table .river-bottom { top:calc(var(--table-depth-unit) * 42); }
+#game.is-landscape .table .river-left,
+#game.is-landscape .table .river-right {
+  top:calc(var(--table-depth-unit) * 26);
+  height:calc(var(--table-depth-unit) * 26);
+  width:calc(var(--table-unit) * 11);
+  --river-gap:calc(var(--table-unit) * .7);
+}
+#game.is-landscape .table .river-left { left:1%; }
+#game.is-landscape .table .river-right { right:1%; }
+
 /* The four directions form a compact dark square around the dice. */
 #game.is-landscape .table .table-center {
+  left:calc(50% - var(--table-unit) * 7);
+  top:calc(50% - var(--table-depth-unit) * 9.5);
+  width:calc(var(--table-unit) * 14);
+  height:calc(var(--table-unit) * 14);
   border:1px solid #abc0ac80;
   border-radius:calc(var(--table-unit) * .9);
   background:conic-gradient(from 45deg,#56352e 0deg 90deg,#245d45 90deg 180deg,#254d5a 180deg 270deg,#2d3d3d 270deg);
@@ -602,9 +660,9 @@ html.in-game #game.is-landscape {
 
 /* A compact far-seat badge sits beyond the far wall, near the reference slot. */
 #game.is-landscape .seat-top {
-  left:calc(50% + var(--table-unit) * 25.8);
+  left:calc(50% - var(--ui-unit) * 7.75);
   right:auto;
-  top:1.4%;
+  top:13%;
   width:calc(var(--ui-unit) * 15.5);
   height:calc(var(--ui-unit) * 8.5);
   padding:calc(var(--ui-unit) * .25);
@@ -660,6 +718,19 @@ html.in-game #game.is-landscape {
 
 /* Selected tiles keep the pointer target and get immediate, steady light. */
 #game.is-landscape .hand .tile { transition:transform 80ms,box-shadow 80ms; }
+
+/* 桌面文字投影至独立 HUD；牌面仍随桌面透视，文字不倾斜、不压扁。 */
+.table-labels[hidden] { display:none; }
+.is-landscape .table-labels { position:absolute; inset:0; z-index:4; pointer-events:none; user-select:none; }
+.table-labels .table-label { position:absolute; display:block; margin:0; padding:0; white-space:nowrap; font-size:clamp(7px,calc(var(--stage-height) * .022),14px); font-weight:500; line-height:1.05; letter-spacing:0; text-shadow:0 1px 2px #001a15; }
+.table-labels .table-label-direction { font-family:"KaiTi","STKaiti",serif; font-size:clamp(8px,calc(var(--stage-height) * .025),18px); font-weight:700; }
+.table-labels .table-label-direction.is-active { text-shadow:0 0 4px #ffe8aa70,0 1px 2px #001a15; }
+.table-labels .table-label-marker { padding:1px 2px; border-radius:2px; font-weight:700; text-shadow:none; }
+#game.is-landscape.has-table-labels .table .direction,
+#game.is-landscape.has-table-labels .table .meld-label,
+#game.is-landscape.has-table-labels .table .wall-stack-number,
+#game.is-landscape.has-table-labels .table .wall-stack.is-next::before,
+#game.is-landscape.has-table-labels .table .wall-stack.is-head::before { opacity:0; }
 #game.is-landscape .hand .tile.selected { --tile-face:linear-gradient(135deg,#ffffef,#fff2ba 72%,#ead38c); outline:calc(var(--ui-unit) * .45) solid #fff2a8; outline-offset:calc(var(--ui-unit) * .15); box-shadow:0 0 0 calc(var(--ui-unit) * .9) #fbd96e35,0 0 calc(var(--ui-unit) * 3) #ffe58a9c,0 calc(var(--ui-unit) * .7) calc(var(--ui-unit) * 1.3) #002c2a88; }
 
 .rotate-guide {
