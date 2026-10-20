@@ -10,7 +10,6 @@ import { createRoomFullscreen } from './src/ui/fullscreen.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
 import { createHintCalculator, hintText, specialGangKind, PLAY_TEXT } from './src/ui/play-assist.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
-import { riverCell } from './src/ui/river-layout.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
@@ -656,11 +655,9 @@ function settleDiscardFocus() {
     flight.style.cssText = `left:${x - width / 2}px;top:${y - height / 2}px;width:${width}px;height:${height}px`;
     $('.table').append(flight);
     discardFlights.add(flight);
-    // 侧河放大与缩回也沿用正比牌面角度，不能在动画结束时突然压扁。
-    const facing = Math.abs(angle) === 90 ? 'rotateX(calc(-1 * var(--table-view-tilt))) ' : '';
     const animation = flight.animate([
-      {transform:`${facing}rotate(${angle}deg) scale(${scale})`, opacity:1},
-      {transform:`${facing}rotate(${angle}deg) scale(1)`, opacity:0},
+      {transform:`rotate(${angle}deg) scale(${scale})`, opacity:1},
+      {transform:`rotate(${angle}deg) scale(1)`, opacity:0},
     ], {duration:260, easing:'cubic-bezier(.22,.65,.25,1)', fill:'forwards'});
     const remove = () => { flight.remove(); discardFlights.delete(flight); };
     animation.finished.then(remove, remove);
@@ -1002,11 +999,6 @@ function render() {
     // 计入吃碰跳家与已被取走的牌，单家留河上界 27 张。补牌只消耗牌墙。
     const recent = game.lastDiscard || (game.pendingDiscard && {...game.pendingDiscard,index:seat.discards.length - 1});
     setHTMLIfChanged(river, seat.discards.map((type, index) => tile(type, recent?.from === player && recent.index === index && recent.tile === type ? 'last-discard' : '')).join(''));
-    // 只移动实牌的显示格位，保留 DOM/数组的时间顺序供历史记录与出牌动画使用。
-    [...river.children].forEach((node, index) => {
-      const cell = riverCell(player, index);
-      node.style.gridArea = `${cell.row} / ${cell.column}`;
-    });
     river.dataset.label = `${seats[player]} · ${seat.discards.length} 张`;
     river.setAttribute('aria-label', `${displayNames[player]}的出牌，共${seat.discards.length}张，点击查看记录`);
     river.setAttribute('role', 'button');

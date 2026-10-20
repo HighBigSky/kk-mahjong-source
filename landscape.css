@@ -502,15 +502,15 @@ html.in-game #game.is-landscape {
 /* Concealed hands face the centre, with the remaining wall just inside. */
 #game.is-landscape .table .opponent-rack-left,
 #game.is-landscape .table .opponent-rack-right {
-  top:calc(var(--table-depth-unit) * 12);
-  bottom:calc(var(--table-depth-unit) * 14);
+  top:calc(var(--table-unit) * 12);
+  bottom:calc(var(--table-unit) * 14);
 }
 #game.is-landscape .table .opponent-rack.has-melds {
   --public-tile-width:min(calc(var(--table-unit) * 3),calc(var(--table-unit) * 39 / max(14,calc(var(--concealed-count) + var(--special-count) + var(--meld-count) * 4))));
   --public-tile-height:calc(var(--public-tile-width) * 1.4);
 }
-#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--table-surface-width) * .415); }
-#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--table-surface-width) * .415); }
+#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--stage-width) * .34); }
+#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--stage-width) * .34); }
 #game.is-landscape .table .wall-stack[data-side="left"] { left:calc(50% - var(--table-surface-width) * .37); }
 #game.is-landscape .table .wall-stack[data-side="right"] { right:calc(50% - var(--table-surface-width) * .37); }
 #game.is-landscape .table .wall-stack[data-side="bottom"] {
@@ -533,33 +533,7 @@ html.in-game #game.is-landscape {
 }
 #game.is-landscape .wall-piece.is-empty { opacity:.22; }
 
-/* 牌河仍保留每家 36 格；四区收在牌墙内，左右两区让出近家牌河。 */
-#game.is-landscape .table .opponent-rack-top { top:calc(var(--table-depth-unit) * 1.1); }
-#game.is-landscape .table .opponent-rack,
-#game.is-landscape .table .backs { transform-style:preserve-3d; }
-/* 暗手竖立在桌面上：远家背面朝镜头，侧家牌背沿桌沿朝内收窄。 */
-#game.is-landscape .table .backs-top .back {
-  transform-origin:50% 100%;
-  transform:rotateX(-90deg);
-  border-top:calc(var(--table-unit) * .35) solid #e6ead6;
-}
-/* 侧家露出更多牌身和顶部；暗牌仍只显示牌背，结算亮牌沿用同一观察角度。 */
-#game.is-landscape .table .backs-left > :is(.back,.tile) { transform-origin:100% 50%; transform:rotateY(64deg) rotateX(-12deg); }
-#game.is-landscape .table .backs-right > :is(.back,.tile) { transform-origin:0 50%; transform:rotateY(-64deg) rotateX(-12deg); }
-#game.is-landscape .table .opponent-rack-left { flex-direction:column-reverse; }
-#game.is-landscape .table :is(.backs-left,.backs-right) .back::after {
-  content:"";
-  position:absolute;
-  inset:0 0 0 auto;
-  width:max(1px,calc(var(--table-unit) * .3));
-  border-radius:inherit;
-  background:linear-gradient(110deg,#f6efdd,#d8cfb6);
-  box-shadow:inset 1px 0 1px #fff8;
-  pointer-events:none;
-}
-#game.is-landscape .table .wall-stack[data-side="top"] { top:calc(var(--table-depth-unit) * 5.4); }
-#game.is-landscape .table .wall-stack[data-side="left"] { top:calc(var(--table-depth-unit) * (11.2 + var(--wall-stack-index) * 2.9)); }
-#game.is-landscape .table .wall-stack[data-side="right"] { top:calc(var(--table-depth-unit) * (11.2 + (16 - var(--wall-stack-index)) * 2.9)); }
+/* 手牌与牌河回到 da7e460 的平面牌列及顺序填格；桌面相机、材质和牌墙保持现状。 */
 #game.is-landscape .table .river-top,
 #game.is-landscape .table .river-bottom { height:calc(var(--table-depth-unit) * 14.5); }
 #game.is-landscape .table .river-top { top:calc(var(--table-depth-unit) * 10.3); }
@@ -568,24 +542,11 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .river-right {
   top:calc(var(--table-depth-unit) * 26);
   height:calc(var(--table-depth-unit) * 26);
-  width:calc(var(--table-unit) * 11);
-  padding:calc(var(--table-unit) * .3) 0;
   --river-gap:calc(var(--table-unit) * .7);
 }
-#game.is-landscape .table .river-left { left:1%; }
-#game.is-landscape .table .river-right { right:1%; }
-/* 参考图的四向回字式牌河：第一排靠中央，续排向各家座位方向展开。 */
-#game.is-landscape .table .river-top,
-#game.is-landscape .table .river-bottom { width:calc(var(--table-unit) * 24); }
-#game.is-landscape .table .river-top { left:calc(50% - var(--table-unit) * 7); }
-#game.is-landscape .table .river-bottom { left:calc(50% - var(--table-unit) * 17); }
-#game.is-landscape .table .river-left { left:calc(50% - var(--table-unit) * 19.5); top:calc(var(--table-depth-unit) * 14); }
-#game.is-landscape .table .river-right { right:calc(50% - var(--table-unit) * 19.5); top:calc(var(--table-depth-unit) * 25.5); }
-/* 侧河牌身在保留所属方向的同时抵消相机俯角，5:7 牌面不再被纵向压扁。 */
-#game.is-landscape .table :is(.river-left,.river-right) { transform-style:preserve-3d; }
-#game.is-landscape .table :is(.river-left,.river-right) .tile {
-  transform:rotateX(calc(-1 * var(--table-view-tilt))) rotate(var(--river-tile-turn));
-}
+#game.is-landscape .table .wall-stack[data-side="top"] { top:calc(var(--table-depth-unit) * 5.4); }
+#game.is-landscape .table .wall-stack[data-side="left"] { top:calc(var(--table-depth-unit) * (11.2 + var(--wall-stack-index) * 2.9)); }
+#game.is-landscape .table .wall-stack[data-side="right"] { top:calc(var(--table-depth-unit) * (11.2 + (16 - var(--wall-stack-index)) * 2.9)); }
 
 /* The four directions form a compact dark square around the dice. */
 #game.is-landscape .table .table-center {
@@ -676,7 +637,7 @@ html.in-game #game.is-landscape {
 .is-landscape .hand::before { display:none; }
 .is-landscape .hand .tile { flex-shrink:0; }
 .is-landscape .hand .tile.drawn:first-child { margin-left:0; }
-.is-landscape .hand-zone .player-rack .my-melds { position:absolute; left:auto; right:0; bottom:0; width:var(--public-reserve); max-width:none; height:auto; min-height:0; --self-public-tile-width:calc(var(--ui-unit) * 3.5); --self-public-tile-height:calc(var(--ui-unit) * 4.9); }
+.is-landscape .hand-zone .player-rack .my-melds { position:absolute; left:0; bottom:0; width:var(--public-reserve); max-width:none; height:auto; min-height:0; --self-public-tile-width:calc(var(--ui-unit) * 3.5); --self-public-tile-height:calc(var(--ui-unit) * 4.9); }
 .is-landscape .hand-zone.has-melds .player-rack {
   display:grid;
   flex-direction:row;
@@ -741,9 +702,6 @@ html.in-game #game.is-landscape {
   transform:translate(-50%,-50%) rotate(var(--discard-turn,0deg));
   pointer-events:none;
   user-select:none;
-}
-.is-landscape .discard-focus:is([data-player="1"],[data-player="3"]) {
-  transform:translate(-50%,-50%) rotateX(calc(-1 * var(--table-view-tilt))) rotate(var(--discard-turn,0deg));
 }
 .is-landscape .discard-focus-tile { display:block; width:100%; height:100%; }
 #game.is-landscape .discard-focus .tile,
