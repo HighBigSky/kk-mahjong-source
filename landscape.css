@@ -116,14 +116,22 @@ html.in-game #game.is-landscape {
 }
 .is-landscape .icon-button svg { width:calc(var(--ui-unit) * 4.4); height:calc(var(--ui-unit) * 4.4); }
 /* 余牌放到金币右边，和金币同高的一枚小胶囊。 */
-.is-landscape .wall-pill {
-  height:calc(var(--ui-unit) * 9.2);
-  padding:0 calc(var(--ui-unit) * 1.8);
-  gap:calc(var(--ui-unit) * .45);
+.is-landscape .hud-stat {
+  display:flex;
+  align-items:baseline;
+  flex:none;
+  height:calc(var(--ui-unit) * 8.2);
+  padding:calc((var(--ui-unit) * 8.2 - var(--stat-digit-size) * 1.15) / 2 - 1px) calc(var(--ui-unit) * 1.2);
+  gap:.5ch;
+  border:1px solid #b5d1b130;
   border-radius:calc(var(--ui-unit) * 1.9);
-  font-size:calc(var(--ui-unit) * 2.2);
+  background:#072d2d9c;
+  font-size:clamp(9px,calc(var(--ui-unit) * 2.2),18px);
+  line-height:1.15;
+  color:var(--gold-light);
 }
-.is-landscape .wall-pill strong { font-size:calc(var(--ui-unit) * 3.5); }
+.is-landscape .hud-stat[hidden] { display:none; }
+.hud-stat-label { white-space:nowrap; }
 .is-landscape .laizi-summary {
   gap:calc(var(--ui-unit) * 1.4);
   padding:calc(var(--ui-unit) * .7) calc(var(--ui-unit) * 1.2);
@@ -399,8 +407,9 @@ html.in-game #game.is-landscape {
   --table-surface-width:calc(var(--stage-width) * .84);
   --table-view-distance:calc(var(--stage-height) * 2);
   --table-view-tilt:32deg;
-  --rack-width:min(calc(var(--stage-width) * .82),calc(var(--stage-width) * .872 - var(--ui-unit) * 10.5));
-  --hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--ui-unit) * 8) / 14));
+  --rack-width:calc(var(--stage-width) * .78);
+  --base-hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--ui-unit) * 8) / 14));
+  --hand-width:var(--base-hand-width);
   --hand-height:calc(var(--hand-width) * 1.4);
   --public-tile-width:calc(var(--table-unit) * 3);
   --public-tile-height:calc(var(--table-unit) * 4.2);
@@ -543,20 +552,33 @@ html.in-game #game.is-landscape {
 .is-landscape .seat-top .opponent-state { font-size:calc(var(--ui-unit) * 1.8); }
 .is-landscape .player-seat .opponent-name { font-size:calc(var(--ui-unit) * 2.45); }
 .is-landscape .player-seat .opponent-score { color:#f1d27d; }
-.is-landscape .room-meta { top:13%; left:2%; width:23%; opacity:.7; font-size:calc(var(--ui-unit) * 2.1); }
+.is-landscape .room-meta { top:13%; left:2%; width:23%; opacity:.7; font-size:calc(var(--ui-unit) * 2.1); flex-direction:column; align-items:flex-start; gap:0; }
 
 /* Large local tiles finish the near edge. Available width caps all 14 tiles. */
-.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:11%; width:var(--rack-width); bottom:1.5%; }
-.is-landscape .hand { height:calc(var(--hand-height) + var(--ui-unit) * 2); gap:calc(var(--ui-unit) * .4); padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * .6) 0; }
+.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:50%; width:var(--rack-width); bottom:1.5%; transform:translateX(-50%); }
+.is-landscape .hand-zone .player-rack {
+  --public-reserve:0px;
+  --hand-space:calc(var(--rack-width) - var(--public-reserve) * 2);
+  --hand-width:min(var(--base-hand-width),calc((var(--hand-space) - var(--ui-unit) * 8) / max(1,var(--concealed-count))));
+  --hand-height:calc(var(--hand-width) * 1.4);
+  position:relative;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:0;
+  align-items:end;
+}
+.is-landscape .hand { grid-area:1 / 1; justify-self:center; width:var(--hand-space); flex:none; flex-wrap:nowrap; justify-content:center; height:calc(var(--hand-height) + var(--ui-unit) * 2); gap:calc(var(--ui-unit) * .4); padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * .6) 0; }
 .is-landscape .hand::before { display:none; }
 .is-landscape .hand .tile { flex-shrink:0; }
-.is-landscape .hand-zone .player-rack .my-melds { max-width:36%; height:auto; min-height:calc(var(--ui-unit) * 9); --self-public-tile-width:calc(var(--ui-unit) * 3.5); --self-public-tile-height:calc(var(--ui-unit) * 4.9); }
+.is-landscape .hand .tile.drawn:first-child { margin-left:0; }
+.is-landscape .hand-zone .player-rack .my-melds { position:absolute; left:0; bottom:0; width:var(--public-reserve); max-width:none; height:auto; min-height:0; --self-public-tile-width:calc(var(--ui-unit) * 3.5); --self-public-tile-height:calc(var(--ui-unit) * 4.9); }
 .is-landscape .hand-zone.has-melds .player-rack {
-  --public-reserve:min(calc(var(--rack-width) * .36),calc((var(--special-count) * 5 + var(--meld-count) * 19) * var(--ui-unit)));
-  --hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--public-reserve) - var(--ui-unit) * 10) / max(1,var(--concealed-count))));
-  --hand-height:calc(var(--hand-width) * 1.4);
+  display:grid;
+  flex-direction:row;
+  gap:0;
+  --public-reserve:min(calc(var(--rack-width) * .28),calc((var(--special-count) * 5 + var(--meld-count) * 19) * var(--ui-unit)));
 }
-.is-landscape .hand-zone.has-melds .hand { justify-content:flex-end; }
+.is-landscape .hand-zone.has-melds .hand { justify-content:center; }
 .is-landscape .turn-message,.is-landscape .last-event { right:auto; }
 .is-landscape .turn-message { top:10%; left:28%; width:27%; font-size:calc(var(--ui-unit) * 2.2); }
 .is-landscape .last-event { top:10.3%; left:56%; width:17%; font-size:calc(var(--ui-unit) * 1.8); }

@@ -21,6 +21,7 @@
     "test:ui:reveal": "node tests/ui-reveal-hands.mjs",
     "test:ui:notices": "node tests/ui-action-notices.mjs",
     "test:ui:orientation": "node tests/ui-orientation.mjs",
-    "test:ui:layout": "node tests/ui-layout-acceptance.mjs"
+    "test:ui:layout": "node tests/ui-layout-acceptance.mjs",
+    "test:ui:hud": "node tests/ui-room-hud.mjs"
   }
 }

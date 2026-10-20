@@ -172,7 +172,7 @@ try {
   for (const viewport of [portrait, landscape, { width: 844, height: 390 }, { width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 }]) {
     await desktop.setViewportSize(viewport); const data = await assertGame(desktop, `desktop ${viewport.width}x${viewport.height}`, false);
     assert.equal(data.coarse, false); assert.deepEqual(data.calls.lock, [], 'desktop never locks orientation');
-    assert.equal(data.calls.fullscreen, 0, 'desktop never requests fullscreen');
+    assert.ok(data.calls.fullscreen > 0, 'desktop warms fullscreen when creating the room');
     await capture(desktop, `desktop-playing-${viewport.width}x${viewport.height}`);
   }
   await desktop.locator('#settings-btn').click(); await desktop.locator('#settings-home').click(); await assertLobby(desktop, 'desktop room route');

@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#123e34">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="description" content="KK麻将，竖屏建房、横屏对局的国风好友麻将。创建房间，分享房间码，与远方好友一起吃碰杠胡。">
   <title>KK麻将</title>
   <link rel="icon" href="assets/avatar-player.svg" type="image/svg+xml">
@@ -35,14 +38,15 @@
           <svg aria-hidden="true"><use href="#i-coin"></use></svg>
           <div class="wallet-copy"><small>我的金币</small><strong id="score">1,000</strong></div>
         </div>
-        <div class="wall-pill" id="wall-pill" aria-label="牌墙剩余 83 张"><span>余牌</span><strong id="wall-count">83</strong><span>张</span></div>
+        <div class="hud-stat" id="room-code-pill" hidden><span class="hud-stat-label">房间码</span><strong class="hud-number" id="room-label">------</strong></div>
+        <div class="wall-pill hud-stat" id="wall-pill" aria-label="牌墙剩余 83 张"><span class="hud-stat-label">剩余</span><strong class="hud-number" id="wall-count">083</strong></div>
         <div class="laizi-summary" id="laizi-summary" role="group" hidden><span id="indicator-tile"></span><span id="wild-tile"></span></div>
       </div>
       <div class="top-tools"><span class="connection" id="connection-status" data-state="offline" role="status" aria-live="polite"><i></i><span id="connection-text">未连接</span></span><button class="icon-button voice-button" id="voice-btn" aria-label="开黑语音" title="开黑语音"><svg><use href="#i-mic"></use></svg></button><button class="icon-button" id="sound-btn" aria-label="开启音效" title="音效"><svg><use href="#i-mute"></use></svg></button><button class="icon-button" id="settings-btn" aria-label="设置"><svg><use href="#i-settings"></use></svg></button></div>
     </header>
 
     <div class="room-heading"><span class="room-line"></span><h1>KK<span>麻将</span></h1><span class="room-line"></span></div>
-    <div class="room-meta"><span id="room-label">好友房间 · 等待加入</span><span class="meta-dot">·</span><span id="round-label">邀请好友，一起上桌</span></div>
+    <div class="room-meta"><span id="round-label">邀请好友，一起上桌</span><span data-fullscreen-note hidden>视口模式 · 可添加到主屏幕</span></div>
 
     <div class="opponent player-seat seat-top" id="opponent-2" aria-label="上方，阿福，西家">
       <div class="portrait"><img src="assets/avatar-2.svg" alt="阿福的头像"><span class="seat">西</span><span class="dealer-badge" id="dealer-2" aria-label="庄家" hidden>庄</span><span class="red-gang-badge" id="red-gangs-2" hidden></span></div>
@@ -133,7 +137,7 @@
       <label class="setting-row"><span><b>游戏音效</b><small>出牌报牌名与操作提示音</small></span><input type="checkbox" id="sound-setting" role="switch"></label>
       <div class="setting-links">
         <button class="setting-link" id="settings-rules"><svg aria-hidden="true"><use href="#i-help"></use></svg><span>玩法说明</span></button>
-        <button class="setting-link" id="settings-home"><svg aria-hidden="true"><use href="#i-home"></use></svg><span>返回桌面</span></button>
+        <button class="setting-link" id="settings-home"><svg aria-hidden="true"><use href="#i-home"></use></svg><span>返回房间</span></button>
       </div>
       <button class="primary-button" data-close>保存并继续</button>
     </dialog>
@@ -144,6 +148,7 @@
       <span class="modal-eyebrow">FRIENDS AT THE TABLE</span>
       <h2 id="room-title">好友来一桌</h2>
       <p class="modal-lead" id="room-intro">相隔再远，好牌一起打。</p>
+      <p class="fullscreen-note" data-fullscreen-note role="status" hidden>当前浏览器未进入全屏，已使用完整视口布局；可通过浏览器菜单「添加到主屏幕」后打开。</p>
       <div id="room-entry">
         <label class="room-field" for="room-name"><span>你的昵称</span><input id="room-name" name="nickname" type="text" maxlength="12" autocomplete="nickname" placeholder="给好友一个熟悉的名字" required></label>
         <button class="primary-button" id="room-create">创建好友房间</button>
@@ -154,7 +159,7 @@
         <button class="room-leave" id="room-options">打开设置：音效、玩法说明</button>
       </div>
       <div id="room-waiting" hidden>
-        <div class="room-invite"><span class="room-invite-label">房间码</span><strong id="room-current-code" aria-label="当前房间码">------</strong><button class="secondary-button" id="room-copy">复制邀请</button><small>将网址与房间码一起发送给好友</small></div>
+        <div class="room-invite"><span class="room-invite-label">房间码</span><strong class="hud-number" id="room-current-code" aria-label="当前房间码">------</strong><button class="secondary-button" id="room-copy">复制邀请</button><small>将网址与房间码一起发送给好友</small></div>
         <ol class="room-members" id="room-members" aria-label="房间内的四个座位">
           <li data-seat="0"><span class="room-member-seat">东</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
           <li data-seat="1"><span class="room-member-seat">南</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
@@ -187,6 +192,7 @@
     <span class="rotate-device" aria-hidden="true">↻</span>
     <h2 id="rotate-title">请横屏使用</h2>
     <p id="rotate-description">将手机横置后继续对局。若屏幕未旋转，请关闭手机的方向锁定。</p>
+    <p class="fullscreen-note" data-fullscreen-note hidden>当前浏览器未进入全屏，可通过浏览器菜单「添加到主屏幕」后打开。</p>
     <button id="rotate-return" class="secondary-button">返回房间</button>
   </dialog>
   <script type="module" src="app.js"></script>

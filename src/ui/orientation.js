@@ -13,8 +13,6 @@ export function createRoomOrientation({onLayout = () => {}} = {}) {
   let status = '';
   let lobby = false;
   let inGame = false;
-  let entryPending = false;
-  let ownsFullscreen = false;
   let ownsLock = false;
   let locking = false;
 
@@ -27,15 +25,11 @@ export function createRoomOrientation({onLayout = () => {}} = {}) {
     onLayout();
   }
 
-  async function releaseScreen() {
+  function releaseScreen() {
     if (ownsLock) {
       try { screen.orientation?.unlock(); } catch { /* Optional browser API. */ }
       ownsLock = false;
     }
-    if (ownsFullscreen && document.fullscreenElement === root) {
-      try { await document.exitFullscreen(); } catch { /* Optional browser API. */ }
-    }
-    ownsFullscreen = false;
   }
 
   async function lockLandscape() {
@@ -58,7 +52,7 @@ export function createRoomOrientation({onLayout = () => {}} = {}) {
     refresh();
     if (previous === inGame) return;
     if (inGame) void lockLandscape();
-    else if (!entryPending) void releaseScreen();
+    else releaseScreen();
   }
 
   /** @param {string | null | undefined} value */
@@ -68,35 +62,18 @@ export function createRoomOrientation({onLayout = () => {}} = {}) {
     updateRoute();
   }
 
-  /** Request fullscreen in the start/return gesture, before its HTTP await. */
-  function prepareGameEntry() {
-    if (!phone.matches) return;
-    entryPending = true;
-    if (document.fullscreenElement || !root.requestFullscreen) return;
-    try {
-      void root.requestFullscreen({navigationUI:'hide'}).then(() => {
-        ownsFullscreen = document.fullscreenElement === root;
-        if (inGame) void lockLandscape();
-        else if (!entryPending) void releaseScreen();
-      }).catch(() => { /* The guide remains available without fullscreen. */ });
-    } catch { /* Some browsers throw synchronously. */ }
-  }
-
   window.addEventListener('resize', refresh);
   portrait.addEventListener('change', refresh);
   phone.addEventListener('change', refresh);
   document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement) ownsFullscreen = false;
     refresh();
     if (inGame && document.fullscreenElement) void lockLandscape();
   });
   guide.addEventListener('cancel', event => { if (inGame && phone.matches && portrait.matches) event.preventDefault(); });
   refresh();
   return {
-    setRoomState, prepareGameEntry, refresh,
+    setRoomState, refresh,
     /** @param {boolean} value */
     setLobby(value) { lobby = value; updateRoute(); },
-    /** @param {string | null | undefined} value */
-    finishGameEntry(value) { entryPending = false; setRoomState(value); if (!inGame) void releaseScreen(); },
   };
 }

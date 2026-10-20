@@ -5,6 +5,7 @@ import { RED_DRAGON } from './src/domain/tile.js';
 import { PHASE } from './src/domain/model.js';
 import { renderWall } from './src/network/wall-view.js';
 import { createRoomOrientation } from './src/ui/orientation.js';
+import { createRoomFullscreen } from './src/ui/fullscreen.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
 import { getTingHints } from './src/ui/ting.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
@@ -60,6 +61,7 @@ let tingCache = null;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
 const positionOverlays = () => { positionActionNotice(); positionDiscardFocus(); };
 const roomOrientation = createRoomOrientation({onLayout:positionOverlays});
+const roomFullscreen = createRoomFullscreen();
 
 try {
   const saved = JSON.parse(localStorage.getItem('queqi-settings') || '{}');
@@ -169,7 +171,8 @@ function updateRoom() {
   $('#room-join').disabled = busy;
   $('#connection-status').dataset.state = network.status;
   $('#connection-text').textContent = !room ? '未加入房间' : connected ? room.paused ? '等待重连' : '好友联机' : '正在重连';
-  $('#room-label').textContent = room ? `好友房 · ${room.code}` : '好友房间 · 等待加入';
+  $('#room-label').textContent = room ? room.code : '------';
+  $('#room-code-pill').hidden = !room;
   if (!room) {
     $('#room-status').textContent = '创建房间，或输入好友发来的房间码。';
     return;
@@ -224,6 +227,7 @@ function updateRoom() {
 
 function roomChanged() {
   const room = network.room;
+  roomFullscreen.setInRoom(Boolean(room));
   roomOrientation.setRoomState(room?.status);
   const changedRoom = (room?.code || null) !== previousRoomCode;
   const changedRound = changedRoom || game.round !== previousRound;
@@ -809,7 +813,7 @@ function render() {
   const hand = game.players[0].hand;
   const actions = network.availableActions();
   $('#score').textContent = game.players[0].score.toLocaleString('zh-CN');
-  $('#wall-count').textContent = game.wall.length;
+  $('#wall-count').textContent = String(game.wall.length).padStart(3, '0');
   $('#wall-pill').hidden = !active;
   $('#wall-pill').setAttribute('aria-label', `牌墙剩余 ${game.wall.length} 张`);
   renderWall($('#wall-tail'), game);
@@ -1087,20 +1091,23 @@ $('#action-next').addEventListener('click', async () => {
   const dialog = $('#result-dialog');
   if (dialog?.open) dialog.close();
 });
-$('#room-create').addEventListener('click', () => roomOperation(() => network.create(nickname(), true)));
+$('#room-create').addEventListener('click', () => roomOperation(async () => {
+  const name = nickname();
+  roomFullscreen.prepareEntry();
+  try { return await network.create(name, true); }
+  finally { roomFullscreen.finishEntry(Boolean(network.room)); }
+}));
 $('#room-join').addEventListener('click', () => roomOperation(async () => {
   const code = $('#room-code').value.trim();
   if (!/^\d{6}$/.test(code)) throw new Error('请输入 6 位数字房间码');
   const name = nickname();
-  return network.join(code, name);
+  roomFullscreen.prepareEntry();
+  try { return await network.join(code, name); }
+  finally { roomFullscreen.finishEntry(Boolean(network.room)); }
 }));
 $('#room-code').addEventListener('keydown', event => { if (event.key === 'Enter') $('#room-join').click(); });
 $('#room-ready').addEventListener('click', () => roomOperation(() => network.ready(!network.room.seats[0].ready)));
-$('#room-start').addEventListener('click', () => roomOperation(async () => {
-  roomOrientation.prepareGameEntry();
-  try { return await network.start(); }
-  finally { roomOrientation.finishGameEntry(network.room?.status); }
-}));
+$('#room-start').addEventListener('click', () => roomOperation(() => network.start()));
 $('#room-members').addEventListener('click', event => {
   const button = event.target.closest('.room-bot-button');
   if (!button || button.disabled) return;
@@ -1110,10 +1117,8 @@ $('#room-members').addEventListener('click', event => {
 });
 $('#room-leave').addEventListener('click', () => roomOperation(() => network.leave()));
 $('#room-close').addEventListener('click', () => {
-  roomOrientation.prepareGameEntry();
   $('#room-dialog').close();
   roomOrientation.setLobby(false);
-  roomOrientation.finishGameEntry(network.room?.status);
 });
 $('#rotate-return').addEventListener('click', () => openModal('#room-dialog'));
 $('#room-options').addEventListener('click', () => openModal('#settings-dialog'));
