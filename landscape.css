@@ -406,7 +406,8 @@ html.in-game #game.is-landscape {
   --board-height:calc(var(--stage-height) * .90);
   --table-unit:calc(var(--board-size) / 70);
   --table-depth-unit:calc(var(--board-height) / 70);
-  --table-surface-width:calc(var(--stage-width) * .90);
+  /* 木框宽随桌面进深等比缩放，宽屏不再横向撑开桌面。 */
+  --table-surface-width:calc(var(--stage-height) * 1.45);
   --table-view-distance:calc(var(--stage-height) * 1.8);
   --table-view-tilt:46deg;
   --rack-width:calc(var(--stage-width) * .66);
@@ -508,10 +509,10 @@ html.in-game #game.is-landscape {
   --public-tile-width:min(calc(var(--table-unit) * 3),calc(var(--table-unit) * 39 / max(14,calc(var(--concealed-count) + var(--special-count) + var(--meld-count) * 4))));
   --public-tile-height:calc(var(--public-tile-width) * 1.4);
 }
-#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--stage-width) * .326); }
-#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--stage-width) * .326); }
-#game.is-landscape .table .wall-stack[data-side="left"] { left:calc(50% - var(--stage-width) * .30); }
-#game.is-landscape .table .wall-stack[data-side="right"] { right:calc(50% - var(--stage-width) * .30); }
+#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--table-surface-width) * .415); }
+#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--table-surface-width) * .415); }
+#game.is-landscape .table .wall-stack[data-side="left"] { left:calc(50% - var(--table-surface-width) * .37); }
+#game.is-landscape .table .wall-stack[data-side="right"] { right:calc(50% - var(--table-surface-width) * .37); }
 #game.is-landscape .table .wall-stack[data-side="bottom"] {
   display:block;
   top:calc(var(--table-depth-unit) * 57.4);
@@ -541,8 +542,19 @@ html.in-game #game.is-landscape {
   transform-origin:50% 100%;
   transform:rotateX(-90deg);
 }
-#game.is-landscape .table .backs-left .back { transform-origin:100% 50%; transform:rotateY(75deg); }
-#game.is-landscape .table .backs-right .back { transform-origin:0 50%; transform:rotateY(-75deg); }
+/* 侧家露出更多牌身和顶部；暗牌仍只显示牌背，结算亮牌沿用同一观察角度。 */
+#game.is-landscape .table .backs-left > :is(.back,.tile) { transform-origin:100% 50%; transform:rotateY(50deg) rotateX(-12deg); }
+#game.is-landscape .table .backs-right > :is(.back,.tile) { transform-origin:0 50%; transform:rotateY(-50deg) rotateX(-12deg); }
+#game.is-landscape .table :is(.backs-left,.backs-right) .back::after {
+  content:"";
+  position:absolute;
+  inset:0 0 0 auto;
+  width:max(1px,calc(var(--table-unit) * .3));
+  border-radius:inherit;
+  background:linear-gradient(110deg,#f6efdd,#d8cfb6);
+  box-shadow:inset 1px 0 1px #fff8;
+  pointer-events:none;
+}
 #game.is-landscape .table .wall-stack[data-side="top"] { top:calc(var(--table-depth-unit) * 5.4); }
 #game.is-landscape .table .wall-stack[data-side="left"] { top:calc(var(--table-depth-unit) * (11.2 + var(--wall-stack-index) * 2.9)); }
 #game.is-landscape .table .wall-stack[data-side="right"] { top:calc(var(--table-depth-unit) * (11.2 + (16 - var(--wall-stack-index)) * 2.9)); }
@@ -555,10 +567,16 @@ html.in-game #game.is-landscape {
   top:calc(var(--table-depth-unit) * 26);
   height:calc(var(--table-depth-unit) * 26);
   width:calc(var(--table-unit) * 11);
+  padding:calc(var(--table-unit) * .3) 0;
   --river-gap:calc(var(--table-unit) * .7);
 }
 #game.is-landscape .table .river-left { left:1%; }
 #game.is-landscape .table .river-right { right:1%; }
+/* 侧河牌身在保留所属方向的同时抵消相机俯角，5:7 牌面不再被纵向压扁。 */
+#game.is-landscape .table :is(.river-left,.river-right) { transform-style:preserve-3d; }
+#game.is-landscape .table :is(.river-left,.river-right) .tile {
+  transform:rotateX(calc(-1 * var(--table-view-tilt))) rotate(var(--river-tile-turn));
+}
 
 /* The four directions form a compact dark square around the dice. */
 #game.is-landscape .table .table-center {
@@ -702,6 +720,9 @@ html.in-game #game.is-landscape {
   transform:translate(-50%,-50%) rotate(var(--discard-turn,0deg));
   pointer-events:none;
   user-select:none;
+}
+.is-landscape .discard-focus:is([data-player="1"],[data-player="3"]) {
+  transform:translate(-50%,-50%) rotateX(calc(-1 * var(--table-view-tilt))) rotate(var(--discard-turn,0deg));
 }
 .is-landscape .discard-focus-tile { display:block; width:100%; height:100%; }
 #game.is-landscape .discard-focus .tile,

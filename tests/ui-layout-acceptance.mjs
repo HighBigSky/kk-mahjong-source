@@ -171,6 +171,7 @@ async function stability(page, screen, seat) {
     await Promise.all(document.querySelector('#discard-focus').getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
     const expanded = !document.querySelector('#discard-focus').hidden;
     const focusRect = document.querySelector('#discard-focus .tile').getBoundingClientRect();
+    const focusAspect = focusRect.width / focusRect.height;
     const focusNeighborOverlaps = [...document.querySelectorAll('.river .tile')].filter(node => node !== document.querySelector(`#river-${seat}`).children[index]).map(node => {
       const r = node.getBoundingClientRect();
       return { seat: node.parentElement.id, width: Math.min(r.right, focusRect.right) - Math.max(r.left, focusRect.left), height: Math.min(r.bottom, focusRect.bottom) - Math.max(r.top, focusRect.top) };
@@ -180,11 +181,12 @@ async function stability(page, screen, seat) {
     await Promise.all([...document.querySelectorAll('.discard-flight')].flatMap(node => node.getAnimations()).map(animation => animation.finished.catch(() => {})));
     await new Promise(resolve => requestAnimationFrame(resolve));
     const after = rects();
-    return { before, after, unchangedNodes, expanded, focusNeighborOverlaps, focusHidden: document.querySelector('#discard-focus').hidden, flights: document.querySelectorAll('.discard-flight').length, lastCount: document.querySelector(`#river-${seat}`).querySelectorAll('.tile').length };
+    return { before, after, unchangedNodes, expanded, focusAspect, focusNeighborOverlaps, focusHidden: document.querySelector('#discard-focus').hidden, flights: document.querySelectorAll('.discard-flight').length, lastCount: document.querySelector(`#river-${seat}`).querySelectorAll('.tile').length };
   }, { capacity, seat });
   check(result.unchangedNodes, 'unchanged render preserves river DOM nodes', { screen, seat });
   check(result.expanded && result.focusHidden && result.flights === 0, 'latest river tile enlarges then finishes shrinking', { screen, seat, expanded: result.expanded, hidden: result.focusHidden, flights: result.flights });
   check(result.focusNeighborOverlaps.length === 0, 'expanded latest tile does not cover neighboring river tiles', { screen, seat, overlaps: result.focusNeighborOverlaps });
+  if (seat === 1 || seat === 3) check(Math.abs(result.focusAspect - 7 / 5) < .015, 'side discard keeps the same 5:7 face while enlarged', {screen,seat,aspect:result.focusAspect});
   check(result.lastCount === capacity, 'last tile remains after animation', { screen, seat, count: result.lastCount });
   const maxDelta = Math.max(...result.before.flatMap((rect, index) => rect.map((value, component) => Math.abs(value - (result.after[index]?.[component] ?? Infinity)))));
   check(maxDelta < .1, 'all river positions remain stable after render and animation', { screen, seat, maxDelta });

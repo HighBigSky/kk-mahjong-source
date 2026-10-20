@@ -140,6 +140,7 @@ async function geometry(page) {
       scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
       canvasScroll: [stage.scrollLeft, stage.scrollTop],
       camera: Object.fromEntries(['--table-view-distance', '--table-view-tilt', '--table-surface-width', '--rack-width'].map(name => [name, getComputedStyle(stage).getPropertyValue(name).trim()])),
+      sideHands: [...document.querySelectorAll('.backs-left .back,.backs-right .back')].map(node => ({...rect(node), facing:new DOMMatrix(getComputedStyle(node).transform).m11})),
     };
   });
 }
@@ -157,7 +158,9 @@ try {
     const names = room.seats.map(seat => seat.name);
     await publish(actionFixture({ names, hand: [...scattered, 24] }));
     const initial = await geometry(page);
-    check(initial.nearWidth / size.width >= 1.05 && initial.nearWidth / size.width <= 1.21, 'near table width is 105%–120% of screen', { size, widthRatio: initial.nearWidth / size.width });
+    check(initial.nearWidth / size.width >= .78 && initial.nearWidth / size.width <= 1.01, 'narrower near rail fits the main landscape ratios', { size, widthRatio: initial.nearWidth / size.width });
+    check(Math.abs(initial.surface.width / initial.surface.height - 1.45 / .9) < .003, 'table keeps one physical aspect ratio instead of stretching with screen width', {size, surface:initial.surface});
+    check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.facing > .5), 'side concealed hands expose a broader oblique face instead of a thin edge', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
     check(initial.tableDepth / size.height >= .54 && initial.tableDepth / size.height <= .66, 'projected table depth occupies approximately 55%–65% of screen', { size, depthRatio: initial.tableDepth / size.height });
     check(initial.farTile && initial.farTile.height < initial.hand[0].height * .7, 'far hand is clearly smaller than the local hand', { size, far: initial.farTile, near: initial.hand[0] });
@@ -202,6 +205,7 @@ try {
       await frames(page);
       const data = await geometry(page);
       check(data.rivers.every(river => river.tiles.length === 36 && river.tiles.every(tile => inside(tile, size))), 'all four full 36-tile rivers remain visible', { size, scenario, rivers: data.rivers });
+      check(data.rivers.filter(river=>river.seat===1||river.seat===3).every(river=>river.tiles.every(tile=>Math.abs(tile.width/tile.height-7/5)<.015)), 'both side rivers preserve the full rotated 5:7 face without flattening', {size,scenario,ratios:data.rivers.filter(river=>river.seat===1||river.seat===3).map(river=>river.tiles.map(tile=>tile.width/tile.height))});
       check(data.riverOverlaps.length === 0, 'full rivers avoid other tiles, controls and player information', { size, scenario, overlaps: data.riverOverlaps });
       check(data.scroll[0] <= size.width + 1 && data.scroll[1] <= size.height + 1, 'full table creates no page scrolling', { size, scenario, scroll: data.scroll });
       report.geometry.push({ size, scenario, ...data });
