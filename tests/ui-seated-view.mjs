@@ -111,15 +111,21 @@ async function geometry(page) {
     const left = parseFloat(surface.left), top = parseFloat(surface.top);
     const width = parseFloat(surface.width), height = parseFloat(surface.height);
     const corners = [point(left, top), point(left + width, top), point(left + width, top + height), point(left, top + height)];
+    // 方框木边占 4.2%，额外留 1.3% 安全带；牌必须落在绒布内，不能只落在外框内。
+    const feltCorners = [[.055,.055],[.945,.055],[.945,.945],[.055,.945]].map(([x,y])=>point(left+width*x,top+height*y));
     const tableContents = list('.table .river .tile,.opponent-rack .tile,.opponent-rack .back,#wall-tail .wall-piece:not(.is-empty)');
     const insideFrame = p => corners.every((a,index)=>{
       const b=corners[(index+1)%4];
       return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
     });
     const outsideFrame = tableContents.filter(tile=>!tile.quad.every(insideFrame)).map(tile=>tile.id);
+    const outsideFelt = tableContents.filter(tile=>!tile.quad.every(p=>feltCorners.every((a,index)=>{
+      const b=feltCorners[(index+1)%4];
+      return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
+    }))).map(tile=>tile.id);
     const outsideViewport = tableContents.filter(tile=>tile.quad.some(p=>p.x<-.8||p.y<-.8||p.x>stage.clientWidth+.8||p.y>stage.clientHeight+.8)).map(tile=>tile.id);
     const tableHudOverlaps = [];
-    const controls = list('.player-seat,.top-left>div,.top-tools,.action-zone:not([hidden]),#hand button,.my-melds .tile');
+    const controls = list('.player-seat,.top-left>div,.top-tools,.room-meta,.turn-message,.last-event,.action-zone:not([hidden]),#hand button,.my-melds .tile');
     for (const tile of tableContents) for (const control of controls) {
       if(window.visualGeometry.intersects(tile.quad,control.quad)) tableHudOverlaps.push({tile:tile.id,control:control.id,tileQuad:tile.quad,controlQuad:control.quad});
     }
@@ -158,7 +164,7 @@ async function geometry(page) {
       stage: rect(stage), table: rect(table), corners, tableTransform: style.transform, tableOrigin: style.transformOrigin,
       surface: { left, top, width, height }, nearWidth: corners[2].x - corners[3].x, farWidth: corners[1].x - corners[0].x,
       tableDepth: (corners[2].y + corners[3].y - corners[0].y - corners[1].y) / 2,
-      hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, outsideViewport, tableHudOverlaps, rackWallOverlaps,
+      hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, feltCorners, outsideFelt, outsideViewport, tableHudOverlaps, rackWallOverlaps,
       farTile: back ? rect(back) : null, hint: visible(panel) ? rect(panel) : null,
       scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
       canvasScroll: [stage.scrollLeft, stage.scrollTop],
@@ -188,6 +194,7 @@ try {
     check(Math.abs(initial.surface.width / initial.surface.height - 1) < .003, 'physical tabletop stays square rather than a squeezed long table', {size, surface:initial.surface});
     check(Math.abs(Number(initial.tableTransform.slice(9,-1).split(',')[0])-1)<.0001, 'table projection has no horizontal scale compression', {size,transform:initial.tableTransform});
     check(initial.outsideFrame.length===0 && initial.rackWallOverlaps.length===0, 'reanchored hands and walls fit the square frame without obstruction', {size,outside:initial.outsideFrame,overlaps:initial.rackWallOverlaps});
+    check(initial.outsideFelt.length===0, 'all tabletop hands, rivers and walls stay on felt inside the wooden rim', {size,outside:initial.outsideFelt});
     check(initial.outsideViewport.length===0 && initial.tableHudOverlaps.length===0, 'enlarged table keeps every physical tile clear of viewport edges and flat HUD', {size,outside:initial.outsideViewport,overlaps:initial.tableHudOverlaps});
     check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side concealed hands restore the flat pre-first-person tile model', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
@@ -241,6 +248,7 @@ try {
       check(order, 'all four rivers restore chronological row-major grids and flat tile rotation', {size,scenario});
       check(data.riverOverlaps.length === 0, 'full rivers avoid other tiles, controls and player information', { size, scenario, overlaps: data.riverOverlaps });
       check(data.outsideFrame.length===0 && data.rackWallOverlaps.length===0, 'maximum racks and full rivers remain within the physical square frame', {size,scenario,outside:data.outsideFrame,overlaps:data.rackWallOverlaps});
+      check(data.outsideFelt.length===0, 'maximum racks and full rivers retain a clear felt safety margin', {size,scenario,outside:data.outsideFelt});
       check(data.outsideViewport.length===0 && data.tableHudOverlaps.length===0, 'maximum table contents stay visible without covering HUD or local hand', {size,scenario,outside:data.outsideViewport,overlaps:data.tableHudOverlaps});
       check(data.scroll[0] <= size.width + 1 && data.scroll[1] <= size.height + 1, 'full table creates no page scrolling', { size, scenario, scroll: data.scroll });
       report.geometry.push({ size, scenario, ...data });
