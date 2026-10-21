@@ -220,14 +220,13 @@ export class RoomService {
 
   leave(code, token) {
     const {room, player, seat} = this.authenticate(code, token);
-    if (room.game && room.game.phase.kind !== 'ended') fail(409, 'PLAYING', '对局进行中不能退出房间；断线后可使用原浏览器重连。');
     clearTimeout(seat.disconnectTimer);
     room.seats[player] = null;
     for (const stream of seat.streams) stream.end();
     if (!room.seats.some(member => member && !member.bot)) { this._dispose(room); return { left:true }; }
     if (room.owner === player) room.owner = room.seats.findIndex(member => member && !member.bot);
     if (room.game) {
-      // 已结束对局被清空后，后续重建时仍要沿用积分和局数，避免离房导致整房重置。
+      // 主动离房中止本局，其他人返回等待房间；只保留已结算积分，不额外结算胡牌或荒庄。
       this._carryGame(room);
       for (const member of room.seats) if (member) { member.ready = !!member.bot; member.requests.clear(); }
     }
@@ -252,7 +251,7 @@ export class RoomService {
     const heartbeat = setInterval(() => {
       if (!response.destroyed && !response.writableEnded) {
         if (response.writableLength > 262144) { response.destroy(); return; }
-        room.touched = this.now(); response.write(': heartbeat\n\n');
+        room.touched = this.now(); response.write('event: heartbeat\ndata: {}\n\n');
       }
     }, 15000);
     heartbeat.unref();
@@ -341,7 +340,7 @@ export class RoomService {
       seat.requests.clear();
     }
   }
-  /** 清空已结束的对局前，暂存各绝对座位的积分与本局局数，供下一次开局恢复。 */
+  /** 中止或清空对局前，暂存各绝对座位的已结算积分与局数，供下一次开局恢复。 */
   _carryGame(room) {
     if (!room.game) return;
     room.carry = {scores:room.game.players.map(member => member.score), round:room.game.round};

@@ -12,6 +12,12 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
   let leaving = false;
   let snapshotKey = null;
   let actions = emptyActions();
+  let retryTimer = null;
+  let healthTimer = null;
+  let retryDelay = 500;
+  let lastMessageAt = 0;
+  let validating = null;
+  const lifecycle = new AbortController();
   const signalListeners = new Set();
   const client = { room:null, status:'offline', busy:false, game:emptyState() };
   const changed = () => onChange(client);
@@ -23,7 +29,55 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
     if (onBusyChange) onBusyChange(client);
     else changed();
   };
-  const save = () => { try { if (credentials) sessionStorage.setItem(SESSION_KEY, JSON.stringify(credentials)); else sessionStorage.removeItem(SESSION_KEY); } catch { /* Session storage is optional. */ } };
+  const storage = kind => { try { return globalThis[kind]; } catch { return null; } };
+  // 标签页优先保留自己的座位，本地备份用于关闭页面后重新打开；网络错误不得清除凭据。
+  const save = () => {
+    for (const kind of ['sessionStorage', 'localStorage']) {
+      try { storage(kind)?.setItem(SESSION_KEY, JSON.stringify(credentials)); } catch { /* 存储禁用不影响当前牌局。 */ }
+    }
+  };
+  const clearSaved = previous => {
+    for (const kind of ['sessionStorage', 'localStorage']) {
+      try {
+        const target = storage(kind);
+        const saved = JSON.parse(target?.getItem(SESSION_KEY) || 'null');
+        // 旧标签页退出时不能误删另一个标签页新加入的房间凭据。
+        if (saved?.code === previous?.code && saved?.token === previous?.token) target?.removeItem(SESSION_KEY);
+      } catch { /* Optional persistence. */ }
+    }
+  };
+  const clearTimers = () => { clearTimeout(retryTimer); clearTimeout(healthTimer); retryTimer = healthTimer = null; };
+  const online = () => globalThis.navigator?.onLine !== false;
+  const setReconnecting = () => {
+    if (client.status !== 'reconnecting') { client.status = 'reconnecting'; changed(); }
+  };
+  function retry() {
+    if (!credentials || retryTimer || leaving || !online() || globalThis.document?.visibilityState === 'hidden') return;
+    retryTimer = setTimeout(() => { retryTimer = null; connect(); }, retryDelay);
+    retryTimer.unref?.();
+    retryDelay = Math.min(retryDelay * 2, 8000);
+  }
+  function watchConnection(milliseconds = 45000) {
+    clearTimeout(healthTimer);
+    healthTimer = setTimeout(() => {
+      healthTimer = null;
+      if (!credentials || leaving) return;
+      setReconnecting();
+      retry();
+    }, milliseconds);
+    healthTimer.unref?.();
+  }
+  function activity() { lastMessageAt = Date.now(); watchConnection(); }
+  function validateSession(currentGeneration) {
+    if (!credentials || !online() || validating === currentGeneration) return;
+    validating = currentGeneration;
+    request(`/api/rooms/${credentials.code}/state`).then(envelope => {
+      if (currentGeneration === generation && !leaving) receive(envelope);
+    }).catch(error => {
+      if (currentGeneration !== generation || leaving) return;
+      if (error.status === 401 || error.status === 404) { reset(); onError('房间已失效，请重新创建或加入'); }
+    }).finally(() => { if (validating === currentGeneration) validating = null; });
+  }
   const receive = envelope => {
     if (!envelope?.room) return false;
     if (client.room?.code === envelope.room.code && client.room.version > envelope.room.version) return false;
@@ -64,23 +118,34 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
     } finally { clearTimeout(timeout); }
   }
   function connect() {
+    if (!credentials || leaving) return;
+    clearTimers();
     stream?.close();
+    stream = null;
     const currentGeneration = ++generation;
-    client.status = 'connecting'; changed();
+    if (!online()) { setReconnecting(); return; }
+    client.status = client.room ? 'reconnecting' : 'connecting'; changed();
+    watchConnection(12000);
     const source = new EventSource(`/api/rooms/${credentials.code}/events?token=${encodeURIComponent(credentials.token)}`);
     stream = source;
     source.addEventListener('state', event => {
       if (currentGeneration !== generation) return;
       try {
         const envelope = JSON.parse(event.data);
+        if (!envelope?.room) return;
+        activity(); clearTimeout(retryTimer); retryTimer = null; retryDelay = 500;
         const statusChanged = client.status !== 'connected';
         client.status = 'connected';
         if (!receive(envelope) && statusChanged) changed();
       } catch { onError('房间消息读取失败，请刷新重连'); }
     });
+    source.addEventListener('heartbeat', () => {
+      if (currentGeneration === generation) activity();
+    });
     // 语音信令和牌局快照分开处理：信令不触发牌桌重绘，也不改变房间版本。
     source.addEventListener('signal', event => {
       if (currentGeneration !== generation) return;
+      activity();
       try {
         const payload = JSON.parse(event.data);
         for (const listener of signalListeners) listener(payload);
@@ -90,20 +155,17 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
       // Leaving revokes this token and closes SSE before the HTTP reply arrives.
       // Do not treat that intentional stream close as an expired-room recovery.
       if (currentGeneration !== generation || leaving) return;
-      if (client.status !== 'reconnecting') { client.status = 'reconnecting'; changed(); }
-      // EventSource retries transport failures. An expired room cannot recover.
-      request(`/api/rooms/${credentials.code}/state`).then(envelope => {
-        if (currentGeneration === generation) receive(envelope);
-      }).catch(error => {
-        if (currentGeneration !== generation) return;
-        if (error.status === 401 || error.status === 404) { reset(); onError('房间已失效，请重新创建或加入'); }
-      });
+      setReconnecting();
+      // 先允许原生 SSE 快速恢复；永久关闭或切网失效时，再显式重建连接。
+      retry();
+      validateSession(currentGeneration);
     };
   }
   function reset() {
+    clearTimers(); retryDelay = 500; lastMessageAt = 0;
     generation++; stream?.close(); stream = null;
     snapshotKey = null;
-    credentials = null; save();
+    clearSaved(credentials); credentials = null;
     client.room = null; client.status = 'offline'; actions = emptyActions();
     Object.assign(client.game, emptyState()); changed();
   }
@@ -165,23 +227,58 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
     return () => signalListeners.delete(listener);
   };
   client.leave = async () => {
+    if (leaving || !credentials || client.busy) return false;
     leaving = true;
     try { const success = await command('leave'); if (success) reset(); return success; }
-    finally { leaving = false; }
+    finally {
+      leaving = false;
+      if (credentials && (client.status !== 'connected' || !stream || stream.readyState === 0 || stream.readyState === 2 || !online())) {
+        setReconnecting(); retry();
+      }
+    }
+  };
+  client.sessionCode = () => credentials?.code || null;
+  client.reconnect = () => {
+    if (!credentials || leaving) return false;
+    retryDelay = 500;
+    connect(); validateSession(generation);
+    return true;
   };
   client.restore = async () => {
+    if (credentials) return true;
+    for (const kind of ['sessionStorage', 'localStorage']) {
+      try {
+        const saved = JSON.parse(storage(kind)?.getItem(SESSION_KEY) || 'null');
+        if (saved && /^\d{6}$/.test(saved.code) && /^[a-f0-9]{48}$/.test(saved.token)) { credentials = {code:saved.code, token:saved.token}; break; }
+      } catch { /* 继续尝试另一份备份。 */ }
+    }
+    if (!credentials) return false;
+    save(); connect();
+    const currentGeneration = generation;
     try {
-      const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
-      if (!saved || !/^\d{6}$/.test(saved.code) || !/^[a-f0-9]{48}$/.test(saved.token)) return false;
-      credentials = saved;
-      receive(await request(`/api/rooms/${credentials.code}/state`));
-      connect(); return true;
+      const envelope = await request(`/api/rooms/${credentials.code}/state`);
+      if (currentGeneration === generation) receive(envelope);
+      return true;
     } catch (error) {
+      if (currentGeneration !== generation || leaving) return false;
       if (error.status === 401 || error.status === 404) reset();
-      else if (credentials) { connect(); onError('网络暂不可用，正在重连原房间'); }
+      else { setReconnecting(); retry(); onError('网络暂不可用，正在重连原房间'); }
       return false;
     }
   };
+  const resume = () => {
+    if (credentials && globalThis.document?.visibilityState !== 'hidden'
+      && (client.status !== 'connected' || stream?.readyState === 2 || Date.now() - lastMessageAt > 30000)) client.reconnect();
+  };
+  globalThis.window?.addEventListener('online', resume, {signal:lifecycle.signal});
+  globalThis.window?.addEventListener('pageshow', resume, {signal:lifecycle.signal});
+  globalThis.document?.addEventListener('visibilitychange', resume, {signal:lifecycle.signal});
+  globalThis.window?.addEventListener('offline', () => {
+    if (!credentials) return;
+    clearTimers(); generation++; stream?.close(); stream = null; setReconnecting();
+  }, {signal:lifecycle.signal});
+  // 页面销毁只关闭传输，不代表主动离房；保留座位供原玩家恢复。
+  client.destroy = () => { clearTimers(); generation++; stream?.close(); stream = null; lifecycle.abort(); };
   client.game.getActions = () => client.canAct() ? actions : emptyActions();
   client.game.applyAction = (_player, action) => {
     if (!client.canAct()) return Promise.resolve(false);

@@ -22,6 +22,14 @@ const renderedHTML = new WeakMap();
 // 出牌/接牌时会闪一下白。复用后只有真正增减的牌才新建节点。
 const handNodes = new Map();
 const network = createRoomClient({ onChange:roomChanged, onBusyChange:interactionChanged, onError:roomError });
+const reconnectButton = document.createElement('button');
+reconnectButton.id = 'room-reconnect';
+reconnectButton.type = 'button';
+reconnectButton.className = 'secondary-button';
+reconnectButton.textContent = '重新连接';
+reconnectButton.hidden = true;
+reconnectButton.addEventListener('click', () => network.reconnect());
+$('#room-status').before(reconnectButton);
 const voice = createVoiceChat({
   getIceServers: () => network.voiceConfig(),
   sendSignal: payload => network.signal(payload),
@@ -178,18 +186,21 @@ async function stopVoice() {
 function updateRoom() {
   const room = network.room;
   const connected = network.status === 'connected';
+  const restoring = !room && Boolean(network.sessionCode());
   const busy = roomBusy || network.busy;
   $('#room-entry').hidden = Boolean(room);
   $('#room-waiting').hidden = !room;
   $('#room-close').hidden = !room || room.status === 'waiting';
-  $('#room-create').disabled = busy;
-  $('#room-join').disabled = busy;
+  $('#room-create').disabled = busy || restoring;
+  $('#room-join').disabled = busy || restoring;
+  reconnectButton.hidden = connected || !network.sessionCode();
+  reconnectButton.disabled = busy;
   $('#connection-status').dataset.state = network.status;
-  $('#connection-text').textContent = !room ? '未加入房间' : connected ? room.paused ? '等待重连' : '好友联机' : '正在重连';
+  $('#connection-text').textContent = !room && !restoring ? '未加入房间' : connected ? room.paused ? '等待重连' : '好友联机' : '正在重连';
   $('#room-label').textContent = room ? room.code : '------';
   $('#room-code-pill').hidden = !room;
   if (!room) {
-    $('#room-status').textContent = '创建房间，或输入好友发来的房间码。';
+    $('#room-status').textContent = restoring ? `正在恢复房间 ${network.sessionCode()} 的原座位，请检查网络或点击重新连接。` : '创建房间，或输入好友发来的房间码。';
     return;
   }
   $('#room-current-code').textContent = room.code;
@@ -199,8 +210,8 @@ function updateRoom() {
   $('#room-ready').textContent = room.status !== 'waiting' ? '已开局' : room.seats[0].ready ? '取消准备' : '准备';
   $('#room-start').hidden = room.owner !== 0 || room.status !== 'waiting';
   $('#room-start').disabled = busy || !connected || !canStart;
-  $('#room-leave').disabled = busy || !connected || room.status === 'playing';
-  $('#room-leave').title = room.status === 'playing' ? '请完成本局后离开，断线可回到原座位' : '离开房间';
+  $('#room-leave').disabled = busy;
+  $('#room-leave').title = room.status === 'playing' ? '离开并中止本局，其他玩家返回等待房间' : '离开房间';
   for (let index = 0; index < 4; index++) {
     const member = room.seats[index];
     const element = $(`#room-members [data-seat="${index}"]`);

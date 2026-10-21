@@ -120,9 +120,7 @@ try {
     await page.waitForFunction(()=>document.querySelector('#game').classList.contains('is-opening-deal'));
     await page.locator('#settings-btn').click(); await page.locator('#settings-home').click();
     await idle(page);
-    // 沿用“进行中不能离房”的规则，先结束测试局，再验证真正退出后的清理。
-    room.game._finishDraw(); service._changed(room);
-    await page.waitForFunction(()=>window.mahjongRoom.room.status==='ended');
+    // 主动离房可以中止进行中的牌局，也必须清理发牌动画和输入锁。
     await page.locator('#room-leave').click();
     await page.waitForFunction(()=>window.mahjongRoom.room===null);
     assert.equal(await page.locator('#game.is-opening-deal').count(),0);
