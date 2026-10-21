@@ -363,16 +363,15 @@ html.in-game .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2)
 /* A seated player's view: the whole physical table shares one camera, while
    the local standing hand and HUD keep their own screen-space hit targets. */
 html.in-game #game.is-landscape {
-  /* 轻微坐席透视：桌面倾斜 46°、基础焦距 1.8H；本家手牌保持屏幕平面。 */
-  /* 桌框、桌上牌列与透视距离同步等比增大，避免只拉宽桌子或改变牌面比例。 */
-  --table-scene-scale:1.12;
-  --board-size:calc(var(--stage-height) * .70 * var(--table-scene-scale));
-  --board-height:calc(var(--stage-height) * .90 * var(--table-scene-scale));
+  /* 轻微坐席透视：桌面倾斜 46°、焦距为桌深两倍；本家手牌保持屏幕平面。 */
+  /* 按屏宽确定方桌，按可用高度封顶；桌上牌列和相机同步等比缩放。 */
+  --board-height:min(calc(var(--stage-width) * .64),calc(var(--stage-height) * 1.35));
+  --board-size:calc(var(--board-height) * 7 / 9);
   --table-unit:calc(var(--board-size) / 70);
   --table-depth-unit:calc(var(--board-height) / 70);
   /* 实物桌框为正方形；重排桌内区域，不横向压缩牌或整个场景。 */
   --table-surface-width:var(--board-height);
-  --table-view-distance:calc(var(--stage-height) * 1.8 * var(--table-scene-scale));
+  --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
   --side-river-scale:1.44;
   --rack-width:calc(var(--stage-width) * .66);
@@ -406,8 +405,8 @@ html.in-game #game.is-landscape {
 #game.is-landscape::after { content:none; }
 
 #game.is-landscape .table {
-  /* 投影中心为 (50%W,52%H)，放大后远沿22.3%H、近沿94.7%H。 */
-  top:calc(var(--stage-height) * .52 - var(--board-height) / 2);
+  /* 46°、焦距为桌深两倍时，近沿距中心约 .4236T；固定近沿，完整保留远端牌列。 */
+  top:calc(var(--stage-height) * .98 - var(--board-height) * .9236);
   left:calc(50% - var(--board-size) / 2);
   width:var(--board-size);
   height:var(--board-height);
@@ -479,10 +478,14 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .wall-stack[data-side="left"] { left:calc(50% - var(--table-surface-width) * .35); }
 #game.is-landscape .table .wall-stack[data-side="right"] { right:calc(50% - var(--table-surface-width) * .35); }
 #game.is-landscape .table .wall-stack[data-side="bottom"] {
+  /* 前墙等比收拢、17 墩紧密排列，给左侧最多副露留出空间。 */
+  --wall-piece-width:calc(var(--table-unit) * 2.5);
+  --wall-piece-height:calc(var(--table-unit) * 3.5);
+  --wall-stack-depth:calc(var(--table-unit) * .3772);
   display:block;
   top:calc(var(--table-depth-unit) * 57.4);
   bottom:auto;
-  left:calc(var(--table-unit) * 10.4 + var(--wall-stack-index) * var(--wall-horizontal-step));
+  left:calc(var(--table-unit) * (14 + var(--wall-stack-index) * 2.5));
 }
 #game.is-landscape .back {
   border-color:#90b74b;
@@ -621,9 +624,9 @@ html.in-game #game.is-landscape {
 
 /* A compact far-seat badge sits beyond the far wall, near the reference slot. */
 #game.is-landscape .seat-top {
-  left:calc(50% - var(--ui-unit) * 7.75);
+  left:calc(50% + var(--board-height) * .27);
   right:auto;
-  top:13%;
+  top:max(calc(var(--stage-height) * .02),calc(var(--stage-height) * .90 - var(--board-height) * .7179));
   width:calc(var(--ui-unit) * 15.5);
   height:calc(var(--ui-unit) * 8.5);
   padding:calc(var(--ui-unit) * .25);

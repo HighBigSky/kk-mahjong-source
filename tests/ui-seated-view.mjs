@@ -117,6 +117,12 @@ async function geometry(page) {
       return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
     });
     const outsideFrame = tableContents.filter(tile=>!tile.quad.every(insideFrame)).map(tile=>tile.id);
+    const outsideViewport = tableContents.filter(tile=>tile.quad.some(p=>p.x<-.8||p.y<-.8||p.x>stage.clientWidth+.8||p.y>stage.clientHeight+.8)).map(tile=>tile.id);
+    const tableHudOverlaps = [];
+    const controls = list('.player-seat,.top-left>div,.top-tools,.action-zone:not([hidden]),#hand button,.my-melds .tile');
+    for (const tile of tableContents) for (const control of controls) {
+      if(window.visualGeometry.intersects(tile.quad,control.quad)) tableHudOverlaps.push({tile:tile.id,control:control.id,tileQuad:tile.quad,controlQuad:control.quad});
+    }
     const rackWallOverlaps = [];
     const rackFaces = list('.opponent-rack .tile,.opponent-rack .back');
     const wallFaces = list('#wall-tail .wall-piece:not(.is-empty)');
@@ -152,7 +158,7 @@ async function geometry(page) {
       stage: rect(stage), table: rect(table), corners, tableTransform: style.transform, tableOrigin: style.transformOrigin,
       surface: { left, top, width, height }, nearWidth: corners[2].x - corners[3].x, farWidth: corners[1].x - corners[0].x,
       tableDepth: (corners[2].y + corners[3].y - corners[0].y - corners[1].y) / 2,
-      hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, rackWallOverlaps,
+      hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, outsideViewport, tableHudOverlaps, rackWallOverlaps,
       farTile: back ? rect(back) : null, hint: visible(panel) ? rect(panel) : null,
       scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
       canvasScroll: [stage.scrollLeft, stage.scrollTop],
@@ -175,14 +181,17 @@ try {
     const names = room.seats.map(seat => seat.name);
     await publish(actionFixture({ names, hand: [...scattered, 24] }));
     const initial = await geometry(page);
-    // 原方桌的近沿为 1.09734H；整景放大 12%，各横屏比例必须保持同一物理尺寸。
-    check(Math.abs(initial.nearWidth / size.height - 1.09734 * 1.12) < .003, 'square table enlarges uniformly by 12% across landscape ratios', { size, widthRatio: initial.nearWidth / size.width });
+    // 主体按远近桌沿的平均宽度衡量；高度上限仅为完整保留桌内牌列。
+    const bodyWidthRatio = (initial.nearWidth + initial.farWidth) / 2 / size.width;
+    check(bodyWidthRatio >= .62 && bodyWidthRatio <= .68, 'table body occupies approximately two thirds of the landscape width', { size, bodyWidthRatio });
+    check(initial.nearWidth / size.width >= .73 && initial.nearWidth / size.width <= .79, 'near rail is slightly wider than the two-thirds table body', { size, widthRatio: initial.nearWidth / size.width });
     check(Math.abs(initial.surface.width / initial.surface.height - 1) < .003, 'physical tabletop stays square rather than a squeezed long table', {size, surface:initial.surface});
     check(Math.abs(Number(initial.tableTransform.slice(9,-1).split(',')[0])-1)<.0001, 'table projection has no horizontal scale compression', {size,transform:initial.tableTransform});
     check(initial.outsideFrame.length===0 && initial.rackWallOverlaps.length===0, 'reanchored hands and walls fit the square frame without obstruction', {size,outside:initial.outsideFrame,overlaps:initial.rackWallOverlaps});
+    check(initial.outsideViewport.length===0 && initial.tableHudOverlaps.length===0, 'enlarged table keeps every physical tile clear of viewport edges and flat HUD', {size,outside:initial.outsideViewport,overlaps:initial.tableHudOverlaps});
     check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side concealed hands restore the flat pre-first-person tile model', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
-    check(Math.abs(initial.tableDepth / size.height - .646 * 1.12) < .003, 'projected table depth scales by the same 12% as its width', { size, depthRatio: initial.tableDepth / size.height });
+    check(Math.abs(initial.corners[2].y / size.height - .98) < .003 && initial.corners[0].y >= 0, 'enlarged square table fits vertically with its near rail at 98% of the screen', { size, corners: initial.corners });
     check(initial.farTile && initial.farTile.height < initial.hand[0].height * .7, 'far hand is clearly smaller than the local hand', { size, far: initial.farTile, near: initial.hand[0] });
     check(initial.hud.every(node => !node.inTableProjection), 'labels and operation HUD stay outside the table projection', { size, hud: initial.hud });
     await screenshot(page, size, 'normal');
@@ -232,6 +241,7 @@ try {
       check(order, 'all four rivers restore chronological row-major grids and flat tile rotation', {size,scenario});
       check(data.riverOverlaps.length === 0, 'full rivers avoid other tiles, controls and player information', { size, scenario, overlaps: data.riverOverlaps });
       check(data.outsideFrame.length===0 && data.rackWallOverlaps.length===0, 'maximum racks and full rivers remain within the physical square frame', {size,scenario,outside:data.outsideFrame,overlaps:data.rackWallOverlaps});
+      check(data.outsideViewport.length===0 && data.tableHudOverlaps.length===0, 'maximum table contents stay visible without covering HUD or local hand', {size,scenario,outside:data.outsideViewport,overlaps:data.tableHudOverlaps});
       check(data.scroll[0] <= size.width + 1 && data.scroll[1] <= size.height + 1, 'full table creates no page scrolling', { size, scenario, scroll: data.scroll });
       report.geometry.push({ size, scenario, ...data });
       await screenshot(page, size, scenario);
