@@ -620,10 +620,12 @@ function positionDiscardFocus() {
   const rect = stageRect(target);
   const style = getComputedStyle(target);
   const width = parseFloat(style.width), height = parseFloat(style.height);
-  const sourceRect = JSON.stringify([rect.left, rect.top, rect.width, rect.height, width, height]);
+  const edgeAngle = Number(target.parentElement.dataset.edgeAngle || 0);
+  const edgeScale = Number(target.parentElement.dataset.edgeScale || 1);
+  const sourceRect = JSON.stringify([rect.left, rect.top, rect.width, rect.height, width, height, edgeAngle, edgeScale]);
   if (discardFocusGeometry?.sourceRect === sourceRect) return;
   const centre = {x:rect.left + rect.width / 2, y:rect.top + rect.height / 2};
-  const angle = [0, -90, 180, 90][focusedDiscard.from];
+  const angle = [0, -90, 180, 90][focusedDiscard.from] + edgeAngle;
   const holder = $('#discard-focus');
   const flat = focusedDiscard.from !== 0;
   const parent = flat ? $('#game') : $('.table');
@@ -640,8 +642,8 @@ function positionDiscardFocus() {
       let faceWidth = width, faceHeight = height;
       if (flat) {
         // 他家的放大牌使用屏幕平面，直接匹配实牌尺寸；自己的放大牌仍保留桌面投影。
-        faceWidth = Math.abs(angle) === 90 ? rect.height : rect.width;
-        faceHeight = Math.abs(angle) === 90 ? rect.width : rect.height;
+        faceWidth = width * edgeScale;
+        faceHeight = height * edgeScale;
       }
       discardFocusGeometry = {...point, width:faceWidth, height:faceHeight, angle, scale, sourceRect};
       holder.style.cssText = `left:${point.x}px;top:${point.y}px;width:${faceWidth}px;height:${faceHeight}px;--discard-turn:${angle}deg;--discard-focus-scale:${scale}`;

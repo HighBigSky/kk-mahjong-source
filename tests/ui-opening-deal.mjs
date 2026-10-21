@@ -5,6 +5,7 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
 import {assertInvariants} from '../src/domain/invariants.js';
+import {installVisualGeometry} from './browser-geometry.mjs';
 
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
 const service=new RoomService({botDelayMs:600000});
@@ -22,6 +23,7 @@ async function setup(size,reducedMotion='no-preference') {
     if(screen.orientation)Object.defineProperty(screen.orientation,'lock',{configurable:true,value:()=>Promise.reject(Error('viewport fixture'))});
   });
   const page=await context.newPage();
+  await page.addInitScript(installVisualGeometry);
   page.on('pageerror',error=>report.errors.push(error.message));
   const requests=[];
   page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/action'))requests.push(request.postDataJSON());});
@@ -76,6 +78,19 @@ try {
     const before=JSON.stringify(room.game);
     await startFlight(page);
     const data=await metadata(page); assertBatches(data,0);
+    const landingError=await page.evaluate(()=>{
+      let worst=0;
+      for(const player of [1,2,3]) {
+        const flight=document.querySelector(`.deal-flight[data-player="${player}"]`),animation=flight.getAnimations()[0];
+        const time=animation.currentTime,timing=animation.effect.getTiming();animation.pause();animation.currentTime=Number(timing.delay)+Number(timing.duration)-.001;
+        const face=window.visualGeometry.quad(flight.querySelector('.deal-face'));
+        const target=window.visualGeometry.quad(document.querySelectorAll(`#backs-${player} .back`)[Number(flight.dataset.handIndex)]);
+        worst=Math.max(worst,...face.map((point,index)=>Math.hypot(point.x-target[index].x,point.y-target[index].y)));
+        animation.currentTime=time;animation.play();
+      }
+      return worst;
+    });
+    assert.ok(landingError<.8,`沿桌边落牌的四角误差过大：${landingError}`);
     assert.ok(!data.sources.includes(room.game.wallInfo.indicatorPosition));
     await page.evaluate(()=>{window.__firstDealCard=document.querySelector('.deal-flight');document.querySelector('#hand button')?.click();document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));});
     service._changed(room);
@@ -91,7 +106,7 @@ try {
     await frames(page);
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('#hand button')].map(node=>{const b=node.getBoundingClientRect();return [b.left,b.top,b.width,b.height];})),positions);
     await page.screenshot({path:`output/opening-deal-${size.touch?'phone':'pc'}-finished.png`});
-    report.cases.push({size,opening:data,serverUnchanged:true,noInput:true,stableFinish:true});
+    report.cases.push({size,opening:data,landingError,serverUnchanged:true,noInput:true,stableFinish:true});
 
     // 刷新相同开局不补播，避免服务器响应与 SSE/重连重复触发。
     await page.reload({waitUntil:'networkidle'}); await page.waitForFunction(()=>window.mahjongRoom.status==='connected');

@@ -41,12 +41,27 @@ export function createFlatOpponentView(stage) {
       stacks.insertBefore(run,members[0]);run.append(...members);runs.set(side,run);
     }
     const stageBox=stage.getBoundingClientRect();
+    const table=stage.querySelector('.table'),tableStyle=getComputedStyle(table),surface=getComputedStyle(table,'::before');
+    const tablePlane=projection(table,parseFloat(tableStyle.width),parseFloat(tableStyle.height),stageBox);
+    if(!tablePlane)return;
+    const left=parseFloat(surface.left),top=parseFloat(surface.top),frameWidth=parseFloat(surface.width),frameHeight=parseFloat(surface.height);
+    const corners=[[left,top],[left+frameWidth,top],[left+frameWidth,top+frameHeight],[left,top+frameHeight]].map(([x,y])=>project(tablePlane,x,y));
+    const edges={top:[corners[0],corners[1]],left:[corners[0],corners[3]],right:[corners[1],corners[2]]};
+    const guides={};
+    for(const [side,[start,end]] of Object.entries(edges)) {
+      const length=Math.hypot(end.x-start.x,end.y-start.y),tangent={x:(end.x-start.x)/length,y:(end.y-start.y)/length};
+      const rack=stage.querySelector(`#rack-${{top:2,left:3,right:1}[side]}`),rackStyle=getComputedStyle(rack);
+      const anchor=project(tablePlane,rack.offsetLeft+parseFloat(rackStyle.width)/2,rack.offsetTop+parseFloat(rackStyle.height)/2);
+      guides[side]={tangent,anchor,angle:Math.atan2(tangent.y,tangent.x)-(side==='top'?0:Math.PI/2)};
+    }
     const groups=[...stage.querySelectorAll('.opponent-rack,#river-1,#river-2,#river-3'),...runs.values()];
     for(const node of groups) {
       if(!node.isConnected||!node.getClientRects().length)continue;
       const style=getComputedStyle(node),width=parseFloat(style.width),height=parseFloat(style.height);
       if(!(width>0&&height>0))continue;
-      const key=`${stageBox.width}:${stageBox.height}:${width}:${height}`;
+      const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
+      const {tangent,anchor,angle}=guides[side];
+      const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${anchor.x}:${anchor.y}:${angle}`;
       if(cache.get(node)===key)continue;
       node.style.setProperty('--opponent-view','none');
       const source=projection(node,width,height,stageBox),undo=source&&inverse(source);
@@ -60,11 +75,16 @@ export function createFlatOpponentView(stage) {
       const centre=project(source,x,y),unit=project(source,x+1,y);
       const size=node.id==='river-2' ? .70 : ['river-1','river-3'].includes(node.id) ? .90 : .72;
       const scale=Math.hypot(unit.x-centre.x,unit.y-centre.y)*size;
-      // 原投影中心不动，只把组内平面映射为等比矩形；长宽比、方向和命中区一起更新。
-      const m=multiply(undo,[scale,0,centre.x-scale*x,0,scale,centre.y-scale*y,0,0,1]);
+      const along=(centre.x-anchor.x)*tangent.x+(centre.y-anchor.y)*tangent.y;
+      const aligned={x:centre.x-along*tangent.x,y:centre.y-along*tangent.y};
+      const a=scale*Math.cos(angle),b=scale*Math.sin(angle);
+      // 以真实桌边为方向，同家各区沿桌边法线排齐；只平面旋转和等比缩放，不改变牌面比例。
+      const m=multiply(undo,[a,-b,aligned.x-a*x+b*y,b,a,aligned.y-b*x-a*y,0,0,1]);
       if(Math.abs(m[8])<1e-10)continue;
       const n=m.map(value=>value/m[8]);
       node.style.setProperty('--opponent-view',`matrix3d(${[n[0],n[3],0,n[6],n[1],n[4],0,n[7],0,0,1,0,n[2],n[5],0,1].join(',')})`);
+      node.dataset.edgeAngle=String(angle*180/Math.PI);
+      node.dataset.edgeScale=String(scale);
       cache.set(node,key);
     }
   };

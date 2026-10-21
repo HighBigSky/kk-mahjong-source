@@ -126,11 +126,30 @@ async function geometry(page) {
     // 本家为屏幕平面中的兄弟节点，也必须由桌内绒布完整承托，不能漏验。
     const allSeatTiles = list('#hand button,.my-melds .tile,.table .river .tile,.opponent-rack .tile,.opponent-rack .back,#wall-tail .wall-piece:not(.is-empty)');
     const opponentFlat = [...document.querySelectorAll('.opponent-rack .tile,.opponent-rack .back,#river-1 .tile,#river-2 .tile,#river-3 .tile,.flat-wall-run .wall-piece:not(.is-empty)')].filter(visible).map(node=>{
-      const box=rect(node),side=node.closest('.wall-stack')?.dataset.side;
-      const sideways=side==='left'||side==='right'||Boolean(node.closest('#rack-1,#rack-3,#river-1,#river-3'));
-      const axisAligned=box.quad.every((point,index)=>{const next=box.quad[(index+1)%4];return Math.min(Math.abs(next.x-point.x),Math.abs(next.y-point.y))<.2;});
-      return {id:node.closest('[id]')?.id,aspect:box.width/box.height,expected:sideways?7/5:5/7,axisAligned};
+      const box=rect(node),s=getComputedStyle(node),q=box.quad;
+      const u={x:q[1].x-q[0].x,y:q[1].y-q[0].y},v={x:q[3].x-q[0].x,y:q[3].y-q[0].y};
+      const w=Math.hypot(u.x,u.y),h=Math.hypot(v.x,v.y);
+      const rectangular=Math.abs(u.x*v.x+u.y*v.y)/(w*h)<.002;
+      return {id:node.closest('[id]')?.id,aspect:w/h,expected:parseFloat(s.width)/parseFloat(s.height),rectangular};
     });
+    const tableEdges={top:[corners[0],corners[1]],left:[corners[0],corners[3]],right:[corners[1],corners[2]],bottom:[corners[3],corners[2]]};
+    const edgeError=(vector,side)=>{const [a,b]=tableEdges[side],dx=b.x-a.x,dy=b.y-a.y;return Math.abs(vector.x*dy-vector.y*dx)/(Math.hypot(vector.x,vector.y)*Math.hypot(dx,dy));};
+    const centre=node=>{const q=rect(node).quad;return{x:q.reduce((sum,p)=>sum+p.x,0)/4,y:q.reduce((sum,p)=>sum+p.y,0)/4};};
+    const edgeAlignment=[...document.querySelectorAll('.opponent-rack,#river-1,#river-2,#river-3,.flat-wall-run')].filter(visible).map(node=>{
+      const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
+      const q=rect(node).quad,end=side==='top'?q[1]:q[3];
+      let middle=centre(node);
+      if(node.classList.contains('flat-wall-run')){const members=node.querySelectorAll('.wall-stack'),first=centre(members[0]),last=centre(members[members.length-1]);middle={x:(first.x+last.x)/2,y:(first.y+last.y)/2};}
+      const reference=centre(document.querySelector(`#rack-${{top:2,left:3,right:1}[side]}`));
+      const [a,b]=tableEdges[side],length=Math.hypot(b.x-a.x,b.y-a.y);
+      const normalError=Math.abs((middle.x-reference.x)*(b.x-a.x)+(middle.y-reference.y)*(b.y-a.y))/length;
+      return{side,parallelError:edgeError({x:end.x-q[0].x,y:end.y-q[0].y},side),normalError};
+    });
+    const ownEdgeAlignment=[...document.querySelectorAll('#hand button,.my-melds .tile,#river-0 .tile,.wall-stack[data-side="bottom"] .wall-piece:not(.is-empty)')].filter(visible).map(node=>{
+      const q=rect(node).quad;return edgeError({x:q[1].x-q[0].x,y:q[1].y-q[0].y},'bottom');
+    });
+    const nearStacks=[...document.querySelectorAll('.wall-stack[data-side="bottom"]')],first=centre(nearStacks[0]),last=centre(nearStacks.at(-1));
+    const ownWallCenterError=Math.abs((first.x+last.x)/2-(corners[2].x+corners[3].x)/2);
     const outsideAllSeatFelt = allSeatTiles.filter(tile=>!tile.quad.every(p=>feltCorners.every((a,index)=>{
       const b=feltCorners[(index+1)%4];
       return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
@@ -179,6 +198,7 @@ async function geometry(page) {
       hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, feltCorners, outsideFelt, outsideAllSeatFelt, outsideViewport, tableHudOverlaps, rackWallOverlaps, allSeatGeometry:allSeatTiles, opponentFlat,
       ownGeometry:list('#hand button,.my-melds .tile,#river-0 .tile,.wall-stack[data-side="bottom"] .wall-piece:not(.is-empty)'),
       wallSlotOrder:[...document.querySelectorAll('.wall-piece')].map(node=>Number(node.dataset.position)),
+      edgeAlignment,ownEdgeAlignment,ownWallCenterError,
       farTile: back ? rect(back) : null, hint: visible(panel) ? rect(panel) : null,
       scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
       canvasScroll: [stage.scrollLeft, stage.scrollTop],
@@ -210,7 +230,8 @@ try {
     check(initial.outsideFrame.length===0 && initial.rackWallOverlaps.length===0, 'reanchored hands and walls fit the square frame without obstruction', {size,outside:initial.outsideFrame,overlaps:initial.rackWallOverlaps});
     check(initial.outsideFelt.length===0, 'all tabletop hands, rivers and walls stay on felt inside the wooden rim', {size,outside:initial.outsideFelt});
     check(initial.outsideAllSeatFelt.length===0, 'all four hands including the local flat hand stay fully inside felt', {size,outside:initial.outsideAllSeatFelt});
-    check(initial.opponentFlat.length>0&&initial.opponentFlat.every(tile=>tile.axisAligned&&Math.abs(tile.aspect/tile.expected-1)<.02), 'opponents hands and walls have axis-aligned normal tile proportions', {size,bad:initial.opponentFlat.filter(tile=>!tile.axisAligned||Math.abs(tile.aspect/tile.expected-1)>=.02)});
+    check(initial.opponentFlat.length>0&&initial.opponentFlat.every(tile=>tile.rectangular&&Math.abs(tile.aspect/tile.expected-1)<.02), 'opponents hands and walls retain normal rectangular tile proportions', {size,bad:initial.opponentFlat.filter(tile=>!tile.rectangular||Math.abs(tile.aspect/tile.expected-1)>=.02)});
+    check(initial.edgeAlignment.every(group=>group.parallelError<.002&&group.normalError<1.2)&&initial.ownEdgeAlignment.every(error=>error<.002)&&initial.ownWallCenterError<.8, 'all four seat zones align with their table edge and shared normal centreline', {size,groups:initial.edgeAlignment,near:initial.ownWallCenterError});
     check(initial.wallSlotOrder.length===136&&initial.wallSlotOrder.every((position,index)=>position===index), 'wall grouping preserves all 136 original slots in order', {size});
     check(initial.outsideViewport.length===0 && initial.tableHudOverlaps.length===0, 'enlarged table keeps every physical tile clear of viewport edges and flat HUD', {size,outside:initial.outsideViewport,overlaps:initial.tableHudOverlaps});
     check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side concealed hands restore the flat pre-first-person tile model', {size, sideHands:initial.sideHands});
@@ -224,7 +245,7 @@ try {
       await frames(page);
       const original = await geometry(page);
       await screenshot(page,size,'before-frame-only');
-      const stable = data => ({tiles:data.ownGeometry,hand:data.hand.map(({left,top,width,height})=>({left,top,width,height})),river:data.rivers[0],hud:data.hud,corners:data.corners,tableTransform:data.tableTransform});
+      const stable = data => ({hand:data.hand.map(({left,top,width,height})=>({left,top,width,height})),river:data.rivers[0],hud:data.hud,corners:data.corners,tableTransform:data.tableTransform});
       check(JSON.stringify(stable(original))===JSON.stringify(stable(initial)), 'own hand, river, HUD and table projection remain pixel-identical', {size});
       await before.evaluate(node=>node.remove()); await frames(page);
     }
@@ -277,7 +298,8 @@ try {
       check(data.outsideFrame.length===0 && data.rackWallOverlaps.length===0, 'maximum racks and full rivers remain within the physical square frame', {size,scenario,outside:data.outsideFrame,overlaps:data.rackWallOverlaps});
       check(data.outsideFelt.length===0, 'maximum racks and full rivers retain a clear felt safety margin', {size,scenario,outside:data.outsideFelt});
       check(data.outsideAllSeatFelt.length===0, 'full rivers and maximum public groups including the local rack fit on felt', {size,scenario,outside:data.outsideAllSeatFelt});
-      check(data.opponentFlat.every(tile=>tile.axisAligned&&Math.abs(tile.aspect/tile.expected-1)<.02), 'opponents full rivers and maximum chi/peng/kong groups keep normal proportions', {size,scenario,bad:data.opponentFlat.filter(tile=>!tile.axisAligned||Math.abs(tile.aspect/tile.expected-1)>=.02)});
+      check(data.opponentFlat.every(tile=>tile.rectangular&&Math.abs(tile.aspect/tile.expected-1)<.02), 'opponents full rivers and maximum chi/peng/kong groups keep normal proportions', {size,scenario,bad:data.opponentFlat.filter(tile=>!tile.rectangular||Math.abs(tile.aspect/tile.expected-1)>=.02)});
+      check(data.edgeAlignment.every(group=>group.parallelError<.002&&group.normalError<1.2)&&data.ownEdgeAlignment.every(error=>error<.002)&&data.ownWallCenterError<.8, 'full rivers and maximum melds retain edge alignment', {size,scenario,groups:data.edgeAlignment,near:data.ownWallCenterError});
       check(data.outsideViewport.length===0 && data.tableHudOverlaps.length===0, 'maximum table contents stay visible without covering HUD or local hand', {size,scenario,outside:data.outsideViewport,overlaps:data.tableHudOverlaps});
       check(data.scroll[0] <= size.width + 1 && data.scroll[1] <= size.height + 1, 'full table creates no page scrolling', { size, scenario, scroll: data.scroll });
       report.geometry.push({ size, scenario, ...data });

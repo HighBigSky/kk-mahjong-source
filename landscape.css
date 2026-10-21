@@ -485,7 +485,7 @@ html.in-game #game.is-landscape {
   display:block;
   top:calc(var(--table-depth-unit) * 57.4);
   bottom:auto;
-  left:calc(var(--table-unit) * (14 + var(--wall-stack-index) * 2.5));
+  left:calc(var(--table-unit) * (13.75 + var(--wall-stack-index) * 2.5));
 }
 #game.is-landscape .back {
   border-color:#90b74b;
