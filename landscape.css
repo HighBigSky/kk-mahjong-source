@@ -371,6 +371,8 @@ html.in-game #game.is-landscape {
   --table-depth-unit:calc(var(--board-height) / 70);
   /* 实物桌框为正方形；重排桌内区域，不横向压缩牌或整个场景。 */
   --table-surface-width:var(--board-height);
+  /* 只扩大方形桌框与绒布，牌区继续使用原内容坐标，避免连带缩放或移动牌列。 */
+  --table-frame-size:calc(var(--board-height) * 1.10);
   --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
   --side-river-scale:1.44;
@@ -420,16 +422,15 @@ html.in-game #game.is-landscape {
   transform-style:preserve-3d;
   isolation:auto;
 }
-/* The source frame is rectangular; the same projection as the tiles makes
-   its far rail shorter and its near rail wider, with no separate fake skew. */
+/* 方形桌框以远沿为锚点等比外扩，近端绒布托住本家手牌；共用原相机，不拉伸。 */
 #game.is-landscape .table::before {
   content:"";
   position:absolute;
   z-index:-2;
   top:0;
-  left:calc(50% - var(--table-surface-width) / 2);
-  width:var(--table-surface-width);
-  height:100%;
+  left:calc(50% - var(--table-frame-size) / 2);
+  width:var(--table-frame-size);
+  height:var(--table-frame-size);
   border:1px solid #c69c6370;
   border-radius:calc(var(--ui-unit) * 5);
   background:
@@ -447,7 +448,7 @@ html.in-game #game.is-landscape {
 }
 #game.is-landscape .table::after { content:none; }
 #game.is-landscape .table-border {
-  inset:7% calc(50% - var(--table-surface-width) * .46) 9%;
+  inset:calc(var(--table-frame-size) * .07) calc(50% - var(--table-frame-size) * .46) calc(var(--board-height) - var(--table-frame-size) * .91);
   border:0;
   border-radius:calc(var(--ui-unit) * 2);
   background:none;

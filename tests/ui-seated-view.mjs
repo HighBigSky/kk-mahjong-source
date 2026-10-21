@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { createServer } from '../server.js';
 import { RoomService } from '../src/server/rooms.js';
@@ -123,6 +123,12 @@ async function geometry(page) {
       const b=feltCorners[(index+1)%4];
       return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
     }))).map(tile=>tile.id);
+    // 本家为屏幕平面中的兄弟节点，也必须由桌内绒布完整承托，不能漏验。
+    const allSeatTiles = list('#hand button,.my-melds .tile,.table .river .tile,.opponent-rack .tile,.opponent-rack .back,#wall-tail .wall-piece:not(.is-empty)');
+    const outsideAllSeatFelt = allSeatTiles.filter(tile=>!tile.quad.every(p=>feltCorners.every((a,index)=>{
+      const b=feltCorners[(index+1)%4];
+      return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
+    }))).map(tile=>tile.id);
     const outsideViewport = tableContents.filter(tile=>tile.quad.some(p=>p.x<-.8||p.y<-.8||p.x>stage.clientWidth+.8||p.y>stage.clientHeight+.8)).map(tile=>tile.id);
     const tableHudOverlaps = [];
     const controls = list('.player-seat,.top-left>div,.top-tools,.room-meta,.turn-message,.last-event,.action-zone:not([hidden]),#hand button,.my-melds .tile');
@@ -164,7 +170,7 @@ async function geometry(page) {
       stage: rect(stage), table: rect(table), corners, tableTransform: style.transform, tableOrigin: style.transformOrigin,
       surface: { left, top, width, height }, nearWidth: corners[2].x - corners[3].x, farWidth: corners[1].x - corners[0].x,
       tableDepth: (corners[2].y + corners[3].y - corners[0].y - corners[1].y) / 2,
-      hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, feltCorners, outsideFelt, outsideViewport, tableHudOverlaps, rackWallOverlaps,
+      hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, feltCorners, outsideFelt, outsideAllSeatFelt, outsideViewport, tableHudOverlaps, rackWallOverlaps, allSeatGeometry:allSeatTiles,
       farTile: back ? rect(back) : null, hint: visible(panel) ? rect(panel) : null,
       scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
       canvasScroll: [stage.scrollLeft, stage.scrollTop],
@@ -187,21 +193,31 @@ try {
     const names = room.seats.map(seat => seat.name);
     await publish(actionFixture({ names, hand: [...scattered, 24] }));
     const initial = await geometry(page);
-    // 主体按远近桌沿的平均宽度衡量；高度上限仅为完整保留桌内牌列。
+    // 本轮仅放大视觉方桌，手牌、牌河、牌墙和 HUD 仍沿用原坐标。
     const bodyWidthRatio = (initial.nearWidth + initial.farWidth) / 2 / size.width;
-    check(bodyWidthRatio >= .62 && bodyWidthRatio <= .68, 'table body occupies approximately two thirds of the landscape width', { size, bodyWidthRatio });
-    check(initial.nearWidth / size.width >= .73 && initial.nearWidth / size.width <= .79, 'near rail is slightly wider than the two-thirds table body', { size, widthRatio: initial.nearWidth / size.width });
+    check(bodyWidthRatio >= .70 && bodyWidthRatio <= .76, 'enlarged table supports all four seats without filling the entire width', { size, bodyWidthRatio });
+    check(initial.nearWidth / size.width >= .85 && initial.nearWidth / size.width <= .91, 'near table edge expands uniformly to support the local hand', { size, widthRatio: initial.nearWidth / size.width });
     check(Math.abs(initial.surface.width / initial.surface.height - 1) < .003, 'physical tabletop stays square rather than a squeezed long table', {size, surface:initial.surface});
     check(Math.abs(Number(initial.tableTransform.slice(9,-1).split(',')[0])-1)<.0001, 'table projection has no horizontal scale compression', {size,transform:initial.tableTransform});
     check(initial.outsideFrame.length===0 && initial.rackWallOverlaps.length===0, 'reanchored hands and walls fit the square frame without obstruction', {size,outside:initial.outsideFrame,overlaps:initial.rackWallOverlaps});
     check(initial.outsideFelt.length===0, 'all tabletop hands, rivers and walls stay on felt inside the wooden rim', {size,outside:initial.outsideFelt});
+    check(initial.outsideAllSeatFelt.length===0, 'all four hands including the local flat hand stay fully inside felt', {size,outside:initial.outsideAllSeatFelt});
     check(initial.outsideViewport.length===0 && initial.tableHudOverlaps.length===0, 'enlarged table keeps every physical tile clear of viewport edges and flat HUD', {size,outside:initial.outsideViewport,overlaps:initial.tableHudOverlaps});
     check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side concealed hands restore the flat pre-first-person tile model', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
-    check(Math.abs(initial.corners[2].y / size.height - .98) < .003 && initial.corners[0].y >= 0, 'enlarged square table fits vertically with its near rail at 98% of the screen', { size, corners: initial.corners });
+    check(initial.corners[2].y > size.height && initial.feltCorners[2].y >= initial.handZone.bottom, 'near felt extends beneath the entire local hand, with the wooden apron allowed off screen', { size, corners: initial.corners, felt:initial.feltCorners,hand:initial.handZone });
     check(initial.farTile && initial.farTile.height < initial.hand[0].height * .7, 'far hand is clearly smaller than the local hand', { size, far: initial.farTile, near: initial.hand[0] });
     check(initial.hud.every(node => !node.inTableProjection), 'labels and operation HUD stay outside the table projection', { size, hud: initial.hud });
     await screenshot(page, size, 'normal');
+    if (process.env.KK_TABLE_BASELINE) {
+      const before = await page.addStyleTag({content:readFileSync(process.env.KK_TABLE_BASELINE,'utf8')});
+      await frames(page);
+      const original = await geometry(page);
+      await screenshot(page,size,'before-frame-only');
+      const stable = data => ({tiles:data.allSeatGeometry,hand:data.hand.map(({left,top,width,height})=>({left,top,width,height})),rivers:data.rivers,hud:data.hud,sideHands:data.sideHands,farTile:data.farTile,tableTransform:data.tableTransform});
+      check(JSON.stringify(stable(original))===JSON.stringify(stable(initial)), 'only table frame changes: all tiles, player information, controls and projection remain pixel-identical', {size});
+      await before.evaluate(node=>node.remove()); await frames(page);
+    }
 
     // 通过改变展示副本验证牌数变化；输入测试另用完整 136 张的服务端夹具。
     for (const count of [1, 2, 7, 14]) {
@@ -217,6 +233,7 @@ try {
       const centerError = Math.abs(center - (data.stage.left + data.stage.right) / 2);
       check(centerError <= 1, 'hand visual bounds remain centered for every count', { size, count, centerError });
       check(data.hand.every(tile => tile.centerHit && tile.hits >= 7 && inside(tile, size)), 'transformed cards remain visible and internally hit-testable', { size, count, cards: data.hand });
+      check(data.outsideAllSeatFelt.length===0, 'every hand count remains inside the expanded felt', {size,count,outside:data.outsideAllSeatFelt});
       check(data.hand.every((tile, index) => !index || tile.left > data.hand[index - 1].left), 'hand stays one ordered row without wrapping', { size, count });
       check(data.hand.every(tile => tile.transform === 'none' || Math.abs(Number(tile.transform.slice(7, -1).split(',')[1])) < .0001), 'local hand has no perspective or fan rotation', { size, count });
       check(data.scroll[0] <= size.width + 1 && data.scroll[1] <= size.height + 1, 'viewport has no scrolling or stretching', { size, count, scroll: data.scroll });
@@ -249,6 +266,7 @@ try {
       check(data.riverOverlaps.length === 0, 'full rivers avoid other tiles, controls and player information', { size, scenario, overlaps: data.riverOverlaps });
       check(data.outsideFrame.length===0 && data.rackWallOverlaps.length===0, 'maximum racks and full rivers remain within the physical square frame', {size,scenario,outside:data.outsideFrame,overlaps:data.rackWallOverlaps});
       check(data.outsideFelt.length===0, 'maximum racks and full rivers retain a clear felt safety margin', {size,scenario,outside:data.outsideFelt});
+      check(data.outsideAllSeatFelt.length===0, 'full rivers and maximum public groups including the local rack fit on felt', {size,scenario,outside:data.outsideAllSeatFelt});
       check(data.outsideViewport.length===0 && data.tableHudOverlaps.length===0, 'maximum table contents stay visible without covering HUD or local hand', {size,scenario,outside:data.outsideViewport,overlaps:data.tableHudOverlaps});
       check(data.scroll[0] <= size.width + 1 && data.scroll[1] <= size.height + 1, 'full table creates no page scrolling', { size, scenario, scroll: data.scroll });
       report.geometry.push({ size, scenario, ...data });
