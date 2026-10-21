@@ -31,12 +31,7 @@ html.in-game body { padding:0; }
 html.in-game #game.is-landscape {
   --ui-unit:calc(var(--stage-height) / 100);
   --seat-avatar-size:calc(var(--ui-unit) * 7);
-  --board-size:calc(var(--stage-height) * .88);
   --board-width:var(--board-size);
-  --board-height:var(--board-size);
-  --table-unit:calc(var(--board-height) / 70);
-  --hand-width:calc(var(--ui-unit) * 8.3);
-  --hand-height:calc(var(--ui-unit) * 11.6);
   --tile-radius:calc(var(--ui-unit) * .7);
   --tile-hand-radius:calc(var(--ui-unit) * .7);
   --tile-bevel:calc(var(--ui-unit) * .14);
@@ -55,8 +50,6 @@ html.in-game #game.is-landscape {
   --felt-thread-step:calc(var(--ui-unit) * .24);
   --compass-rim:calc(var(--table-unit) * .65);
   --compass-pointer:calc(var(--table-unit) * .65);
-  --public-tile-width:calc(var(--table-unit) * 2.8);
-  --public-tile-height:calc(var(--table-unit) * 3.9);
   --public-tile-gap:calc(var(--table-unit) * .1);
   --public-group-gap:calc(var(--table-unit) * .35);
   --self-public-tile-width:calc(var(--ui-unit) * 4.3);
@@ -81,21 +74,18 @@ html.in-game #game.is-landscape {
   font-size:calc(var(--ui-unit) * 3);
 }
 
-
-.is-landscape .topbar { top:1.4%; left:2%; right:2%; height:10.4%; }
+.is-landscape .topbar { height:10.4%; }
 .is-landscape .top-left { gap:calc(var(--ui-unit) * 1.4); }
 .is-landscape .wallet-pill {
   min-width:0;
   min-height:0;
-  height:calc(var(--ui-unit) * 9.2);
-  padding:calc(var(--ui-unit) * 1.1) calc(var(--ui-unit) * 2);
   gap:calc(var(--ui-unit) * 1.3);
   border-radius:calc(var(--ui-unit) * 1.9);
 }
 .is-landscape .wallet-pill>svg { width:calc(var(--ui-unit) * 4.8); height:calc(var(--ui-unit) * 4.8); }
 .is-landscape .wallet-copy { gap:calc(var(--ui-unit) * .55); }
 .is-landscape .wallet-copy small { font-size:calc(var(--ui-unit) * 2.5); letter-spacing:0; }
-.is-landscape .wallet-copy strong { font-size:calc(var(--ui-unit) * 4.2); letter-spacing:0; }
+.is-landscape .wallet-copy strong { letter-spacing:0; }
 .is-landscape .top-tools { gap:calc(var(--ui-unit) * 1.4); align-items:center; }
 /* 连接状态从底部栏搬到顶栏：横屏不再占一整行，任何尺寸都看得见。 */
 .is-landscape .top-tools .connection {
@@ -112,7 +102,6 @@ html.in-game #game.is-landscape {
 .is-landscape .icon-button {
   width:calc(var(--ui-unit) * 9.2);
   height:calc(var(--ui-unit) * 9.2);
-  border-radius:calc(var(--ui-unit) * 2.2);
 }
 .is-landscape .icon-button svg { width:calc(var(--ui-unit) * 4.4); height:calc(var(--ui-unit) * 4.4); }
 /* 余牌放到金币右边，和金币同高的一枚小胶囊。 */
@@ -146,10 +135,7 @@ html.in-game #game.is-landscape {
 /* 标题只作装饰，横屏让位给上家座位卡：牌桌放大后上家卡必须整块落在桌沿之上，
    否则会压住对面的手牌背与摸牌标记。 */
 .is-landscape .room-heading { display:none; }
-.is-landscape .room-meta {
-  top:14%; left:1.8%; width:30%; justify-content:flex-start;
-  font-size:calc(var(--ui-unit) * 2.35); gap:calc(var(--ui-unit) * 1.1); letter-spacing:0;
-}
+.is-landscape .room-meta { justify-content:flex-start; letter-spacing:0; }
 
 /* Four seat badges surround the rectangular board instead of occupying the
    vertical portrait bands. Their independent bounds keep the felt clear. */
@@ -164,13 +150,12 @@ html.in-game #game.is-landscape {
 .is-landscape .player-seat .seat,.is-landscape .dealer-badge { width:calc(var(--ui-unit) * 3.1); height:calc(var(--ui-unit) * 3.1); font-size:calc(var(--ui-unit) * 2.2); border-radius:calc(var(--ui-unit) * .7); }
 .is-landscape .red-gang-badge { min-width:calc(var(--ui-unit) * 4.6); height:calc(var(--ui-unit) * 2.7); font-size:calc(var(--ui-unit) * 1.85); border-radius:calc(var(--ui-unit) * .6); }
 .is-landscape .player-seat .opponent-copy { gap:calc(var(--ui-unit) * .35); }
-.is-landscape .player-seat .opponent-name { font-size:calc(var(--ui-unit) * 2.8); letter-spacing:0; }
+.is-landscape .player-seat .opponent-name { letter-spacing:0; }
 .is-landscape .player-seat .opponent-name small { font-size:calc(var(--ui-unit) * 1.9); margin-left:calc(var(--ui-unit) * .55); padding:0 calc(var(--ui-unit) * .4); }
 .is-landscape .player-seat .opponent-score { font-size:calc(var(--ui-unit) * 2.45); gap:calc(var(--ui-unit) * .5); }
 .is-landscape .player-seat .opponent-score svg { width:calc(var(--ui-unit) * 2.5); height:calc(var(--ui-unit) * 2.5); }
 .is-landscape .player-seat .opponent-state { font-size:calc(var(--ui-unit) * 2.05); }
-.is-landscape .seat-top { top:1%; left:50%; transform:translateX(-50%); }
-.is-landscape .seat-bottom { top:auto; bottom:9%; left:1%; width:calc(var(--ui-unit) * 17); height:calc(var(--ui-unit) * 18); flex-direction:column; justify-content:center; border-radius:calc(var(--ui-unit) * 3); }
+.is-landscape .seat-bottom { top:auto; width:calc(var(--ui-unit) * 17); height:calc(var(--ui-unit) * 18); flex-direction:column; justify-content:center; border-radius:calc(var(--ui-unit) * 3); }
 .is-landscape .seat-bottom .opponent-copy { width:100%; text-align:center; }
 .is-landscape .seat-bottom .opponent-score { justify-content:center; }
 .is-landscape .seat-left,.is-landscape .seat-right {
@@ -182,18 +167,9 @@ html.in-game #game.is-landscape {
   gap:calc(var(--ui-unit) * .7);
   border-radius:calc(var(--ui-unit) * 4) calc(var(--ui-unit) * 4) calc(var(--ui-unit) * 2) calc(var(--ui-unit) * 2);
 }
-.is-landscape .seat-left { left:calc(50% - var(--board-size) / 2 - var(--ui-unit) * 21); }
-.is-landscape .seat-right { right:calc(50% - var(--board-size) / 2 - var(--ui-unit) * 21); }
-
-/* The original wall model remains 17 fixed double stacks per side. Only its
-   horizontal stride expands; its vertical stride follows the board height. */
-#game.is-landscape .table { left:calc(50% - var(--board-size) / 2); top:12%; width:var(--board-width); height:var(--board-height); }
-#game.is-landscape .table-border { inset:calc(var(--ui-unit) * 1.2); border-radius:calc(var(--ui-unit) * 2.4); }
 #game.is-landscape .table .opponent-rack { gap:calc(var(--table-unit) * .7); }
 #game.is-landscape .table .opponent-rack-top { top:calc(var(--table-unit) * 1.1); left:calc(var(--table-unit) * 4.5); right:calc(var(--table-unit) * 4.5); }
 #game.is-landscape .table .opponent-rack-left,#game.is-landscape .table .opponent-rack-right { top:calc(var(--table-unit) * 6); bottom:calc(var(--table-unit) * 3.8); }
-#game.is-landscape .table .opponent-rack-left { left:calc(var(--table-unit) * .55); }
-#game.is-landscape .table .opponent-rack-right { right:calc(var(--table-unit) * .55); }
 .is-landscape .opponent-rack .meld-label { font-size:max(6px,calc(var(--table-unit) * 1.4)); }
 .is-landscape .opponent-rack-top .meld-label { bottom:calc(100% + var(--table-unit) * .45); }
 .is-landscape .opponent-rack-left .meld-label,.is-landscape .opponent-rack-right .meld-label { width:calc(var(--table-unit) * 1.7); letter-spacing:0; }
@@ -201,10 +177,7 @@ html.in-game #game.is-landscape {
 .is-landscape .opponent-rack-right .meld-label { left:calc(100% + var(--table-unit) * .25); }
 .is-landscape .opponent-rack .back::before { inset:calc(var(--table-unit) * .35) calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .28); }
 .is-landscape .opponent-rack .wild-marker { display:none; }
-#game.is-landscape .table .wall-stack[data-side="bottom"] { left:calc(var(--table-unit) * 10.4 + var(--wall-stack-index) * var(--wall-horizontal-step)); bottom:calc(var(--table-unit) * 1.65); }
-#game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); top:calc(var(--table-unit) * 5.4); }
-#game.is-landscape .table .wall-stack[data-side="left"] { left:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + var(--wall-stack-index) * var(--wall-stack-step)); }
-#game.is-landscape .table .wall-stack[data-side="right"] { right:calc(var(--table-unit) * 4.65); top:calc(var(--table-unit) * 11.2 + (16 - var(--wall-stack-index)) * var(--wall-stack-step)); }
+#game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); }
 .is-landscape .wall-piece.back { border-width:calc(var(--table-unit) * .08); border-bottom-width:calc(var(--table-unit) * .25); }
 .is-landscape .wall-piece.back::before { inset:calc(var(--table-unit) * .25); border-width:calc(var(--table-unit) * .08); border-radius:calc(var(--table-unit) * .17); }
 .is-landscape .wall-piece.tile { --tile-depth:calc(var(--table-unit) * .25); --tile-side:calc(var(--table-unit) * .08); border-width:calc(var(--table-unit) * .08); }
@@ -242,8 +215,8 @@ html.in-game #game.is-landscape {
 /* 单家留河至多 27 张，固定 9×4（侧家 4×9）为吃碰杠与补牌留余量。
    容器尺寸固定，牌宽取格子宽/高可容纳的最小值；增添弃牌不会重新分行。 */
 #game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:20%; width:60%; height:calc(var(--table-unit) * 14.5); }
-#game.is-landscape .table .river-top { top:calc(var(--table-unit) * 10.3); --river-tile-turn:180deg; }
-#game.is-landscape .table .river-bottom { top:calc(var(--table-unit) * 42); bottom:auto; }
+#game.is-landscape .table .river-top { --river-tile-turn:180deg; }
+#game.is-landscape .table .river-bottom { bottom:auto; }
 /* 张数仍可由无障碍标签与出牌记录读取，不在桌内挤占格子。 */
 #game.is-landscape .table .river::before { display:none; }
 #game.is-landscape .table .river .tile {
@@ -261,8 +234,6 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:4; --river-rows:9; --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:calc(var(--table-unit) * 13); height:calc(var(--table-unit) * 26); }
 #game.is-landscape .table .river-left { left:0; --river-tile-turn:90deg; }
 #game.is-landscape .table .river-right { right:0; --river-tile-turn:-90deg; }
-#game.is-landscape .table .table-center { left:calc(50% - var(--table-unit) * 8); top:calc(50% - var(--table-unit) * 9.5); width:calc(var(--table-unit) * 16); height:calc(var(--table-unit) * 16); }
-#game.is-landscape .table .table-center::before { inset:calc(var(--table-unit) * .8); }
 .is-landscape .table-dice { gap:calc(var(--table-unit) * 1); }
 .is-landscape .table-die {
   width:calc(var(--table-unit) * 5.2);
@@ -295,53 +266,41 @@ html.in-game #game.is-landscape {
 .is-landscape .seat-action-notice { width:calc(var(--table-unit) * 6); height:calc(var(--table-unit) * 6); font-size:calc(var(--table-unit) * 5.6); }
 
 /* 手牌行贴到最底部：标题行在横屏隐藏，出牌提示并入右侧操作区。 */
-.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { top:auto; bottom:1.4%; left:4%; width:92%; }
+.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { top:auto; }
 /* 有副露时左侧要留出自己座位卡的位置 */
 .is-landscape .hand-zone.has-melds { left:11%; width:85%; }
 .is-landscape .hand-heading { display:none; }
 .is-landscape .hand-zone .player-rack,.is-landscape .hand-zone.has-melds .player-rack { display:flex; flex-direction:row; align-items:flex-end; gap:calc(var(--ui-unit) * 1); pointer-events:none; }
-.is-landscape .hand { width:auto; flex:1; min-width:0; height:calc(var(--ui-unit) * 13); gap:calc(var(--ui-unit) * .5); padding:calc(var(--ui-unit) * 1.1) calc(var(--ui-unit) * .6) 0; }
+.is-landscape .hand { min-width:0; }
 .is-landscape .hand .tile { width:var(--hand-width); height:var(--hand-height); pointer-events:auto; }
 .is-landscape .hand .tile.drawn { margin-left:calc(var(--ui-unit) * 1.5); }
 .is-landscape .hand .tile.selected { transform:translateY(calc(var(--ui-unit) * -1.9)); outline-width:calc(var(--ui-unit) * .32); outline-offset:calc(var(--ui-unit) * .1); }
 .is-landscape .hand .tile.hinted { outline-width:calc(var(--ui-unit) * .4); outline-offset:calc(var(--ui-unit) * .12); }
 .is-landscape .hand::before { left:calc(var(--ui-unit) * -.45); right:calc(var(--ui-unit) * -.45); bottom:calc(var(--ui-unit) * -.55); height:calc(var(--ui-unit) * 1.15); border-radius:calc(var(--ui-unit) * .5); }
 .is-landscape .hand-instruction,.is-landscape .hand-zone.has-melds .hand-instruction { display:none; }
-.is-landscape .hand-zone .player-rack .my-melds { flex:none; width:auto; max-width:39%; height:calc(var(--ui-unit) * 13); min-height:0; padding:calc(var(--ui-unit) * 2.2) 0 calc(var(--ui-unit) * .15); gap:calc(var(--ui-unit) * 2.3) calc(var(--ui-unit) * .7); flex-wrap:wrap; align-content:flex-end; justify-content:flex-start; }
+.is-landscape .hand-zone .player-rack .my-melds { flex:none; padding:calc(var(--ui-unit) * 2.2) 0 calc(var(--ui-unit) * .15); gap:calc(var(--ui-unit) * 2.3) calc(var(--ui-unit) * .7); flex-wrap:wrap; align-content:flex-end; justify-content:flex-start; }
 .is-landscape .player-rack .my-melds .tile { --tile-depth:calc(var(--ui-unit) * .4); --tile-side:calc(var(--ui-unit) * .14); }
 .is-landscape .player-rack .meld-label { bottom:calc(100% + var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.8); }
 .is-landscape .wild-marker,.is-landscape .red-kong-marker,.is-landscape .pizi-marker { top:calc(var(--ui-unit) * -.25); left:calc(var(--ui-unit) * -.2); min-width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.4); padding:0 calc(var(--ui-unit) * .15); border-radius:calc(var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.7); }
-.is-landscape .turn-message { top:56%; left:3%; right:calc(50% + var(--board-size) / 2 + var(--ui-unit) * 2.5); width:auto; justify-content:flex-start; gap:calc(var(--ui-unit) * 1); font-size:min(calc(var(--ui-unit) * 2.7),1.4cqw); letter-spacing:0; }
+.is-landscape .turn-message { right:calc(50% + var(--board-size) / 2 + var(--ui-unit) * 2.5); justify-content:flex-start; gap:calc(var(--ui-unit) * 1); letter-spacing:0; }
 .is-landscape #turn-text { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .is-landscape .turn-dot { width:calc(var(--ui-unit) * 1.3); height:calc(var(--ui-unit) * 1.3); }
-.is-landscape .last-event { top:62%; left:3%; right:calc(50% + var(--board-size) / 2 + var(--ui-unit) * 2.5); width:auto; padding:0; text-align:left; font-size:min(calc(var(--ui-unit) * 2.05),1.1cqw); letter-spacing:0; }
-/* 吃碰杠胡改成牌桌右侧的一列大按钮：避开右家座位卡，垂直居中于牌桌，
-   每个按钮占满整列宽度，字大、配色区分，胡再带光晕。 */
-.is-landscape .action-zone {
-  top:50%;
-  left:calc(50% + var(--board-size) / 2 + var(--ui-unit) * 23);
-  right:1.2%;
-  width:auto;
-  max-width:none;
-  transform:translateY(-50%);
-}
+.is-landscape .last-event { right:calc(50% + var(--board-size) / 2 + var(--ui-unit) * 2.5); padding:0; text-align:left; letter-spacing:0; }
+/* 操作按钮公共外观；最终位置与网格排布在下方统一设置。 */
+.is-landscape .action-zone { max-width:none; }
 .is-landscape .action-heading { display:none; }
-.is-landscape .action-buttons { display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:calc(var(--ui-unit) * 1.2); }
+.is-landscape .action-buttons { flex-direction:column; align-items:stretch; justify-content:center; }
 .is-landscape .action-button {
   flex:0 0 auto;
   width:100%;
-  height:calc(var(--ui-unit) * 11);
   flex-direction:row;
-  gap:calc(var(--ui-unit) * 1.1);
   border-width:calc(var(--ui-unit) * .16);
   border-bottom-width:calc(var(--ui-unit) * .5);
   border-radius:calc(var(--ui-unit) * 1.8);
   box-shadow:0 calc(var(--ui-unit) * .5) calc(var(--ui-unit) * 1.4) #0000003d;
 }
-.is-landscape .action-button>span { font-size:calc(var(--ui-unit) * 6); }
 .is-landscape .action-button small { font-size:calc(var(--ui-unit) * 1.55); letter-spacing:calc(var(--ui-unit) * .2); }
-.is-landscape .action-button.action-next { width:100%; height:calc(var(--ui-unit) * 12.4); }
-.is-landscape .action-button.action-next>span { font-size:calc(var(--ui-unit) * 4.4); }
+.is-landscape .action-button.action-next { width:100%; }
 .is-landscape .action-hu:not(:disabled) { box-shadow:0 0 calc(var(--ui-unit) * 3.4) #e0703f77, 0 calc(var(--ui-unit) * .6) calc(var(--ui-unit) * 1.5) #00000045; }
 .is-landscape .toast { top:64%; padding:calc(var(--ui-unit) * 1.6) calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 1.5); font-size:calc(var(--ui-unit) * 2.8); }
 
@@ -568,8 +527,7 @@ html.in-game #game.is-landscape {
 }
 #game.is-landscape .table-center .direction { display:grid; color:#bbc3b1; font-family:"KaiTi","STKaiti",serif; }
 #game.is-landscape .table-center .direction.active { color:#ffe8aa; background:#b7563e70; border-radius:calc(var(--table-unit) * .45); }
-#game.is-landscape .table-die { width:calc(var(--table-unit) * 3); height:calc(var(--table-unit) * 3); padding:calc(var(--table-unit) * .55); border-radius:calc(var(--table-unit) * .55); }
-#game.is-landscape .table-die i { width:calc(var(--table-unit) * .55); height:calc(var(--table-unit) * .55); }
+#game.is-landscape .table-die { border-radius:calc(var(--table-unit) * .55); }
 #game.is-landscape .table-dice { gap:calc(var(--table-unit) * .7); }
 
 /* Avatars sit on the outside rail. Utilities remain in the upper corners. */
@@ -655,8 +613,6 @@ html.in-game #game.is-landscape {
 .is-landscape .action-button small { display:none; }
 .is-landscape .action-button.action-next { grid-column:1 / -1; height:calc(var(--ui-unit) * 9.5); }
 .is-landscape .action-button.action-next>span { font-size:calc(var(--ui-unit) * 4); }
-
-
 
 /* A compact far-seat badge sits beyond the far wall, near the reference slot. */
 #game.is-landscape .seat-top {

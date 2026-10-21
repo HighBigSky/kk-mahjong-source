@@ -1306,7 +1306,7 @@ document.querySelectorAll('dialog').forEach(dialog => {
     if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
   });
 });
-document.querySelectorAll('.river').forEach((river, player) => {
+document.querySelectorAll('.river').forEach(river => {
   const showRiver = () => {
     const index = Number(river.id.split('-')[1]);
     $('#history-title').textContent = `${displayNames[index]}的出牌`;
