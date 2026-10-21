@@ -11,6 +11,7 @@ import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
 import { createHintCalculator, hintText, specialGangKind, PLAY_TEXT } from './src/ui/play-assist.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
 import { createOpeningDeal, DEAL_TEXT } from './src/ui/opening-deal.js';
+import { createFlatOpponentView } from './src/ui/flat-opponents.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
@@ -82,7 +83,8 @@ const openingDeal = createOpeningDeal({stage:$('#game'), storage:(()=>{try{retur
   onLockChange:()=>interactionChanged(),
   onFinish:()=>requestAnimationFrame(()=>{selected=-1;hinted=-1;handTap=null;render();}),
 });
-const positionOverlays = () => { positionActionNotice(); positionDiscardFocus(); positionTableLabels(); openingDeal.layoutChanged(); };
+const layoutOpponentView = createFlatOpponentView($('#game'));
+const positionOverlays = () => { layoutOpponentView(); positionActionNotice(); positionDiscardFocus(); positionTableLabels(); openingDeal.layoutChanged(); };
 const roomOrientation = createRoomOrientation({onLayout:positionOverlays});
 const roomFullscreen = createRoomFullscreen();
 
@@ -623,6 +625,9 @@ function positionDiscardFocus() {
   const centre = {x:rect.left + rect.width / 2, y:rect.top + rect.height / 2};
   const angle = [0, -90, 180, 90][focusedDiscard.from];
   const holder = $('#discard-focus');
+  const flat = focusedDiscard.from !== 0;
+  const parent = flat ? $('#game') : $('.table');
+  if (holder.parentElement !== parent) parent.append(holder);
   const face = holder.querySelector('.tile');
   for (const animation of face.getAnimations()) animation.cancel();
   // Enlarging in perspective shifts the projected bounding-box centre slightly.
@@ -631,9 +636,15 @@ function positionDiscardFocus() {
     const anchor = {...centre};
     let preview;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const point = tablePoint(anchor.x, anchor.y);
-      discardFocusGeometry = {...point, width, height, angle, scale, sourceRect};
-      holder.style.cssText = `left:${point.x}px;top:${point.y}px;width:${width}px;height:${height}px;--discard-turn:${angle}deg;--discard-focus-scale:${scale}`;
+      const point = flat ? anchor : tablePoint(anchor.x, anchor.y);
+      let faceWidth = width, faceHeight = height;
+      if (flat) {
+        // 他家的放大牌使用屏幕平面，直接匹配实牌尺寸；自己的放大牌仍保留桌面投影。
+        faceWidth = Math.abs(angle) === 90 ? rect.height : rect.width;
+        faceHeight = Math.abs(angle) === 90 ? rect.width : rect.height;
+      }
+      discardFocusGeometry = {...point, width:faceWidth, height:faceHeight, angle, scale, sourceRect};
+      holder.style.cssText = `left:${point.x}px;top:${point.y}px;width:${faceWidth}px;height:${faceHeight}px;--discard-turn:${angle}deg;--discard-focus-scale:${scale}`;
       preview = stageRect(face);
       const dx = centre.x - preview.left - preview.width / 2;
       const dy = centre.y - preview.top - preview.height / 2;
@@ -676,13 +687,12 @@ function settleDiscardFocus() {
     flight.classList.add('discard-flight');
     flight.setAttribute('aria-hidden', 'true');
     flight.style.cssText = `left:${x - width / 2}px;top:${y - height / 2}px;width:${width}px;height:${height}px`;
-    $('.table').append(flight);
+    (previous.from === 0 ? $('.table') : $('#game')).append(flight);
     discardFlights.add(flight);
-    // 缩回与原侧河共用平面比例补偿，避免动画结束时牌面再次压扁。
-    const facing = Math.abs(angle) === 90 ? 'scaleY(var(--side-river-scale)) ' : '';
+    // 他家的放大与缩回共用正视平面，本家继续沿用原桌面视角。
     const animation = flight.animate([
-      {transform:`${facing}rotate(${angle}deg) scale(${scale})`, opacity:1},
-      {transform:`${facing}rotate(${angle}deg) scale(1)`, opacity:0},
+      {transform:`rotate(${angle}deg) scale(${scale})`, opacity:1},
+      {transform:`rotate(${angle}deg) scale(1)`, opacity:0},
     ], {duration:260, easing:'cubic-bezier(.22,.65,.25,1)', fill:'forwards'});
     const remove = () => { flight.remove(); discardFlights.delete(flight); };
     animation.finished.then(remove, remove);
@@ -1063,6 +1073,7 @@ function render() {
   updateActionControls();
   syncSettings();
   renderTing();
+  layoutOpponentView();
   renderActionNotice();
   renderDiscardFocus();
   positionTableLabels();

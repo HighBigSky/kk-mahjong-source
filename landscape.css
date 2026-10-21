@@ -232,11 +232,11 @@ html.in-game #game.is-landscape {
   transform:rotate(var(--river-tile-turn));
   transform-origin:center;
 }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:4; --river-rows:9; --river-zone-width:calc(var(--table-unit) * 13); --river-zone-height:calc(var(--table-depth-unit) * 26); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:calc(1 / var(--side-river-scale)); top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:4; --river-rows:9; --river-zone-width:calc(var(--table-unit) * 13); --river-zone-height:calc(var(--table-depth-unit) * 26); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
 #game.is-landscape .table .river-left { left:calc(var(--table-unit) * 8); --river-tile-turn:90deg; }
 #game.is-landscape .table .river-right { right:calc(var(--table-unit) * 8); --river-tile-turn:-90deg; }
-/* 用桌面平面内的比例补偿改善侧河俯视压扁，牌身仍在绒布上方，不穿入桌面。 */
-#game.is-landscape .table :is(.river-left,.river-right) .tile { transform:scaleY(var(--side-river-scale)) rotate(var(--river-tile-turn)); }
+/* 他家牌河在独立的正视平面显示，只保留各家朝向，不再纵向补偿或拉伸。 */
+#game.is-landscape .table :is(.river-left,.river-right) .tile { transform:rotate(var(--river-tile-turn)); }
 .is-landscape .table-dice { gap:calc(var(--table-unit) * 1); }
 .is-landscape .table-die {
   width:calc(var(--table-unit) * 5.2);
@@ -360,8 +360,8 @@ html.in-game .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2)
   .is-landscape,.is-landscape *,html.in-game .modal { transition:none!important; animation:none!important; }
 }
 
-/* A seated player's view: the whole physical table shares one camera, while
-   the local standing hand and HUD keep their own screen-space hit targets. */
+/* The table keeps its seated camera; opponent groups cancel that projection,
+   while the local hand and HUD keep their existing screen-space hit targets. */
 html.in-game #game.is-landscape {
   /* 轻微坐席透视：桌面倾斜 46°、焦距为桌深两倍；本家手牌保持屏幕平面。 */
   /* 按屏宽确定方桌，按可用高度封顶；桌上牌列和相机同步等比缩放。 */
@@ -375,7 +375,6 @@ html.in-game #game.is-landscape {
   --table-frame-size:calc(var(--board-height) * 1.10);
   --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
-  --side-river-scale:1.44;
   --rack-width:calc(var(--stage-width) * .66);
   --base-hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--ui-unit) * 8) / 14));
   --hand-width:var(--base-hand-width);
@@ -501,6 +500,27 @@ html.in-game #game.is-landscape {
   box-shadow:inset 0 1px 1px #c0de5a40;
 }
 #game.is-landscape .wall-piece.is-empty { opacity:.22; }
+
+/* 桌框继续使用原透视；另外三家的牌区抵消倾斜，整组等比显示，不压扁牌面。 */
+#game.is-landscape .table .opponent-rack {
+  transform:var(--opponent-view,none);
+  transform-origin:0 0;
+}
+#game.is-landscape #river-2 {
+  transform:var(--opponent-view,none);
+  transform-origin:0 0;
+}
+#game.is-landscape :is(#river-1,#river-3) {
+  transform:var(--opponent-view,none);
+  transform-origin:0 0;
+}
+#game.is-landscape .flat-wall-run {
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  transform:var(--opponent-view,none);
+  transform-origin:0 0;
+}
 
 /* 牌河仍按顺序紧密填格；上下各 9×4、左右各 4×9，在中央指示区四周留出间隔。 */
 #game.is-landscape .table .river-top,
@@ -681,7 +701,6 @@ html.in-game #game.is-landscape {
   user-select:none;
 }
 .is-landscape .discard-focus-tile { display:block; width:100%; height:100%; }
-.is-landscape .discard-focus:is([data-player="1"],[data-player="3"]) { transform:translate(-50%,-50%) scaleY(var(--side-river-scale)) rotate(var(--discard-turn,0deg)); }
 #game.is-landscape .discard-focus .tile,
 #game.is-landscape .discard-flight {
   --tile-depth:calc(var(--table-unit) * .42);
