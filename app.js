@@ -365,12 +365,12 @@ function specialTile(type) {
   return isSpecialGangTile(type, game.indicatorTile);
 }
 
-// 手牌角标只标「这是什么牌」，不标动作：红中、皮子、癞子分别标红/皮/癞，
-// 与副露区杠出实牌的标记一致；「只能单张杠出」的提示留给 title 与提示文字。
+// 手牌角标：红中与皮子都显示「皮」，癞子显示「癞」；杠型名称与实际判定保持独立。
+// 「只能单张杠出」的提示留给 title 与提示文字。
 function specialMarker(type) {
   if (!specialTile(type)) return wildMarker(type);
   return type === RED_DRAGON && type !== game.indicatorTile
-    ? '<span class="red-kong-marker" aria-hidden="true">红</span>'
+    ? '<span class="red-kong-marker" aria-hidden="true">皮</span>'
     : '<span class="pizi-marker" aria-hidden="true">皮</span>';
 }
 
