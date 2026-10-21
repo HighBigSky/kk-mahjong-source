@@ -175,13 +175,14 @@ try {
     const names = room.seats.map(seat => seat.name);
     await publish(actionFixture({ names, hand: [...scattered, 24] }));
     const initial = await geometry(page);
-    check(initial.nearWidth / size.width >= .47 && initial.nearWidth / size.width <= .65, 'square table leaves natural space beside its near rail across landscape ratios', { size, widthRatio: initial.nearWidth / size.width });
+    // 原方桌的近沿为 1.09734H；整景放大 12%，各横屏比例必须保持同一物理尺寸。
+    check(Math.abs(initial.nearWidth / size.height - 1.09734 * 1.12) < .003, 'square table enlarges uniformly by 12% across landscape ratios', { size, widthRatio: initial.nearWidth / size.width });
     check(Math.abs(initial.surface.width / initial.surface.height - 1) < .003, 'physical tabletop stays square rather than a squeezed long table', {size, surface:initial.surface});
     check(Math.abs(Number(initial.tableTransform.slice(9,-1).split(',')[0])-1)<.0001, 'table projection has no horizontal scale compression', {size,transform:initial.tableTransform});
     check(initial.outsideFrame.length===0 && initial.rackWallOverlaps.length===0, 'reanchored hands and walls fit the square frame without obstruction', {size,outside:initial.outsideFrame,overlaps:initial.rackWallOverlaps});
     check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side concealed hands restore the flat pre-first-person tile model', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
-    check(initial.tableDepth / size.height >= .54 && initial.tableDepth / size.height <= .66, 'projected table depth occupies approximately 55%–65% of screen', { size, depthRatio: initial.tableDepth / size.height });
+    check(Math.abs(initial.tableDepth / size.height - .646 * 1.12) < .003, 'projected table depth scales by the same 12% as its width', { size, depthRatio: initial.tableDepth / size.height });
     check(initial.farTile && initial.farTile.height < initial.hand[0].height * .7, 'far hand is clearly smaller than the local hand', { size, far: initial.farTile, near: initial.hand[0] });
     check(initial.hud.every(node => !node.inTableProjection), 'labels and operation HUD stay outside the table projection', { size, hud: initial.hud });
     await screenshot(page, size, 'normal');

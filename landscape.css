@@ -363,14 +363,16 @@ html.in-game .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2)
 /* A seated player's view: the whole physical table shares one camera, while
    the local standing hand and HUD keep their own screen-space hit targets. */
 html.in-game #game.is-landscape {
-  /* 轻微坐席透视：桌面倾斜 46°、焦距 1.8H；本家手牌保持屏幕平面。 */
-  --board-size:calc(var(--stage-height) * .70);
-  --board-height:calc(var(--stage-height) * .90);
+  /* 轻微坐席透视：桌面倾斜 46°、基础焦距 1.8H；本家手牌保持屏幕平面。 */
+  /* 桌框、桌上牌列与透视距离同步等比增大，避免只拉宽桌子或改变牌面比例。 */
+  --table-scene-scale:1.12;
+  --board-size:calc(var(--stage-height) * .70 * var(--table-scene-scale));
+  --board-height:calc(var(--stage-height) * .90 * var(--table-scene-scale));
   --table-unit:calc(var(--board-size) / 70);
   --table-depth-unit:calc(var(--board-height) / 70);
   /* 实物桌框为正方形；重排桌内区域，不横向压缩牌或整个场景。 */
   --table-surface-width:var(--board-height);
-  --table-view-distance:calc(var(--stage-height) * 1.8);
+  --table-view-distance:calc(var(--stage-height) * 1.8 * var(--table-scene-scale));
   --table-view-tilt:46deg;
   --side-river-scale:1.44;
   --rack-width:calc(var(--stage-width) * .66);
@@ -404,8 +406,8 @@ html.in-game #game.is-landscape {
 #game.is-landscape::after { content:none; }
 
 #game.is-landscape .table {
-  /* 投影中心为 (50%W,52%H)，远沿25.5%H、近沿90.1%H。 */
-  top:calc(var(--stage-height) * .07);
+  /* 投影中心为 (50%W,52%H)，放大后远沿22.3%H、近沿94.7%H。 */
+  top:calc(var(--stage-height) * .52 - var(--board-height) / 2);
   left:calc(50% - var(--board-size) / 2);
   width:var(--board-size);
   height:var(--board-height);
