@@ -86,9 +86,12 @@ async function createPlayer(size) {
 
 async function geometry(page) {
   return page.evaluate(() => {
+    const boxes = new WeakMap();
     const rect = node => {
+      if (boxes.has(node)) return boxes.get(node);
       const r = node.getBoundingClientRect();
-      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, quad:window.visualGeometry.quad(node) };
+      const result = { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, quad:window.visualGeometry.quad(node) };
+      boxes.set(node,result); return result;
     };
     const visible = node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden';
     const list = selector => [...document.querySelectorAll(selector)].filter(visible).map((node, index) => ({ id: node.id || `${selector}[${index}]`, ...rect(node) }));
@@ -108,6 +111,18 @@ async function geometry(page) {
     const left = parseFloat(surface.left), top = parseFloat(surface.top);
     const width = parseFloat(surface.width), height = parseFloat(surface.height);
     const corners = [point(left, top), point(left + width, top), point(left + width, top + height), point(left, top + height)];
+    const tableContents = list('.table .river .tile,.opponent-rack .tile,.opponent-rack .back,#wall-tail .wall-piece:not(.is-empty)');
+    const insideFrame = p => corners.every((a,index)=>{
+      const b=corners[(index+1)%4];
+      return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
+    });
+    const outsideFrame = tableContents.filter(tile=>!tile.quad.every(insideFrame)).map(tile=>tile.id);
+    const rackWallOverlaps = [];
+    const rackFaces = list('.opponent-rack .tile,.opponent-rack .back');
+    const wallFaces = list('#wall-tail .wall-piece:not(.is-empty)');
+    for(const rack of rackFaces) for(const wall of wallFaces) {
+      if(window.visualGeometry.intersects(rack.quad,wall.quad)) rackWallOverlaps.push(`${rack.id}/${wall.id}`);
+    }
     const hand = [...document.querySelectorAll('#hand button')].map(node => {
       const r = rect(node);
       const hits = [];
@@ -137,7 +152,7 @@ async function geometry(page) {
       stage: rect(stage), table: rect(table), corners, tableTransform: style.transform, tableOrigin: style.transformOrigin,
       surface: { left, top, width, height }, nearWidth: corners[2].x - corners[3].x, farWidth: corners[1].x - corners[0].x,
       tableDepth: (corners[2].y + corners[3].y - corners[0].y - corners[1].y) / 2,
-      hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud,
+      hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, rackWallOverlaps,
       farTile: back ? rect(back) : null, hint: visible(panel) ? rect(panel) : null,
       scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
       canvasScroll: [stage.scrollLeft, stage.scrollTop],
@@ -160,8 +175,10 @@ try {
     const names = room.seats.map(seat => seat.name);
     await publish(actionFixture({ names, hand: [...scattered, 24] }));
     const initial = await geometry(page);
-    check(initial.nearWidth / size.width >= .78 && initial.nearWidth / size.width <= 1.01, 'narrower near rail fits the main landscape ratios', { size, widthRatio: initial.nearWidth / size.width });
-    check(Math.abs(initial.surface.width / initial.surface.height - 1.45 / .9) < .003, 'table keeps one physical aspect ratio instead of stretching with screen width', {size, surface:initial.surface});
+    check(initial.nearWidth / size.width >= .47 && initial.nearWidth / size.width <= .65, 'square table leaves natural space beside its near rail across landscape ratios', { size, widthRatio: initial.nearWidth / size.width });
+    check(Math.abs(initial.surface.width / initial.surface.height - 1) < .003, 'physical tabletop stays square rather than a squeezed long table', {size, surface:initial.surface});
+    check(Math.abs(Number(initial.tableTransform.slice(9,-1).split(',')[0])-1)<.0001, 'table projection has no horizontal scale compression', {size,transform:initial.tableTransform});
+    check(initial.outsideFrame.length===0 && initial.rackWallOverlaps.length===0, 'reanchored hands and walls fit the square frame without obstruction', {size,outside:initial.outsideFrame,overlaps:initial.rackWallOverlaps});
     check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side concealed hands restore the flat pre-first-person tile model', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
     check(initial.tableDepth / size.height >= .54 && initial.tableDepth / size.height <= .66, 'projected table depth occupies approximately 55%–65% of screen', { size, depthRatio: initial.tableDepth / size.height });
@@ -213,6 +230,7 @@ try {
       }));
       check(order, 'all four rivers restore chronological row-major grids and flat tile rotation', {size,scenario});
       check(data.riverOverlaps.length === 0, 'full rivers avoid other tiles, controls and player information', { size, scenario, overlaps: data.riverOverlaps });
+      check(data.outsideFrame.length===0 && data.rackWallOverlaps.length===0, 'maximum racks and full rivers remain within the physical square frame', {size,scenario,outside:data.outsideFrame,overlaps:data.rackWallOverlaps});
       check(data.scroll[0] <= size.width + 1 && data.scroll[1] <= size.height + 1, 'full table creates no page scrolling', { size, scenario, scroll: data.scroll });
       report.geometry.push({ size, scenario, ...data });
       await screenshot(page, size, scenario);

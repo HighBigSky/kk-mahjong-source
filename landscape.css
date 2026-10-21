@@ -195,7 +195,7 @@ html.in-game #game.is-landscape {
   --river-columns:9;
   --river-rows:4;
   --river-gap:0px;
-  --river-zone-width:calc(var(--board-size) * .6);
+  --river-zone-width:calc(var(--board-size) * .38);
   --river-zone-height:calc(var(--table-depth-unit) * 14.5);
   --river-cell-width-factor:1;
   --river-cell-height-factor:calc(5 / 7);
@@ -215,7 +215,7 @@ html.in-game #game.is-landscape {
   place-items:center;
 }
 /* 每家固定 36 格。格子按牌身的实际显示宽高紧密排列，不再均分空白区域。 */
-#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:20%; width:var(--river-zone-width); height:var(--river-zone-height); }
+#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:31%; width:var(--river-zone-width); height:var(--river-zone-height); }
 #game.is-landscape .table .river-top { --river-tile-turn:180deg; }
 #game.is-landscape .table .river-bottom { bottom:auto; }
 /* 张数仍可由无障碍标签与出牌记录读取，不在桌内挤占格子。 */
@@ -233,8 +233,8 @@ html.in-game #game.is-landscape {
   transform-origin:center;
 }
 #game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:4; --river-rows:9; --river-zone-width:calc(var(--table-unit) * 13); --river-zone-height:calc(var(--table-depth-unit) * 26); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:calc(1 / var(--side-river-scale)); top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
-#game.is-landscape .table .river-left { left:0; --river-tile-turn:90deg; }
-#game.is-landscape .table .river-right { right:0; --river-tile-turn:-90deg; }
+#game.is-landscape .table .river-left { left:calc(var(--table-unit) * 8); --river-tile-turn:90deg; }
+#game.is-landscape .table .river-right { right:calc(var(--table-unit) * 8); --river-tile-turn:-90deg; }
 /* 用桌面平面内的比例补偿改善侧河俯视压扁，牌身仍在绒布上方，不穿入桌面。 */
 #game.is-landscape .table :is(.river-left,.river-right) .tile { transform:scaleY(var(--side-river-scale)) rotate(var(--river-tile-turn)); }
 .is-landscape .table-dice { gap:calc(var(--table-unit) * 1); }
@@ -364,12 +364,12 @@ html.in-game .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2)
    the local standing hand and HUD keep their own screen-space hit targets. */
 html.in-game #game.is-landscape {
   /* 轻微坐席透视：桌面倾斜 46°、焦距 1.8H；本家手牌保持屏幕平面。 */
-  --board-size:calc(var(--stage-height) * .94);
+  --board-size:calc(var(--stage-height) * .70);
   --board-height:calc(var(--stage-height) * .90);
   --table-unit:calc(var(--board-size) / 70);
   --table-depth-unit:calc(var(--board-height) / 70);
-  /* 木框宽随桌面进深等比缩放，宽屏不再横向撑开桌面。 */
-  --table-surface-width:calc(var(--stage-height) * 1.45);
+  /* 实物桌框为正方形；重排桌内区域，不横向压缩牌或整个场景。 */
+  --table-surface-width:var(--board-height);
   --table-view-distance:calc(var(--stage-height) * 1.8);
   --table-view-tilt:46deg;
   --side-river-scale:1.44;
@@ -432,7 +432,7 @@ html.in-game #game.is-landscape {
   border:1px solid #c69c6370;
   border-radius:calc(var(--ui-unit) * 5);
   background:
-    url("assets/table-wood-frame.svg") center / 100% 100% no-repeat,
+    url("assets/table-square-frame.svg") center / contain no-repeat,
     repeating-linear-gradient(28deg,#d9ebcd04 0 1px,transparent 1px 3px),
     repeating-linear-gradient(118deg,#002c2509 0 1px,transparent 1px 4px),
     radial-gradient(ellipse at 50% 42%,#38775d,#1b5543 48%,#0a3027);
@@ -472,10 +472,10 @@ html.in-game #game.is-landscape {
   --public-tile-width:min(calc(var(--table-unit) * 3),calc(var(--table-unit) * 39 / max(14,calc(var(--concealed-count) + var(--special-count) + var(--meld-count) * 4))));
   --public-tile-height:calc(var(--public-tile-width) * 1.4);
 }
-#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--stage-width) * .34); }
-#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--stage-width) * .34); }
-#game.is-landscape .table .wall-stack[data-side="left"] { left:calc(50% - var(--table-surface-width) * .37); }
-#game.is-landscape .table .wall-stack[data-side="right"] { right:calc(50% - var(--table-surface-width) * .37); }
+#game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--table-surface-width) * .43); }
+#game.is-landscape .table .opponent-rack-right { right:calc(50% - var(--table-surface-width) * .43); }
+#game.is-landscape .table .wall-stack[data-side="left"] { left:calc(50% - var(--table-surface-width) * .35); }
+#game.is-landscape .table .wall-stack[data-side="right"] { right:calc(50% - var(--table-surface-width) * .35); }
 #game.is-landscape .table .wall-stack[data-side="bottom"] {
   display:block;
   top:calc(var(--table-depth-unit) * 57.4);

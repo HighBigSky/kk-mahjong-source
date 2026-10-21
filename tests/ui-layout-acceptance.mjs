@@ -82,8 +82,12 @@ async function measure(page, screen, scenario) {
   await page.setViewportSize({ width: screen.width, height: screen.height }); await frames(page);
   await page.evaluate(() => window.renderMahjong()); await frames(page);
   const data = await page.evaluate(() => {
+    const boxes = new WeakMap();
     const box = element => {
-      const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, quad:window.visualGeometry.quad(element) };
+      if (boxes.has(element)) return boxes.get(element);
+      const r = element.getBoundingClientRect();
+      const result = { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, quad:window.visualGeometry.quad(element) };
+      boxes.set(element,result); return result;
     };
     const visible = element => element.getClientRects().length && getComputedStyle(element).display !== 'none' && getComputedStyle(element).visibility !== 'hidden';
     const collect = selector => [...document.querySelectorAll(selector)].filter(visible).map((element, index) => ({ id: element.id || `${selector}[${index}]`, ...box(element) }));

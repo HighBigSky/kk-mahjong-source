@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+  <title>方形麻将桌木框：四边等宽、斜接桌角与近端倒角</title>
+  <defs>
+    <linearGradient id="left" x2="1" y2=".12">
+      <stop stop-color="#281710"/><stop offset=".12" stop-color="#59351f"/>
+      <stop offset=".44" stop-color="#805431"/><stop offset=".7" stop-color="#a57548"/>
+      <stop offset=".87" stop-color="#654025"/><stop offset="1" stop-color="#342218"/>
+    </linearGradient>
+    <linearGradient id="right" x1="1" x2="0" y2=".12">
+      <stop stop-color="#24160f"/><stop offset=".12" stop-color="#4a2c1b"/>
+      <stop offset=".44" stop-color="#704629"/><stop offset=".7" stop-color="#93613b"/>
+      <stop offset=".87" stop-color="#57351f"/><stop offset="1" stop-color="#302017"/>
+    </linearGradient>
+    <linearGradient id="far" x2="0" y2="1">
+      <stop stop-color="#322015"/><stop offset=".23" stop-color="#ae8151"/>
+      <stop offset=".48" stop-color="#7a5030"/><stop offset=".8" stop-color="#56351f"/>
+      <stop offset="1" stop-color="#c19660"/>
+    </linearGradient>
+    <linearGradient id="near" x2="0" y2="1">
+      <stop stop-color="#c09662"/><stop offset=".18" stop-color="#936239"/>
+      <stop offset=".47" stop-color="#72472b"/><stop offset=".6" stop-color="#4e301e"/>
+      <stop offset=".72" stop-color="#6b4429"/><stop offset="1" stop-color="#25180f"/>
+    </linearGradient>
+    <pattern id="grain" width="58" height="500" patternUnits="userSpaceOnUse">
+      <g fill="none" stroke-linecap="round">
+        <path d="M2-10C18 83-8 126 5 222S-2 388 8 510M11-10C24 91 5 172 14 257S7 418 18 510" stroke="#2b170e" stroke-width="1.3" opacity=".38"/>
+        <path d="M16-10C30 77 14 150 23 235S12 391 25 510M29-10C41 116 18 164 32 286S23 428 36 510" stroke="#d0a16a" stroke-width=".8" opacity=".3"/>
+        <path d="M22-10C36 96 20 161 28 245S18 419 31 510M39-10C47 100 33 194 44 283S33 422 46 510M51-10C62 111 45 192 54 308S47 447 57 510" stroke="#301b10" stroke-width="1" opacity=".28"/>
+        <path d="M36-10C51 96 32 193 40 270S32 417 43 510M48-10C58 115 42 185 49 276S41 421 53 510" stroke="#d6ac76" stroke-width=".6" opacity=".23"/>
+        <path d="M9 148C-4 169-1 211 8 232C17 208 18 170 9 148ZM9 163C3 179 3 204 8 217C13 200 14 181 9 163Z" stroke="#3c2517" stroke-width=".7" opacity=".26"/>
+      </g>
+    </pattern>
+    <pattern id="across" href="#grain" patternTransform="rotate(90)"/>
+    <clipPath id="frame">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M32 0H968Q1000 0 1000 32V968Q1000 1000 968 1000H32Q0 1000 0 968V32Q0 0 32 0ZM66 42H934Q958 42 958 66V934Q958 958 934 958H66Q42 958 42 934V66Q42 42 66 42Z"/>
+    </clipPath>
+    <filter id="pores" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".18 .035" numOctaves="2" seed="17"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <g clip-path="url(#frame)">
+    <path d="M0 0 42 42V958L0 1000Z" fill="url(#left)"/>
+    <path d="M1000 0 958 42V958L1000 1000Z" fill="url(#right)"/>
+    <path d="M0 0H1000L958 42H42Z" fill="url(#far)"/>
+    <path d="M0 1000 42 958H958L1000 1000Z" fill="url(#near)"/>
+    <path d="M0 0 42 42V958L0 1000ZM1000 0 958 42V958L1000 1000Z" fill="url(#grain)"/>
+    <path d="M0 0H1000L958 42H42ZM0 1000 42 958H958L1000 1000Z" fill="url(#across)" opacity=".7"/>
+    <rect width="1000" height="1000" filter="url(#pores)" opacity=".09" style="mix-blend-mode:soft-light"/>
+    <path d="M0 0 42 42M1000 0 958 42M0 1000 42 958M1000 1000 958 958" fill="none" stroke="#26170e" stroke-width="1.3"/>
+    <path d="M66 42H934Q958 42 958 66V934Q958 958 934 958H66Q42 958 42 934V66Q42 42 66 42Z" fill="none" stroke="#172016" stroke-width="7" opacity=".7"/>
+    <path d="M66 42H934Q958 42 958 66V934Q958 958 934 958H66Q42 958 42 934V66Q42 42 66 42Z" fill="none" stroke="#dbb87c" stroke-width="2" opacity=".75"/>
+    <path d="M17 30V970M983 30V970M30 10H970" fill="none" stroke="#dbad72" stroke-width="1.4" opacity=".42"/>
+    <path d="M8 984H992V1000H8Z" fill="#26190f" opacity=".56"/>
+    <path d="M8 984H992" stroke="#d5a367" stroke-width="1.2" opacity=".4"/>
+  </g>
+</svg>
