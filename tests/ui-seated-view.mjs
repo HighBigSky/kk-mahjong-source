@@ -7,6 +7,7 @@ import { createServer } from '../server.js';
 import { RoomService } from '../src/server/rooms.js';
 import { assertInvariants } from '../src/domain/invariants.js';
 import { actionFixture, scattered, maximumPublicFixture, maximumSpecialHandFixture } from './pizi-fixtures.mjs';
+import { installVisualGeometry } from './browser-geometry.mjs';
 
 let playwright;
 try { playwright = createRequire(import.meta.url)('playwright'); }
@@ -49,6 +50,7 @@ async function createPlayer(size) {
     if (screen.orientation) Object.defineProperty(screen.orientation, 'lock', { configurable: true, value: () => Promise.reject(new DOMException('Viewport test', 'NotSupportedError')) });
   });
   const page = await context.newPage();
+  await page.addInitScript(installVisualGeometry);
   page.on('pageerror', error => report.errors.push(error.message));
   let sent = [];
   page.on('request', request => {
@@ -86,7 +88,7 @@ async function geometry(page) {
   return page.evaluate(() => {
     const rect = node => {
       const r = node.getBoundingClientRect();
-      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, quad:window.visualGeometry.quad(node) };
     };
     const visible = node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden';
     const list = selector => [...document.querySelectorAll(selector)].filter(visible).map((node, index) => ({ id: node.id || `${selector}[${index}]`, ...rect(node) }));
@@ -112,7 +114,7 @@ async function geometry(page) {
       for (const x of [.25, .5, .75]) for (const y of [.25, .5, .75]) hits.push(document.elementFromPoint(r.left + r.width * x, r.top + r.height * y)?.closest('#hand button') === node);
       return { index: Number(node.dataset.index), ...r, transform: getComputedStyle(node).transform, hits: hits.filter(Boolean).length, centerHit: hits[4] };
     });
-    const overlap = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > .7 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > .7;
+    const overlap = (a, b) => window.visualGeometry.intersects(a.quad,b.quad);
     const rivers = [0, 1, 2, 3].map(seat => ({
       seat, box: rect(document.querySelector(`#river-${seat}`)), tiles: list(`#river-${seat} .tile`),
     }));

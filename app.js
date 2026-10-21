@@ -655,9 +655,11 @@ function settleDiscardFocus() {
     flight.style.cssText = `left:${x - width / 2}px;top:${y - height / 2}px;width:${width}px;height:${height}px`;
     $('.table').append(flight);
     discardFlights.add(flight);
+    // 缩回与原侧河共用平面比例补偿，避免动画结束时牌面再次压扁。
+    const facing = Math.abs(angle) === 90 ? 'scaleY(var(--side-river-scale)) ' : '';
     const animation = flight.animate([
-      {transform:`rotate(${angle}deg) scale(${scale})`, opacity:1},
-      {transform:`rotate(${angle}deg) scale(1)`, opacity:0},
+      {transform:`${facing}rotate(${angle}deg) scale(${scale})`, opacity:1},
+      {transform:`${facing}rotate(${angle}deg) scale(1)`, opacity:0},
     ], {duration:260, easing:'cubic-bezier(.22,.65,.25,1)', fill:'forwards'});
     const remove = () => { flight.remove(); discardFlights.delete(flight); };
     animation.finished.then(remove, remove);

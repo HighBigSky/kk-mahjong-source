@@ -194,14 +194,16 @@ html.in-game #game.is-landscape {
   cursor:pointer;
   --river-columns:9;
   --river-rows:4;
-  --river-gap:calc(var(--table-unit) * .25);
+  --river-gap:0px;
+  --river-zone-width:calc(var(--board-size) * .6);
+  --river-zone-height:calc(var(--table-depth-unit) * 14.5);
   --river-cell-width-factor:1;
   --river-cell-height-factor:calc(5 / 7);
-  --river-tile-width:min(calc((100cqw - var(--river-gap) * (var(--river-columns) - 1)) / var(--river-columns) * var(--river-cell-width-factor)),calc((100cqh - var(--river-gap) * (var(--river-rows) - 1)) / var(--river-rows) * var(--river-cell-height-factor)));
+  --river-tile-width:min(calc(var(--river-zone-width) / var(--river-columns) * var(--river-cell-width-factor)),calc(var(--river-zone-height) / var(--river-rows) * var(--river-cell-height-factor)));
   --river-tile-turn:0deg;
   container-type:size;
-  grid-template-columns:repeat(var(--river-columns),minmax(0,1fr));
-  grid-template-rows:repeat(var(--river-rows),minmax(0,1fr));
+  grid-template-columns:repeat(var(--river-columns),calc(var(--river-tile-width) / var(--river-cell-width-factor)));
+  grid-template-rows:repeat(var(--river-rows),calc(var(--river-tile-width) / var(--river-cell-height-factor)));
   grid-auto-rows:0;
   gap:var(--river-gap);
   min-width:0;
@@ -209,12 +211,11 @@ html.in-game #game.is-landscape {
   max-height:none;
   overflow:visible;
   padding:0;
-  align-content:stretch;
+  place-content:center;
   place-items:center;
 }
-/* 单家留河至多 27 张，固定 9×4（侧家 4×9）为吃碰杠与补牌留余量。
-   容器尺寸固定，牌宽取格子宽/高可容纳的最小值；增添弃牌不会重新分行。 */
-#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:20%; width:60%; height:calc(var(--table-unit) * 14.5); }
+/* 每家固定 36 格。格子按牌身的实际显示宽高紧密排列，不再均分空白区域。 */
+#game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:20%; width:var(--river-zone-width); height:var(--river-zone-height); }
 #game.is-landscape .table .river-top { --river-tile-turn:180deg; }
 #game.is-landscape .table .river-bottom { bottom:auto; }
 /* 张数仍可由无障碍标签与出牌记录读取，不在桌内挤占格子。 */
@@ -231,9 +232,11 @@ html.in-game #game.is-landscape {
   transform:rotate(var(--river-tile-turn));
   transform-origin:center;
 }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:4; --river-rows:9; --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:calc(var(--table-unit) * 13); height:calc(var(--table-unit) * 26); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:4; --river-rows:9; --river-zone-width:calc(var(--table-unit) * 13); --river-zone-height:calc(var(--table-depth-unit) * 26); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:calc(1 / var(--side-river-scale)); top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
 #game.is-landscape .table .river-left { left:0; --river-tile-turn:90deg; }
 #game.is-landscape .table .river-right { right:0; --river-tile-turn:-90deg; }
+/* 用桌面平面内的比例补偿改善侧河俯视压扁，牌身仍在绒布上方，不穿入桌面。 */
+#game.is-landscape .table :is(.river-left,.river-right) .tile { transform:scaleY(var(--side-river-scale)) rotate(var(--river-tile-turn)); }
 .is-landscape .table-dice { gap:calc(var(--table-unit) * 1); }
 .is-landscape .table-die {
   width:calc(var(--table-unit) * 5.2);
@@ -369,6 +372,7 @@ html.in-game #game.is-landscape {
   --table-surface-width:calc(var(--stage-height) * 1.45);
   --table-view-distance:calc(var(--stage-height) * 1.8);
   --table-view-tilt:46deg;
+  --side-river-scale:1.44;
   --rack-width:calc(var(--stage-width) * .66);
   --base-hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--ui-unit) * 8) / 14));
   --hand-width:var(--base-hand-width);
@@ -494,14 +498,13 @@ html.in-game #game.is-landscape {
 
 /* 手牌与牌河回到 da7e460 的平面牌列及顺序填格；桌面相机、材质和牌墙保持现状。 */
 #game.is-landscape .table .river-top,
-#game.is-landscape .table .river-bottom { height:calc(var(--table-depth-unit) * 14.5); }
+#game.is-landscape .table .river-bottom { height:var(--river-zone-height); }
 #game.is-landscape .table .river-top { top:calc(var(--table-depth-unit) * 10.3); }
 #game.is-landscape .table .river-bottom { top:calc(var(--table-depth-unit) * 42); }
 #game.is-landscape .table .river-left,
 #game.is-landscape .table .river-right {
   top:calc(var(--table-depth-unit) * 26);
-  height:calc(var(--table-depth-unit) * 26);
-  --river-gap:calc(var(--table-unit) * .7);
+  height:var(--river-zone-height);
 }
 #game.is-landscape .table .wall-stack[data-side="top"] { top:calc(var(--table-depth-unit) * 5.4); }
 #game.is-landscape .table .wall-stack[data-side="left"] { top:calc(var(--table-depth-unit) * (11.2 + var(--wall-stack-index) * 2.9)); }
@@ -660,6 +663,7 @@ html.in-game #game.is-landscape {
   user-select:none;
 }
 .is-landscape .discard-focus-tile { display:block; width:100%; height:100%; }
+.is-landscape .discard-focus:is([data-player="1"],[data-player="3"]) { transform:translate(-50%,-50%) scaleY(var(--side-river-scale)) rotate(var(--discard-turn,0deg)); }
 #game.is-landscape .discard-focus .tile,
 #game.is-landscape .discard-flight {
   --tile-depth:calc(var(--table-unit) * .42);

@@ -7,6 +7,7 @@ import { createServer } from '../server.js';
 import { RoomService } from '../src/server/rooms.js';
 import { MahjongGame } from '../engine.js';
 import { maximumPublicFixture, maximumSpecialHandFixture } from './pizi-fixtures.mjs';
+import { installVisualGeometry } from './browser-geometry.mjs';
 
 let playwright;
 try { playwright = createRequire(import.meta.url)('playwright'); }
@@ -48,6 +49,7 @@ async function player(mobile) {
     Object.defineProperty(Element.prototype, 'requestFullscreen', { configurable: true, value: () => Promise.reject(new DOMException('Browser test', 'NotSupportedError')) });
   });
   const page = await context.newPage();
+  await page.addInitScript(installVisualGeometry);
   page.on('pageerror', error => report.errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') report.errors.push(message.text()); });
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' }); await page.locator('#room-dialog[open]').waitFor();
@@ -81,15 +83,19 @@ async function measure(page, screen, scenario) {
   await page.evaluate(() => window.renderMahjong()); await frames(page);
   const data = await page.evaluate(() => {
     const box = element => {
-      const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+      const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, quad:window.visualGeometry.quad(element) };
     };
     const visible = element => element.getClientRects().length && getComputedStyle(element).display !== 'none' && getComputedStyle(element).visibility !== 'hidden';
     const collect = selector => [...document.querySelectorAll(selector)].filter(visible).map((element, index) => ({ id: element.id || `${selector}[${index}]`, ...box(element) }));
-    const hit = (a, b) => a.right > b.left + .4 && b.right > a.left + .4 && a.bottom > b.top + .4 && b.bottom > a.top + .4;
+    const hit = (a, b) => window.visualGeometry.intersects(a.quad,b.quad);
     const rivers = [0, 1, 2, 3].map(seat => {
       const river = document.querySelector(`#river-${seat}`);
+      const tiles = collect(`#river-${seat} .tile`), columns = seat % 2 ? 4 : 9;
+      const contact = (a,b) => Math.min(...a.quad.flatMap(p=>b.quad.map(q=>Math.hypot(p.x-q.x,p.y-q.y))));
+      const contacts = tiles.flatMap((tile,index)=>[index % columns < columns-1 ? tiles[index+1] : null,tiles[index+columns]].filter(Boolean).map(other=>contact(tile,other)));
+      const edge = (q,a,b) => Math.hypot(q[a].x-q[b].x,q[a].y-q[b].y);
       return {
-        seat, tiles: collect(`#river-${seat} .tile`), box: box(river), clientWidth: river.clientWidth, clientHeight: river.clientHeight,
+        seat, tiles, box: box(river), gap:getComputedStyle(river).gap, maxJointGap:Math.max(...contacts), sideAspects:seat%2?tiles.map(tile=>(edge(tile.quad,0,3)+edge(tile.quad,1,2))/(edge(tile.quad,0,1)+edge(tile.quad,2,3))):[], clientWidth: river.clientWidth, clientHeight: river.clientHeight,
         scrollWidth: river.scrollWidth, scrollHeight: river.scrollHeight, overflow: getComputedStyle(river).overflow,
       };
     });
@@ -137,6 +143,8 @@ async function measure(page, screen, scenario) {
   check(data.stage.width + 1 >= data.stage.height * 16 / 9, 'single landscape canvas stays at least 16:9', detail);
   check(Math.abs(data.stage.width - screen.width) <= 1 && Math.abs(data.stage.height - Math.min(screen.height, screen.width * 9 / 16)) <= 1, 'canvas fills landscape viewport and centers in taller windows', { ...detail, stage: data.stage });
   check(data.rivers.every(river => river.tiles.length === capacity), 'all 36 physical river tiles render without truncation', { ...detail, counts: data.rivers.map(river => river.tiles.length) });
+  check(data.rivers.every(river=>river.gap==='0px' && river.maxJointGap<.25), 'all river tiles touch adjacent cells without artificial gaps', {...detail,joints:data.rivers.map(river=>({seat:river.seat,gap:river.gap,max:river.maxJointGap}))});
+  check(data.rivers.filter(river=>river.seat%2).every(river=>river.sideAspects.every(ratio=>ratio>=1.2&&ratio<=1.7)), 'side faces retain a readable proportion instead of a flattened strip', {...detail,ratios:data.rivers.filter(river=>river.seat%2).map(river=>river.sideAspects)});
   check(data.rivers.every(river => river.tiles.every(tile => tile.width > 0 && tile.height > 0 && inside(tile, river.box) && inside(tile, data.table) && inside(tile, viewport))), 'every river tile remains fully in its container, on table and in viewport', detail);
   // Transformed decorative descendants may extend scrollHeight by a pixel or
   // two even with visible overflow. Test actual scrollbars and tile containment.
@@ -171,14 +179,16 @@ async function stability(page, screen, seat) {
     await Promise.all(document.querySelector('#discard-focus').getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
     const expanded = !document.querySelector('#discard-focus').hidden;
     const focusRect = document.querySelector('#discard-focus .tile').getBoundingClientRect();
+    const focusQuad = window.visualGeometry.quad(document.querySelector('#discard-focus .tile'));
     const focusAspect = focusRect.width / focusRect.height;
     const targetRect = document.querySelector(`#river-${seat}`).children[index].getBoundingClientRect();
     const targetAspect = targetRect.width / targetRect.height;
     const flatFocus = new DOMMatrix(getComputedStyle(document.querySelector('#discard-focus')).transform).is2D;
-    const focusNeighborOverlaps = [...document.querySelectorAll('.river .tile')].filter(node => node !== document.querySelector(`#river-${seat}`).children[index]).map(node => {
+    const focusNeighborOverlaps = [...document.querySelectorAll('.river .tile')].filter(node => node !== document.querySelector(`#river-${seat}`).children[index]).flatMap(node => {
+      if (!window.visualGeometry.intersects(focusQuad,window.visualGeometry.quad(node))) return [];
       const r = node.getBoundingClientRect();
-      return { seat: node.parentElement.id, width: Math.min(r.right, focusRect.right) - Math.max(r.left, focusRect.left), height: Math.min(r.bottom, focusRect.bottom) - Math.max(r.top, focusRect.top) };
-    }).filter(overlap => overlap.width > .4 && overlap.height > .4);
+      return [{ seat: node.parentElement.id, width: Math.min(r.right, focusRect.right) - Math.max(r.left, focusRect.left), height: Math.min(r.bottom, focusRect.bottom) - Math.max(r.top, focusRect.top) }];
+    });
     window.mahjongRoom.room.version++;
     game.pendingDiscard = null; game.phase = { kind: 'discard', seat: 1 }; window.renderMahjong();
     await Promise.all([...document.querySelectorAll('.discard-flight')].flatMap(node => node.getAnimations()).map(animation => animation.finished.catch(() => {})));
