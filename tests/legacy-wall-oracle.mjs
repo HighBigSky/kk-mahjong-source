@@ -14,6 +14,7 @@ export const authorizedWallChanges = Object.freeze([
   'An ordinary hand without chi, peng, exposed or added kong may win only by self draw; seven pairs, all triplets, all numbered 2/5/8 tiles, and all honors may still claim a winning discard while closed.',
   'AI and hints evaluate actual public groups, all four big-win distances, and legal ready draws; held red/indicator tiles are never ready, and opened hands may discard surplus wildcards. The frozen natural-shape scoring gate and all scoring values stay unchanged.',
   '2026-10-20 authorized scoring: single red/indicator gangs charge each other player 10 immediately; replacement self-draw adds 10; ordinary discard wins charge one player one share, big wins charge all three; drawn rounds retain gang deltas.',
+  '2026-10-21 authorized claim restriction: wild tiles cannot be claimed by chi/peng or consumed as concealed chi partners; red and indicator claim restrictions stay in force.',
 ]);
 
 const bytes = await readFile(new URL('./fixtures/engine-before-domain.js', import.meta.url));
@@ -134,7 +135,9 @@ replaceOnce('    if (tile === 31) return actions;',
 replaceOnce('canWin([...seat.hand, tile], seat.melds.length, this.wildTile)',
   'canWin([...seat.hand, tile], seat.melds.length, this.wildTile, this.indicatorTile)', 'claim win special restriction');
 replaceOnce('if (needed.every(value => counts[value] > 0)) actions.chi.push(sequence);',
-  'if (!sequence.includes(this.indicatorTile) && needed.every(value => counts[value] > 0)) actions.chi.push(sequence);', 'chi cannot consume indicator');
+  'if (!sequence.includes(this.indicatorTile) && !sequence.includes(this.wildTile) && needed.every(value => counts[value] > 0)) actions.chi.push(sequence);', 'chi cannot use indicator or wild faces');
+replaceOnce('actions.peng = counts[tile] >= 2;',
+  'actions.peng = tile !== this.wildTile && counts[tile] >= 2;', 'wild cannot be claimed by peng');
 replaceOnce('canWin(seat.hand, seat.melds.length, this.wildTile)',
   'canWin(seat.hand, seat.melds.length, this.wildTile, this.indicatorTile)', 'self-draw win special restriction');
 replaceOnce('      actions.redGang = counts[31] > 0;',

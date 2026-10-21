@@ -583,14 +583,15 @@ export class MahjongGame {
     if (!counts) return actions;
     actions.hu = canWin([...seat.hand, tile], seat.melds, this.wildTile, this.indicatorTile, false);
     if (seat.melds.length < 4) {
-      actions.peng = counts[tile] >= 2;
+      // 癞子不能按原牌面吃碰，也不能作为手中搭子参与吃；杠和胡沿用各自规则。
+      actions.peng = tile !== this.wildTile && counts[tile] >= 2;
       actions.gang = counts[tile] >= 3 && this.wall.length > 0;
-      if (player === (this.pendingDiscard.from + 1) % 4 && isNumbered(tile)) {
+      if (tile !== this.wildTile && player === (this.pendingDiscard.from + 1) % 4 && isNumbered(tile)) {
         for (let start = tile - 2; start <= tile; start++) {
           if (start < TILE.MAN || suitOf(start) !== suitOf(tile) || rankOf(start) > MAX_SEQUENCE_START_RANK) continue;
           const sequence = [start, start + 1, start + 2];
           const needed = sequence.filter(value => value !== tile);
-          if (needed.every(value => counts[value] > 0 && !isSpecialGangTile(value, this.indicatorTile))) actions.chi.push(sequence);
+          if (needed.every(value => value !== this.wildTile && counts[value] > 0 && !isSpecialGangTile(value, this.indicatorTile))) actions.chi.push(sequence);
         }
       }
     }

@@ -7,7 +7,8 @@ import { TILE, RED_DRAGON } from '../src/domain/tile.js';
 // four real copies, but they are not claimed to be naturally dealt whole games.
 export const scattered = [0, 2, 4, 6, 8, 9, 11, 13, 15, 17, 18, 20, 22];
 
-export function actionFixture({seat = 0, hand = [...scattered.slice(0, 12), RED_DRAGON, TILE.WHITE], melds = [], discard = null, names, indicator = TILE.WHITE} = {}) {
+// 通用“碰东”场景使用普通东，避免默认白皮/东癞与普通碰牌验收冲突；特殊身份测试显式指定 indicator。
+export function actionFixture({seat = 0, hand = [...scattered.slice(0, 12), RED_DRAGON, TILE.WHITE], melds = [], discard = null, names, indicator = discard === TILE.EAST ? TILE.GREEN : TILE.WHITE} = {}) {
   const game = new MahjongGame({seed:'wall-candidate-21', laizi:true, names});
   assert.equal(game.indicatorTile, TILE.WHITE);
   game.indicatorTile = indicator;
