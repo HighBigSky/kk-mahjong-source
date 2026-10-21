@@ -658,6 +658,17 @@ html.in-game #game.is-landscape {
 .is-landscape .dice-intro-note { font-size:calc(var(--ui-unit) * 2.6); }
 .is-landscape .dice-intro small { font-size:calc(var(--ui-unit) * 2); }
 
+/* 开局重放使用独立屏幕层；落点取真实 DOM，不推动手牌或牌墙重新排版。 */
+.is-landscape.is-opening-deal :is(#hand,.opponent-rack,.my-melds,.action-zone,#play-assist) { visibility:hidden; pointer-events:none; }
+.opening-deal { position:absolute; inset:0; z-index:8; pointer-events:none; overflow:clip; }
+.opening-deal[hidden] { display:none; }
+.deal-flight,.deal-source { position:absolute; margin:0; transform-origin:0 0; pointer-events:none; }
+.deal-flight { z-index:2; will-change:transform,opacity; }
+.deal-flight .deal-face { display:block; position:relative; width:100%; height:100%; min-width:0; min-height:0; margin:0; padding:0; transform:none; transition:none; }
+.deal-flight[data-player="0"] .deal-face { --tile-depth:var(--tile-hand-depth); --tile-side:var(--tile-hand-side); border-radius:var(--tile-hand-radius); }
+.deal-cover { position:absolute; inset:0; z-index:3; width:100%; height:100%; margin:0; }
+.deal-source,.deal-cover { border:1px solid #91b74b; border-right-color:#2b5412; border-bottom:2px solid #e6ead6; border-radius:calc(var(--table-unit) * .22); box-shadow:inset 1px 1px 1px #d7f5a573,1px 2px 2px #002e2b9c; }
+
 /* A newly discarded tile grows gently at its real river position. The focus
    shares the table camera and its owner's direction, rather than using a HUD. */
 .discard-focus[hidden] { display:none; }

@@ -10,6 +10,7 @@ import { createRoomFullscreen } from './src/ui/fullscreen.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
 import { createHintCalculator, hintText, specialGangKind, PLAY_TEXT } from './src/ui/play-assist.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
+import { createOpeningDeal, DEAL_TEXT } from './src/ui/opening-deal.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
@@ -68,7 +69,12 @@ let handTap = null;
 let specialGangPending = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
 const tableLabelNodes = new Map();
-const positionOverlays = () => { positionActionNotice(); positionDiscardFocus(); positionTableLabels(); };
+const openingDeal = createOpeningDeal({stage:$('#game'), storage:(()=>{try{return sessionStorage;}catch{return null;}})(),
+  canPlay:()=>$('#dice-intro').hidden && !$('#rotate-guide').open,
+  onLockChange:()=>interactionChanged(),
+  onFinish:()=>requestAnimationFrame(()=>{selected=-1;hinted=-1;handTap=null;render();}),
+});
+const positionOverlays = () => { positionActionNotice(); positionDiscardFocus(); positionTableLabels(); openingDeal.layoutChanged(); };
 const roomOrientation = createRoomOrientation({onLayout:positionOverlays});
 const roomFullscreen = createRoomFullscreen();
 
@@ -236,6 +242,8 @@ function updateRoom() {
 
 function roomChanged() {
   const room = network.room;
+  // 发牌期间只暂缓画面更新，网络与服务端照常推进；结束后一次性绘制最新快照。
+  const retainOpening = openingDeal.retain(room,game,network.status === 'connected');
   roomFullscreen.setInRoom(Boolean(room));
   roomOrientation.setRoomState(room?.status);
   const changedRoom = (room?.code || null) !== previousRoomCode;
@@ -285,7 +293,7 @@ function roomChanged() {
   previousVersion = room?.version ?? -1;
   previousRound = game.round;
   previousStatus = room?.status || 'waiting';
-  updateRoom(); render();
+  updateRoom(); if (!retainOpening) render();
   // 语音在线状态随房间快照同步；本地麦克风状态与服务器状态互相校正。
   for (let index = 0; index < 4; index++) {
     const member = room?.seats[index];
@@ -445,7 +453,7 @@ function syncSettings() {
   $('#sound-btn').setAttribute('aria-pressed', String(preferences.sound));
 }
 
-function humanTurn() { return network.canAct() && !specialGangPending && game.phase.kind === PHASE.DISCARD && game.current === 0; }
+function humanTurn() { return network.canAct() && !specialGangPending && !openingDeal.active && game.phase.kind === PHASE.DISCARD && game.current === 0; }
 function modalOpen() { return Boolean(document.querySelector('dialog[open]')); }
 
 // Keep existing SVG instances mounted when a snapshot has no visual changes.
@@ -459,6 +467,10 @@ function dismissDiceIntro() {
   clearTimeout(diceIntroTimer);
   diceIntroTimer = null;
   $('#dice-intro').hidden = true;
+}
+
+function finishDiceIntro() {
+  dismissDiceIntro(); openingDeal.play(); interactionChanged();
 }
 
 function renderDiceIntro() {
@@ -478,7 +490,7 @@ function renderDiceIntro() {
   setHTMLIfChanged($('#dice-intro-dice'), diceHTML(values));
   $('#dice-intro-note').textContent = `${values[0]} 点 · ${values[1]} 点，取 ${Math.min(...values)} 点翻皮`;
   $('#dice-intro').hidden = false;
-  diceIntroTimer = setTimeout(() => { dismissDiceIntro(); renderTing(); }, 1500);
+  diceIntroTimer = setTimeout(finishDiceIntro, 1500);
 }
 
 function stageRect(element) {
@@ -705,7 +717,7 @@ function renderDiscardFocus() {
 function renderTing() {
   const seat = game.players[0];
   const visibleTiles = [...game.players.flatMap(player => [...player.discards, ...player.redGangs, ...(player.piziGangs || []), ...player.melds.flatMap(meld => meld.tiles)]), ...(game.indicatorTile == null ? [] : [game.indicatorTile])];
-  const eligible = network.status === 'connected' && network.room?.status === 'playing' && !network.room.paused && !network.busy && !specialGangPending && game.phase.kind !== PHASE.DEALING && $('#dice-intro').hidden;
+  const eligible = network.status === 'connected' && network.room?.status === 'playing' && !network.room.paused && !network.busy && !specialGangPending && !openingDeal.active && game.phase.kind !== PHASE.DEALING && $('#dice-intro').hidden;
   hintState = eligible ? calculateHints({hand:seat.hand, melds:seat.melds, wildTile:game.wildTile, indicatorTile:game.indicatorTile, visibleTiles}) : {mode:'none', candidates:[]};
   // 第四张已经打出时仍可接胡，但不能伪称墙内还有该牌。
   const claimTile = eligible && game.phase.kind === PHASE.CLAIM && network.availableActions().hu ? game.pendingDiscard?.tile : null;
@@ -911,6 +923,7 @@ function updateTurnMessage(actions = network.availableActions()) {
   else if (network.status !== 'connected') message = '连接中断，正在重新连接房间…';
   else if (room.paused) message = '有好友离线，对局暂停等待重连';
   else if (game.phase.kind === PHASE.ENDED) message = game.winner === null ? '牌墙已空，本局流局' : game.winner === 0 ? '好牌，胡了！' : `${displayNames[game.winner]}${game.result.selfDraw ? '自摸' : '胡牌'}，下局再来`;
+  else if (openingDeal.active) message = DEAL_TEXT.progress;
   else if (actions.pass) message = specialName ? `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}；手中有${specialName}，不能胡牌` : `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}，请选择操作`;
   else if (myTurn) message = actions.hu ? '好牌来了，可以自摸胡牌！' : selected >= 0 ? specialGangKind(hand[selected], game.indicatorTile, game.wildTile) ? `${PLAY_TEXT[specialGangKind(hand[selected], game.indicatorTile, game.wildTile)]}：${PLAY_TEXT.single}` : `已选${tileName(hand[selected])}，再点一次打出` : specialName ? `${specialName}只能杠出，全部杠出后才能胡牌` : '轮到你了，请选择一张牌打出';
   else message = game.phase.kind === PHASE.CLAIM ? '等待其他玩家响应…' : `${displayNames[game.current]}正在思考…`;
@@ -926,6 +939,7 @@ function renderSelection() {
 }
 
 function render() {
+  if (openingDeal.active) return;
   const room = network.room;
   const active = Boolean(room && room.status !== 'waiting');
   const revealHands = game.phase.kind === PHASE.ENDED && game.result?.kind === 'win';
@@ -1041,6 +1055,8 @@ function render() {
   renderActionNotice();
   renderDiscardFocus();
   positionTableLabels();
+  openingDeal.prepare(room,game);
+  openingDeal.play();
   if (game.phase.kind === PHASE.ENDED && resultShown !== game.round) {
     resultShown = game.round;
     persist();
@@ -1057,7 +1073,7 @@ function updateActionControls() {
   const enabled = { chi: actions.chi.length > 0, peng: actions.peng, gang: actions.redGang || actions.piziGang || actions.wildGang || actions.gang || actions.concealedGangs.length > 0 || actions.addedGangs.length > 0, hu: actions.hu, pass: actions.pass };
   for (const [action, available] of Object.entries(enabled)) {
     const button = $(`#action-${action}`);
-    button.disabled = !available || network.busy || specialGangPending;
+    button.disabled = !available || network.busy || specialGangPending || openingDeal.active;
     button.hidden = !available;
   }
   const canNextRound = game.phase.kind === PHASE.ENDED && room?.owner === 0;
@@ -1109,6 +1125,7 @@ function selectOptions(title, options) {
 }
 
 function performAction(action) {
+  if (openingDeal.active) return;
   if (!network.canAct() || specialGangPending) return;
   const actions = game.getActions(0);
   if (action === 'pass') return moveDone(game.pass(0));
@@ -1196,7 +1213,7 @@ $('#hand').addEventListener('click', event => {
   if (kind) button.title = PLAY_TEXT.single;
   button.focus({preventScroll:true});
 });
-$('#dice-intro').addEventListener('click', () => { dismissDiceIntro(); renderTing(); });
+$('#dice-intro').addEventListener('click', finishDiceIntro);
 $('.action-buttons').addEventListener('click', event => {
   const button = event.target.closest('button[data-action]');
   if (button && !button.disabled) performAction(button.dataset.action);
@@ -1341,7 +1358,7 @@ document.addEventListener('keydown', event => {
 window.mahjongGame = game;
 window.mahjongRoom = network;
 window.mahjongVoice = voice;
-window.renderMahjong = () => { selected = -1; hinted = -1; render(); };
+window.renderMahjong = () => { openingDeal.cancel(); selected = -1; hinted = -1; render(); };
 const invitedRoom = new URL(location.href).searchParams.get('room');
 if (/^\d{6}$/.test(invitedRoom || '')) $('#room-code').value = invitedRoom;
 $('#room-dialog').addEventListener('cancel', event => {
