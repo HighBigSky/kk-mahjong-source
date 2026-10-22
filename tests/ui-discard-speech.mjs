@@ -31,6 +31,7 @@ try {
       window.AudioContext=class extends NativeAudioContext {
         constructor(...args){super(...args);window.__audioContext??=this;}
         createBufferSource(){const source=super.createBufferSource();source.playbackRate.value=rate;return source;}
+        createOscillator(){window.__effectCount=(window.__effectCount||0)+1;return super.createOscillator();}
       };
       Object.defineProperty(window,'speechSynthesis',{configurable:true,value:undefined});
       const NativeSource=window.EventSource;
@@ -57,10 +58,24 @@ try {
     await page.waitForFunction(()=>window.__speechEnvelope?.room.status==='playing');
     if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();
     await page.locator('#hand button:enabled').first().waitFor();
+    const beforeSelection=await page.evaluate(()=>({voices:window.mahjongGameAudio.getState().played.length,effects:window.__effectCount||0}));
+    for(const index of [0,1])await page.locator('#hand button').nth(index).click();
+    await page.keyboard.press('ArrowRight');
+    await page.evaluate(()=>{
+      const game=window.mahjongGame;
+      game.players[0].hand=[9,10,11,18,19,20,24,25,26,4,28];
+      game.players[0].melds=[{kind:'chi',tiles:[0,1,2],from:1,concealed:false}];
+      game.indicatorTile=33;game.wildTile=27;game.lastDraw=null;game.pendingDiscard=null;
+      game.phase={kind:'discard',seat:0};game.current=0;window.renderMahjong();
+    });
+    await page.locator('#hint-btn:visible').click();
+    assert.equal(await page.locator('#hand .hinted').count(),1,'提示只高亮建议牌');
+    const afterSelection=await page.evaluate(()=>({voices:window.mahjongGameAudio.getState().played.length,effects:window.__effectCount||0}));
+    assert.deepEqual(afterSelection,beforeSelection,'单击、键盘选牌和提示选牌均不报牌，也不播放提示音');
     if(realtime){
       await page.evaluate(()=>{window.mahjongGameAudio.stop();window.__speechEmit(Array.from({length:80},(_,i)=>`历史记录${i}。`));});
       for(let index=0;index<6;index++)await page.locator('#hand button').nth(index%2).click();
-      await page.waitForFunction(()=>window.mahjongGameAudio.getState().playing);
+      assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().playing),false);
       const latency=await page.evaluate(()=>{
         const at=performance.now();window.__speechEmit(['玩家打出九条。']);
         const state=window.mahjongGameAudio.getState(),timing=state.timings.at(-1);
@@ -69,33 +84,17 @@ try {
       assert.equal(latency.timing.name,'九条');assert.equal(latency.timing.preview,false);
       assert.ok(latency.startDelay>=0&&latency.startDelay<100,'原速播放时正式出牌在收到确认后100ms内启动，不等预听队列');
       assert.equal(latency.queued,0);
-      await page.evaluate(()=>window.mahjongGameAudio.stop());
-      await page.locator('#hand button').nth(0).click();
-      await page.waitForFunction(()=>window.mahjongGameAudio.getState().playing);
-      const same=await page.evaluate(()=>{
-        const voice=window.mahjongGameAudio,before=voice.getState();
-        voice.say(before.played.at(-1));const after=voice.getState();
-        return {before:before.played.length,after:after.played.length,queued:after.queued,playing:after.playing};
-      });
-      assert.equal(same.after,same.before);assert.equal(same.queued,0);assert.equal(same.playing,true);
-      report.cases.push({size,realtime:true,...latency,sameCardContinues:true});
+      report.cases.push({size,realtime:true,...latency,selectionsSilent:true});
       assert.equal(commands,0);await page.evaluate(()=>window.mahjongRoom.leave());await context.close();continue;
     }
     const expected=[];
-    for(const index of [0,1]){
-      const button=page.locator('#hand button').nth(index);
-      const code=await button.evaluate(node=>window.mahjongGame.players[0].hand[Number(node.dataset.index)]);
-      const name=tileName(code);expected.push({中:'红中',白:'白板',发:'发财'}[name]||name);
-      await button.click();
-    }
-    await page.waitForFunction(()=>window.mahjongGameAudio.getState().played.length===2&&!window.mahjongGameAudio.getState().playing);
     await page.evaluate(()=>window.__speechEmit(Array.from({length:80},(_,i)=>`历史记录${i}。`),{reset:true}));
-    assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().played.length),2,'初始历史不重读');
+    assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().played.length),0,'初始历史不重读');
     for(let batch=0;batch<20;batch++){
       const names=['一万','二万','三万'];expected.push(...names);
       await page.evaluate(({batch,names})=>window.__speechEmit(names.flatMap((name,i)=>[`玩家打出${name}。`,`摸牌记录${batch}:${i}。`])),{batch,names});
     }
-    await page.waitForFunction(()=>{const s=window.mahjongGameAudio.getState();return s.played.length===62&&!s.playing&&s.queued===0;},null,{timeout:20000});
+    await page.waitForFunction(()=>{const s=window.mahjongGameAudio.getState();return s.played.length===60&&!s.playing&&s.queued===0;},null,{timeout:20000});
     assert.deepEqual(await page.evaluate(()=>window.mahjongGameAudio.getState().played),expected,'80条满日志下60次新出牌全部实际启动音频播放');
     await page.evaluate(()=>{
       const e=structuredClone(window.__speechEnvelope);
@@ -103,19 +102,19 @@ try {
       e.room.paused=!e.room.paused;
       window.__speechSource.dispatchEvent(new MessageEvent('state',{data:JSON.stringify(e)}));
     });
-    assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().played.length),62,'重复或仅连接状态变化不重复读牌');
+    assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().played.length),60,'重复或仅连接状态变化不重复读牌');
     await page.locator('#sound-btn').click();
     await page.evaluate(()=>window.__speechEmit(['静音玩家打出四万。']));
     await page.locator('#sound-btn').click();
-    assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().played.length),62,'重新开声不重播静音期间的牌');
+    assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().played.length),60,'重新开声不重播静音期间的牌');
     await page.evaluate(async()=>{await window.__audioContext.suspend();window.__speechEmit(['玩家打出白。']);});
-    await page.waitForFunction(()=>{const s=window.mahjongGameAudio.getState();return s.played.length===63&&!s.playing;});
+    await page.waitForFunction(()=>{const s=window.mahjongGameAudio.getState();return s.played.length===61&&!s.playing;});
     assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().played.at(-1)),'白板');
     await page.evaluate(()=>window.__audioContext.suspend());await page.keyboard.press('Shift');
     await page.waitForFunction(()=>window.__audioContext.state==='running');
     const allNames=Array.from({length:34},(_,i)=>tileName(i));
     await page.evaluate(names=>{for(const name of names)window.mahjongGameAudio.say(name);window.__speechEmit(['玩家吃一万。','玩家碰白。','玩家红中杠，补摸一张牌。','玩家胡牌！基础胡牌，获得10分。','玩家自摸胡牌！基础胡牌，获得30分。']);},allNames);
-    await page.waitForFunction(()=>{const s=window.mahjongGameAudio.getState();return s.played.length===102&&!s.playing&&s.queued===0;},null,{timeout:20000});
+    await page.waitForFunction(()=>{const s=window.mahjongGameAudio.getState();return s.played.length===100&&!s.playing&&s.queued===0;},null,{timeout:20000});
     assert.deepEqual(await page.evaluate(()=>window.mahjongGameAudio.getState().played.slice(-5)),['吃','碰','杠','胡','自摸']);
     assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().error),'');
     const clips=await page.evaluate(async()=>{
@@ -129,9 +128,9 @@ try {
     });
     assert.equal(clips.length,39);assert.ok(clips.every(clip=>clip.duration>.1&&clip.duration<4&&clip.peak>.02&&clip.rms>.005),'所有配音有可解码、非静音的实际声波');
     await page.evaluate(()=>window.__speechEmit(['新一局历史打出五万。'],{reset:true}));
-    assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().played.length),102,'换局基线不重读');
+    assert.equal(await page.evaluate(()=>window.mahjongGameAudio.getState().played.length),100,'换局基线不重读');
     assert.equal(commands,0);
-    report.cases.push({size,rollingDiscards:60,selectionNames:2,all34TileClipsDecoded:true,all5ActionsDecoded:true,clips,batched:true,duplicateSilent:true,muteNoReplay:true,pausedResumed:true,noSystemTTS:true,newRoundNoReplay:true});
+    report.cases.push({size,rollingDiscards:60,selectionsSilent:true,all34TileClipsDecoded:true,all5ActionsDecoded:true,clips,batched:true,duplicateSilent:true,muteNoReplay:true,pausedResumed:true,noSystemTTS:true,newRoundNoReplay:true});
     await page.evaluate(()=>window.mahjongRoom.leave());
     await context.close();
   }
