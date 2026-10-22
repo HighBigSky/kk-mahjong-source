@@ -1158,18 +1158,23 @@ function showResult() {
   if (game.phase.kind !== PHASE.ENDED) return;
   if ($('#room-dialog').open) { resultShown = 0; return; }
   const result = game.result;
-  $('#result-title').textContent = result.kind === 'draw' ? '好牌，下局再来' : game.winner === 0 ? '好牌，胡了！' : `${displayNames[game.winner]}胡牌`;
-  $('#result-avatar').src = avatars[((network.room?.seat || 0) + (game.winner ?? 0)) % 4];
+  // 结算只认服务端 result.winner / from，赢家与点炮者分开标明，不从当前座位或净分推断。
+  const winner = result.kind === 'win' ? result.winner : null;
+  const winnerName = winner === null ? '' : displayNames[winner];
+  $('#result-title').textContent = winner === null ? PLAY_TEXT.resultDraw : `${PLAY_TEXT.resultWinner}${winnerName}${winner === 0 ? PLAY_TEXT.resultYou : ''}`;
+  $('#result-avatar').src = avatars[((network.room?.seat || 0) + (winner ?? 0)) % 4];
+  $('#result-avatar').alt = winner === null ? PLAY_TEXT.resultDraw : PLAY_TEXT.resultWinner + winnerName;
   const classification = result.kind === 'win'
-    ? classifyWin(result.hand, game.players[game.winner].melds, game.wildTile, game.indicatorTile) : null;
+    ? classifyWin(result.hand, game.players[winner].melds, game.wildTile, game.indicatorTile) : null;
   const winTypes = classification ? [
     classification.sevenPairs ? '七对' : '', classification.allTriplets ? '碰碰胡' : '',
     classification.allJiang ? '将一色' : '', classification.allHonors ? '风一色' : '',
   ].filter(Boolean) : [];
   if (classification?.ordinary && !winTypes.length) winTypes.push('屁胡');
   const resultLabels = [...new Set([...winTypes, ...result.patterns])];
-  $('#result-detail').textContent = displayGameText(result.kind === 'draw' ? PLAY_TEXT.drawResult : `${result.reason} · ${resultLabels.join(' · ')} · ${result.points} 基础分`);
-  $('#result-hand').innerHTML = result.kind === 'win' ? [...game.players[game.winner].melds.flatMap(meld => meld.tiles), ...result.hand].map(value => tile(value)).join('') : '';
+  const method = winner === null ? '' : result.selfDraw ? PLAY_TEXT.resultSelfDraw : `${PLAY_TEXT.resultDiscardWin} · ${PLAY_TEXT.resultDiscarder}${displayNames[result.from]}`;
+  $('#result-detail').textContent = displayGameText(winner === null ? PLAY_TEXT.drawResult : `${method} · ${resultLabels.join(' · ')} · ${result.points} 基础分`);
+  $('#result-hand').innerHTML = winner === null ? '' : [...game.players[winner].melds.flatMap(meld => meld.tiles), ...result.hand].map(value => tile(value)).join('');
   $('#result-scores').replaceChildren(...displayNames.map((name, index) => {
     const row = document.createElement('div'); row.className = 'result-score-row';
     const label = document.createElement('span'); label.textContent = name + (index === 0 ? '（你）' : '');
@@ -1180,7 +1185,7 @@ function showResult() {
   }));
   document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
   openModal('#result-dialog');
-  if (game.winner === 0) playSound('win');
+  if (winner === 0) playSound('win');
 }
 
 async function executeSpecialGang(kind) {

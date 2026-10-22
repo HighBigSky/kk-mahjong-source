@@ -13,6 +13,8 @@ export const PLAY_TEXT = Object.freeze({
   redGang: SCORING_TEXT.redGang, piziGang: SCORING_TEXT.piziGang, wildGang: SCORING_TEXT.wildGang,
   noSupplement: '当前没有余牌可补杠', single: '单击选中，300ms 内再次点击开杠',
   handInstruction:'点选再点出牌；红中、痞子、癞子双击开杠', drawResult:'本局荒庄，已结算的杠分保留。',
+  resultWinner:'赢家：', resultYou:'（你）', resultDiscarder:'点炮：',
+  resultSelfDraw:'自摸胡牌', resultDiscardWin:'接炮胡牌', resultDraw:'好牌，下局再来',
 });
 
 /** 按同一张牌的实际身份取唯一入口，不把三种单张杠合并进普通杠。
