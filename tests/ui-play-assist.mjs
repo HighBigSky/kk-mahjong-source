@@ -62,7 +62,10 @@ try{
     assert.match(legacyDisplay,/痞子杠/,'legacy room text is normalized only for display');
     assert.equal(legacyDisplay.includes('皮'),false);
    }
-   const horizontal=await page.locator('#melds-0 .special-gang .tile').boundingBox();assert.ok(horizontal.width>horizontal.height);
+   const upright=await page.locator('#melds-0 .special-gang .tile').evaluate(node=>({width:node.clientWidth,height:node.clientHeight,faceTransform:getComputedStyle(node.querySelector('svg')).transform}));
+   assert.ok(upright.height>upright.width,'杠出的牌与自家其他副露同向，不能横躺');
+   assert.ok(Math.abs(upright.width/upright.height-5/7)<.08,'单张杠保留正常牌体比例');
+   assert.equal(upright.faceTransform,'none','单张杠牌面不再单独旋转90度');
    const replay=service.action(room.code,room.seats[0].token,sent[0]);assert.equal(replay.duplicate,true);assert.equal(game.wallInfo.tailDraws,1);
    assert.deepEqual(game.players.map(player=>player.score),[1000+30*multiple,1000-10*multiple,1000-10*multiple,1000-10*multiple]);
    report.cases.push({touch,kind,indicator,type,label,singleRequest:true,tailDraws:1,duplicateRejected:true});

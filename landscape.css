@@ -609,8 +609,7 @@ html.in-game #game.is-landscape {
 #hint-text { margin:calc(var(--ui-unit) * 1) 0 0; width:0; min-width:100%; max-height:2.6em; overflow:auto; overflow-wrap:anywhere; font-size:max(9px,calc(var(--ui-unit) * 2)); line-height:1.3; }
 .hint-details select { width:100%; min-width:0; margin-top:calc(var(--ui-unit) * .5); border:0; border-top:1px solid #b89d6155; background:#f3e7bf; color:#79522b; font-size:max(9px,calc(var(--ui-unit) * 1.9)); }
 .is-landscape .player-rack .special-gang .meld-label { left:50%; right:auto; transform:translateX(-50%); white-space:nowrap; font-size:max(6px,calc(var(--ui-unit) * 1.3)); }
-.is-landscape .player-rack .my-melds .special-gang .tile { width:var(--self-public-tile-height); height:var(--self-public-tile-width); }
-.is-landscape .player-rack .my-melds .special-gang .tile svg { width:var(--self-public-tile-width); height:var(--self-public-tile-height); transform:rotate(90deg); flex:none; }
+/* 单张杠沿用普通副露的牌体尺寸与朝向，不再交换宽高或单独横转牌面。 */
 .is-landscape .hand-zone .player-rack {
   --public-reserve:0px;
   --hand-space:calc(var(--rack-width) - var(--public-reserve) * 2);
