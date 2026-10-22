@@ -8,13 +8,14 @@ import {RoomService} from '../src/server/rooms.js';
 import {tileName} from '../engine.js';
 
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
-const external=process.argv[2];
+const realtime=process.argv.includes('--latency');
+const external=process.argv.slice(2).find(value=>!value.startsWith('--'));
 const service=external?null:new RoomService({botDelayMs:600000});
 const server=external?null:createServer({roomService:service});
 if(server){server.listen(0,'127.0.0.1');await once(server,'listening');}
 const base=external||`http://127.0.0.1:${server.address().port}`;
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
-const report={passed:false,errors:[],cases:[],note:'Real room and SSE client; actual Web Audio MP3 decoding and source start/end, accelerated 12x in tests only. Rolling-log snapshots injected locally. Physical speaker and perceived voice quality require user listening.'};
+const report={passed:false,errors:[],cases:[],note:`Real room and SSE client; actual Web Audio MP3 decoding and source start/end. Playback rate ${realtime?'1x (latency measurement)':'12x (regression test only)'}. Rolling-log snapshots injected locally. Timings measure receipt to source start, not network RTT or physical speaker latency.`};
 mkdirSync('output',{recursive:true});
 try {
   const sha=data=>createHash('sha256').update(data).digest('hex');
@@ -24,12 +25,12 @@ try {
   }
   for(const size of [{width:640,height:360},{width:844,height:390},{width:1920,height:1080}]) {
     const context=await browser.newContext({viewport:size,hasTouch:size.width<1000,isMobile:size.width<1000,reducedMotion:'reduce'});
-    await context.addInitScript(()=>{
+    await context.addInitScript(({rate})=>{
       localStorage.setItem('queqi-settings',JSON.stringify({sound:true}));
       const NativeAudioContext=window.AudioContext||window.webkitAudioContext;
       window.AudioContext=class extends NativeAudioContext {
         constructor(...args){super(...args);window.__audioContext??=this;}
-        createBufferSource(){const source=super.createBufferSource();source.playbackRate.value=12;return source;}
+        createBufferSource(){const source=super.createBufferSource();source.playbackRate.value=rate;return source;}
       };
       Object.defineProperty(window,'speechSynthesis',{configurable:true,value:undefined});
       const NativeSource=window.EventSource;
@@ -45,7 +46,7 @@ try {
       };
       Object.defineProperty(Element.prototype,'requestFullscreen',{configurable:true,value:()=>Promise.reject(Error('test fallback'))});
       if(screen.orientation)Object.defineProperty(screen.orientation,'lock',{configurable:true,value:()=>Promise.reject(Error('test fallback'))});
-    });
+    },{rate:realtime?1:12});
     const page=await context.newPage();page.on('pageerror',error=>report.errors.push(error.message));
     let commands=0;page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/action'))commands++;});
     await page.goto(base,{waitUntil:'networkidle'});
@@ -56,6 +57,30 @@ try {
     await page.waitForFunction(()=>window.__speechEnvelope?.room.status==='playing');
     if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();
     await page.locator('#hand button:enabled').first().waitFor();
+    if(realtime){
+      await page.evaluate(()=>{window.mahjongGameAudio.stop();window.__speechEmit(Array.from({length:80},(_,i)=>`历史记录${i}。`));});
+      for(let index=0;index<6;index++)await page.locator('#hand button').nth(index%2).click();
+      await page.waitForFunction(()=>window.mahjongGameAudio.getState().playing);
+      const latency=await page.evaluate(()=>{
+        const at=performance.now();window.__speechEmit(['玩家打出九条。']);
+        const state=window.mahjongGameAudio.getState(),timing=state.timings.at(-1);
+        return {timing,startDelay:timing.startedAt-at,queued:state.queued,state:state.state};
+      });
+      assert.equal(latency.timing.name,'九条');assert.equal(latency.timing.preview,false);
+      assert.ok(latency.startDelay>=0&&latency.startDelay<100,'原速播放时正式出牌在收到确认后100ms内启动，不等预听队列');
+      assert.equal(latency.queued,0);
+      await page.evaluate(()=>window.mahjongGameAudio.stop());
+      await page.locator('#hand button').nth(0).click();
+      await page.waitForFunction(()=>window.mahjongGameAudio.getState().playing);
+      const same=await page.evaluate(()=>{
+        const voice=window.mahjongGameAudio,before=voice.getState();
+        voice.say(before.played.at(-1));const after=voice.getState();
+        return {before:before.played.length,after:after.played.length,queued:after.queued,playing:after.playing};
+      });
+      assert.equal(same.after,same.before);assert.equal(same.queued,0);assert.equal(same.playing,true);
+      report.cases.push({size,realtime:true,...latency,sameCardContinues:true});
+      assert.equal(commands,0);await page.evaluate(()=>window.mahjongRoom.leave());await context.close();continue;
+    }
     const expected=[];
     for(const index of [0,1]){
       const button=page.locator('#hand button').nth(index);
@@ -112,7 +137,7 @@ try {
   }
   assert.deepEqual(report.errors,[]);report.passed=true;console.log(JSON.stringify(report,null,2));
 } finally {
-  writeFileSync(`output/discard-speech-${external?'online':'local'}.json`,JSON.stringify(report,null,2));
+  writeFileSync(`output/discard-speech-${realtime?'latency-':''}${external?'online':'local'}.json`,JSON.stringify(report,null,2));
   await browser.close();service?.close();
   if(server){const closed=once(server,'close');server.close();server.closeAllConnections();await closed;}
 }

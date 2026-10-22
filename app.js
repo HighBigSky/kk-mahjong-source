@@ -1150,7 +1150,7 @@ $('#hand').addEventListener('click', event => {
   if (sameTap || (!kind && selected === index)) { void confirmHand(index); return; }
   handTap = {node:button, version:network.room.version, time:now};
   selected = index; hinted = -1;
-  discardSpeech.say(tileName(game.players[0].hand[index]));
+  discardSpeech.say(tileName(game.players[0].hand[index]),{preview:true});
   playSound('select'); renderSelection();
   if (kind) button.title = PLAY_TEXT.single;
   button.focus({preventScroll:true});
@@ -1164,7 +1164,7 @@ function selectHint() {
   const candidate = hintState.candidates[hintChoice];
   if (!candidate || hintState.mode !== 'discard' || !humanTurn()) return;
   selected = candidate.index; hinted = candidate.index; handTap = null;
-  discardSpeech.say(tileName(game.players[0].hand[selected]));
+  discardSpeech.say(tileName(game.players[0].hand[selected]),{preview:true});
   renderSelection();
 }
 $('#hint-btn').addEventListener('click', () => {
@@ -1297,7 +1297,7 @@ document.addEventListener('keydown', event => {
     if (!order.length) return;
     const position = order.indexOf(selected);
     selected = order[(position + (event.key === 'ArrowRight' ? 1 : -1) + order.length) % order.length];
-    discardSpeech.say(tileName(game.players[0].hand[selected]));
+    discardSpeech.say(tileName(game.players[0].hand[selected]),{preview:true});
     hinted = -1; renderSelection();
     $(`#hand [data-index="${selected}"]`)?.focus({ preventScroll: true });
   }

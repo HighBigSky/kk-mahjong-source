@@ -10,8 +10,8 @@ export function createDiscardSpeech({isEnabled, voicePlayer}) {
   const resume = () => {
     if (isEnabled()) voicePlayer?.unlock();
   };
-  const speak = name => {
-    if (isEnabled() && name) voicePlayer?.say(SPEECH_NAMES[name] || name);
+  const speak = (name,options) => {
+    if (isEnabled() && name) voicePlayer?.say(SPEECH_NAMES[name] || name,options);
   };
   return {
     resume, stop, say:speak,
