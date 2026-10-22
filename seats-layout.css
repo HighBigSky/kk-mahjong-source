@@ -533,8 +533,7 @@
 
 .hand-zone.has-melds .hand-instruction { visibility:hidden; }
 
-/* The app anchors each word to its concealed hand's centreline, facing the
-   felt. Dimensions scale down only when a crowded river needs a narrower lane. */
+/* 各座位提示固定在手牌前方；粗体与深色描边保证绿色绒布上也能看清。 */
 :root {
   --seat-action-size:6cqw;
   --seat-action-font-size:5.6cqw;
@@ -553,10 +552,12 @@
   height:var(--seat-action-size);
   margin:0;
   padding:0;
-  font:700 var(--seat-action-font-size)/1 "KaiTi","STKaiti","SimSun",serif;
+  font:900 var(--seat-action-font-size)/1 "Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
   text-align:center;
   letter-spacing:0;
-  text-shadow:0 .12cqw .08cqw #051e15;
+  -webkit-text-stroke:.055em #102e25;
+  paint-order:stroke fill;
+  text-shadow:0 1px 0 #001c18,0 2px 3px #001611cc;
   pointer-events:none;
   user-select:none;
 }
