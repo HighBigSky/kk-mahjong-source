@@ -2,7 +2,7 @@
 import { tileName, getWinBreakdown } from '../../engine.js';
 import { RED_DRAGON } from '../domain/tile.js';
 import { getTingHints } from './ting.js';
-import { SCORE_RULES } from '../domain/scoring.js';
+import { SCORING_TEXT, SCORE_RULES } from '../domain/scoring.js';
 
 export const PLAY_TEXT = Object.freeze({
   hint: '提示', ready: '已听：', discard: '打', listen: '听', total: '共', copies: '张',
@@ -10,7 +10,7 @@ export const PLAY_TEXT = Object.freeze({
   remaining: '剩', claim: '可接胡', selfDrawOnly: '仅自摸',
   confirm: '再次点击建议牌或「提示」确认出牌', claimOnly:'仅接胡',
   note: '剩余为未见张数估计，包含他人暗手，不代表牌墙实际余量。',
-  redGang: '杠', piziGang: '杠', wildGang: '杠',
+  redGang: '杠', piziGang: '杠', wildGang: SCORING_TEXT.wildGang,
   noSupplement: '当前没有余牌可补杠', single: '单击选中，300ms 内再次点击开杠',
   handInstruction:'点选再点出牌；红中、痞子、癞子双击开杠', drawResult:'本局荒庄，已结算的杠分保留。',
   resultWinner:'赢家：', resultYou:'（你）', resultDiscarder:'点炮：',

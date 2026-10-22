@@ -29,7 +29,7 @@ try{
   const publish=async game=>{clearTimeout(room.botTimer);room.botTimer=null;game.round=room.game.round+1;assertInvariants(game);room.game=game;service._changed(room);await sync();if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();sent=[];};
   const tap=async locator=>touch?locator.tap():locator.click();
   const names=room.seats.map(seat=>seat.name);
-  for(const [indicator,type,kind,label] of [[33,31,'redGang','杠'],[33,33,'piziGang','杠'],[33,27,'wildGang','杠'],[31,31,'piziGang','杠'],[30,31,'redGang','杠']]){
+  for(const [indicator,type,kind,label] of [[33,31,'redGang','杠'],[33,33,'piziGang','杠'],[33,27,'wildGang','赖子杠'],[31,31,'piziGang','杠'],[30,31,'redGang','杠']]){
    const game=actionFixture({indicator,hand:[...scattered,type],names});
    // 补牌特意取普通牌，避免把两张同脸牌的合法连续杠误当成重复触发。
    const tail=game.wall.findIndex(tile=>![indicator,game.wildTile,31].includes(tile));[game.wall[0],game.wall[tail]]=[game.wall[tail],game.wall[0]];
@@ -53,7 +53,12 @@ try{
    const multiple=kind==='wildGang'?2:1;assert.deepEqual(game.players.map(player=>player.score),[1000+30*multiple,1000-10*multiple,1000-10*multiple,1000-10*multiple]);
    assert.equal(game.players[0].hand.includes(type),false);assert.equal(game.lastDraw.replacement,true);
    assert.equal(await page.locator('#melds-0 .meld-label').textContent(),label);assert.equal(await page.locator('#hand .selected').count(),0);assertInvariants(game);
-   assert.equal(await page.locator('#red-gangs-0').textContent(),'杠×1');
+   assert.equal(await page.locator('#red-gangs-0').textContent(),kind==='wildGang'?'癞×1':'杠×1');
+   if(kind==='wildGang'){
+    assert.match(await page.locator('#melds-0 .special-gang').getAttribute('aria-label'),/赖子杠/);
+    const shown=await page.evaluate(()=>{const game=window.mahjongGame;game.events.push('验收玩家癞子杠一万，补摸一张牌。');window.renderMahjong();const text=document.querySelector('#last-event').textContent;game.events.pop();window.renderMahjong();return text;});
+    assert.match(shown,/癞子杠/,'癞子杠日志保留原名称，不合并为普通杠');
+   }
    if(kind==='piziGang'){
     assert.match(game.events.at(-2),/皮子杠/,'server log remains unchanged');
     const legacyDisplay=await page.evaluate(()=>{
