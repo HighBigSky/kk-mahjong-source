@@ -1,12 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHintCalculator, specialGangKind, hintText} from '../src/ui/play-assist.js';
+import {createHintCalculator, specialGangKind, hintText, settlementCoins} from '../src/ui/play-assist.js';
 import {getTingHints} from '../src/ui/ting.js';
 import {TILE} from '../src/domain/tile.js';
 import {actionFixture, scattered} from './pizi-fixtures.mjs';
 import {assertInvariants} from '../src/domain/invariants.js';
 
 const waiting = [0,1,2,9,10,11,18,19,20,24,25,26,4];
+
+test('settlement separates prior gang profits from actual Hu transfers without changing balances', () => {
+  for(const [kind,type] of [['redGang',31],['piziGang',33],['wildGang',27]]){
+    const game=actionFixture({hand:[9,10,11,18,19,20,24,25,26,4,4],melds:[{kind:'chi',tiles:[0,1,2],from:1,concealed:false}]});
+    const index=game.wall.indexOf(type);assert.ok(index>=0);game.wall.splice(index,1);
+    (kind==='redGang'?game.players[2].redGangs:game.players[2].piziGangs).push(type);
+    game._scoreSpecialGang(2,kind);game.wallInfo.tailDraws++;assertInvariants(game);
+    const before=game.players.map(player=>player.score);assert.equal(game.claim(0,'hu'),true);assertInvariants(game);
+    const after=game.players.map(player=>player.score),unchanged=JSON.stringify(game);
+    for(let viewer=0;viewer<4;viewer++){
+      const rotate=items=>items.slice(viewer).concat(items.slice(0,viewer));
+      const state={players:rotate(game.players),result:{scoreDelta:rotate(game.result.scoreDelta)},indicatorTile:game.indicatorTile,wildTile:game.wildTile};
+      const actual=settlementCoins(state);
+      assert.deepEqual(actual.hu,rotate(after.map((score,seat)=>score-before[seat])));
+      assert.deepEqual(actual.gang,rotate(game.gangScoreDelta));assert.deepEqual(actual.balance,rotate(after));
+      assert.deepEqual(actual.net,rotate(game.result.scoreDelta));
+      const loser=(2-viewer+4)%4;assert.ok(actual.net[loser]>0&&actual.hu[loser]<0,'earlier gang winner loses coins at Hu even if whole-round net stays positive');
+      settlementCoins(state);assert.equal(JSON.stringify(game),unchanged,'rendering and rerendering never book coins again');
+    }
+  }
+});
 test('single tile identity priority is indicator, red, then wild', () => {
   assert.equal(specialGangKind(TILE.RED,TILE.RED,TILE.GREEN),'piziGang');
   assert.equal(specialGangKind(TILE.RED,TILE.NORTH,TILE.RED),'redGang');

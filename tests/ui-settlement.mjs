@@ -35,7 +35,17 @@ try{
  const scenarios=[];
  for(const winner of [0,1,2,3])for(const from of [3,0,1,2])if(from!==winner)scenarios.push({winner,from,selfDraw:false});
  for(const winner of [0,1,2,3])scenarios.push({winner,from:null,selfDraw:true});
- const read=page=>page.evaluate(()=>({title:document.querySelector('#result-title').textContent,detail:document.querySelector('#result-detail').textContent,avatar:document.querySelector('#result-avatar').getAttribute('src'),alt:document.querySelector('#result-avatar').alt,winner:window.mahjongGame.result.winner,from:window.mahjongGame.result.from,scores:[...document.querySelectorAll('#result-scores .result-score-row')].map(row=>row.textContent),hand:[...document.querySelectorAll('#result-hand use')].map(node=>Number(node.getAttribute('href').split('-').at(-1)))}));
+ for(const kind of ['redGang','piziGang','wildGang'])for(const selfDraw of [false,true])scenarios.push({winner:0,from:selfDraw?null:3,selfDraw,priorGangs:[{owner:2,kind}]});
+ scenarios.push({winner:0,from:3,selfDraw:false,priorGangs:[{owner:1,kind:'redGang'},{owner:2,kind:'wildGang'},{owner:3,kind:'piziGang'}]});
+ let beforeHu=[];
+ const read=page=>page.evaluate(()=>({title:document.querySelector('#result-title').textContent,detail:document.querySelector('#result-detail').textContent,avatar:document.querySelector('#result-avatar').getAttribute('src'),alt:document.querySelector('#result-avatar').alt,winner:window.mahjongGame.result.winner,from:window.mahjongGame.result.from,scores:[...document.querySelectorAll('#result-scores .result-score-row')].map(row=>row.textContent),amounts:[...document.querySelectorAll('.score-main')].map(node=>Number(node.dataset.value)),gangs:[...document.querySelectorAll('.score-gang')].map(node=>Number(node.dataset.value)),nets:[...document.querySelectorAll('.score-net')].map(node=>Number(node.dataset.value)),balances:[...document.querySelectorAll('.score-balance')].map(node=>Number(node.dataset.value)),wallet:Number(document.querySelector('#score').textContent.replaceAll(',','')),hand:[...document.querySelectorAll('#result-hand use')].map(node=>Number(node.getAttribute('href').split('-').at(-1)))}));
+ const priorGangs=(game,entries=[])=>{
+  for(const {owner,kind} of entries){
+   const type=kind==='redGang'?31:kind==='piziGang'?33:27,index=game.wall.indexOf(type);assert.ok(index>=0);
+   game.wall.splice(index,1);(kind==='redGang'?game.players[owner].redGangs:game.players[owner].piziGangs).push(type);
+   game._scoreSpecialGang(owner,kind);game.wallInfo.tailDraws++;assertInvariants(game);
+  }
+ };
  const check=async(scenario,label)=>{
   for(let viewer=0;viewer<4;viewer++){
    const page=pages[viewer];await page.locator('#result-dialog[open]').waitFor();const data=await read(page);
@@ -50,14 +60,21 @@ try{
    assert.deepEqual(data.hand,[...room.game.players[scenario.winner].melds.flatMap(meld=>meld.tiles),...room.game.result.hand]);
    for(let relative=0;relative<4;relative++){
     const absolute=(viewer+relative)%4;assert.ok(data.scores[relative].includes(names[absolute]));
-    const delta=room.game.result.scoreDelta[absolute];assert.ok(data.scores[relative].endsWith(`${delta>0?'+':''}${delta}`));
+    const balance=room.game.players[absolute].score,huChange=balance-beforeHu[absolute];
+    assert.equal(data.amounts[relative],huChange,'main amount equals actual balance change at Hu, not the whole-round net');
+    assert.equal(data.gangs[relative],room.game.gangScoreDelta[absolute]);assert.equal(data.nets[relative],room.game.result.scoreDelta[absolute]);assert.equal(data.balances[relative],balance);
+    assert.equal(data.nets[relative],data.amounts[relative]+data.gangs[relative]);
+    if(absolute!==scenario.winner)assert.ok(huChange<=0,'a losing player never receives new Hu coins');
    }
+   assert.equal(data.wallet,room.game.players[viewer].score);assert.equal(data.amounts.reduce((sum,value)=>sum+value,0),0);assert.equal(room.game.players.reduce((sum,player)=>sum+player.score,0),4000);
   }
  };
  for(const scenario of scenarios){
   const game=actionFixture({seat:scenario.winner,hand:scenario.selfDraw?[...hand,4]:hand,melds:[{kind:'chi',tiles:[0,1,2],from:(scenario.winner+1)%4,concealed:false}],discard:scenario.selfDraw?null:4,names});
   if(!scenario.selfDraw){const original=game.pendingDiscard.from;game.players[scenario.from].discards.push(...game.players[original].discards.splice(0));game.pendingDiscard={tile:4,from:scenario.from};game.phase={kind:'claim',discard:game.pendingDiscard};game.current=scenario.from;}
-  game.round=room.game.round+1;game.events=['结算夹具打出五万。'];assertInvariants(game);room.game=game;service._changed(room);await sync(room);
+  priorGangs(game,scenario.priorGangs);game.round=room.game.round+1;game.events=['结算夹具打出五万。'];assertInvariants(game);room.game=game;service._changed(room);await sync(room);
+  beforeHu=game.players.map(player=>player.score);
+  for(let viewer=0;viewer<4;viewer++)assert.equal(await pages[viewer].locator('#score').textContent().then(text=>Number(text.replaceAll(',',''))),beforeHu[viewer]);
   for(const page of pages)if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();
   await pages[scenario.winner].locator('#action-hu:visible:enabled').click();await sync(room);
   for(let count=0;game.phase.kind==='claim'&&count<4;count++){
@@ -70,10 +87,11 @@ try{
    const before=JSON.stringify(game);await pages[3].reload({waitUntil:'networkidle'});await sync(room);await check(scenario,'refresh');assert.equal(JSON.stringify(game),before);
   }
  }
- const draw=actionFixture({names});draw.round=room.game.round+1;draw._finishDraw();assertInvariants(draw);room.game=draw;service._changed(room);await sync(room);
+ const draw=actionFixture({names});priorGangs(draw,[{owner:2,kind:'redGang'}]);draw.round=room.game.round+1;draw._finishDraw();assertInvariants(draw);room.game=draw;service._changed(room);await sync(room);
  for(let viewer=0;viewer<4;viewer++){
   await pages[viewer].locator('#result-dialog[open]').waitFor();const data=await read(pages[viewer]);
   assert.equal(data.winner,null);assert.equal(data.from,null);assert.equal(data.title,'好牌，下局再来');assert.match(data.detail,/荒庄/);assert.deepEqual(data.hand,[]);
+  for(let relative=0;relative<4;relative++){const absolute=(viewer+relative)%4;assert.equal(data.amounts[relative],draw.result.scoreDelta[absolute]);assert.equal(data.gangs[relative],draw.gangScoreDelta[absolute]);assert.equal(data.balances[relative],draw.players[absolute].score);}
   report.cases.push({scenario:'draw',viewer,...data});
  }
  assert.deepEqual(report.errors,[]);report.passed=true;console.log(JSON.stringify({passed:true,views:report.cases.length,errors:report.errors}));

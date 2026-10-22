@@ -2,7 +2,7 @@
 import { tileName, getWinBreakdown } from '../../engine.js';
 import { RED_DRAGON } from '../domain/tile.js';
 import { getTingHints } from './ting.js';
-import { SCORING_TEXT } from '../domain/scoring.js';
+import { SCORING_TEXT, SCORE_RULES } from '../domain/scoring.js';
 
 export const PLAY_TEXT = Object.freeze({
   hint: '提示', ready: '已听：', discard: '打', listen: '听', total: '共', copies: '张',
@@ -15,7 +15,24 @@ export const PLAY_TEXT = Object.freeze({
   handInstruction:'点选再点出牌；红中、痞子、癞子双击开杠', drawResult:'本局荒庄，已结算的杠分保留。',
   resultWinner:'赢家：', resultYou:'（你）', resultDiscarder:'点炮：',
   resultSelfDraw:'自摸胡牌', resultDiscardWin:'接炮胡牌', resultDraw:'好牌，下局再来',
+  huCoins:'胡牌', gangSettled:'已结杠', roundNet:'本局净', balance:'余额',
+  settlementFields:'金币明细：本次胡牌、已结杠分、本局净变化与当前余额',
 });
+
+/** 仅解释服务端净分：公开单张杠记录已即时入账，不能当作这次胡牌新赚的金币。
+ * @param {{players:readonly {score:number,redGangs?:readonly number[],piziGangs?:readonly number[]}[], result:{scoreDelta:readonly number[]}, indicatorTile:number|null,wildTile:number|null}} state
+ */
+export function settlementCoins({players,result,indicatorTile,wildTile}) {
+  const gang=players.map(()=>0);
+  for(const [owner,player] of players.entries()) {
+    const paid=(player.redGangs?.length||0)*SCORE_RULES.base*SCORE_RULES.redGang+
+      (player.piziGangs||[]).reduce((sum,type)=>sum+SCORE_RULES.base*SCORE_RULES[specialGangKind(type,indicatorTile,wildTile)||'piziGang'],0);
+    for(let seat=0;seat<players.length;seat++)gang[seat]+=seat===owner?paid*(players.length-1):-paid;
+  }
+  const net=[...result.scoreDelta];
+  // 胡牌一项从权威整局净分扣除已结杠分；余额直接读取服务器，绝不在客户端再次加减。
+  return {hu:net.map((delta,seat)=>delta-gang[seat]),gang,net,balance:players.map(player=>player.score)};
+}
 
 /** 按同一张牌的实际身份取唯一入口，不把三种单张杠合并进普通杠。
  * @param {number} tile @param {number|null} indicator @param {number|null} wild

@@ -352,12 +352,15 @@ html.in-game .choice-option .tile { width:calc(var(--dialog-unit) * 9); height:c
 html.in-game .choice-option>span:last-child { margin-left:calc(var(--dialog-unit) * 3); font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
 html.in-game .history-tiles { grid-template-columns:repeat(12,1fr); gap:calc(var(--dialog-unit) * .8); margin:calc(var(--dialog-unit) * 2) 0; }
 html.in-game .history-tiles .tile { --tile-depth:calc(var(--dialog-unit) * .5); --tile-side:calc(var(--dialog-unit) * .16); }
-html.in-game .result-avatar { width:calc(var(--dialog-unit) * 15); height:calc(var(--dialog-unit) * 15); margin:calc(var(--dialog-unit) * 1.5) auto; }
-html.in-game .result-hand { margin:calc(var(--dialog-unit) * 2) 0; gap:calc(var(--dialog-unit) * .6); }
+html.in-game .result-avatar { width:calc(var(--dialog-unit) * 12); height:calc(var(--dialog-unit) * 12); margin:calc(var(--dialog-unit) * .8) auto; }
+html.in-game .result-hand { margin:calc(var(--dialog-unit) * 1.2) 0; gap:calc(var(--dialog-unit) * .6); }
 html.in-game .result-hand .tile { width:calc(var(--dialog-unit) * 5.4); height:calc(var(--dialog-unit) * 7.6); --tile-depth:calc(var(--dialog-unit) * .4); --tile-side:calc(var(--dialog-unit) * .14); }
-html.in-game .result-scores { margin-top:calc(var(--dialog-unit) * 2); display:grid; grid-template-columns:1fr 1fr; column-gap:calc(var(--dialog-unit) * 4); }
-html.in-game .result-score-row { padding:calc(var(--dialog-unit) * 1.2) 0; font-size:clamp(12px,calc(var(--dialog-unit) * 2.5),18px); }
-html.in-game .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2); }
+html.in-game .result-scores { margin-top:calc(var(--dialog-unit) * 1); display:grid; grid-template-columns:1fr 1fr; column-gap:calc(var(--dialog-unit) * 4); }
+html.in-game .result-score-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:calc(var(--dialog-unit) * .5) calc(var(--dialog-unit) * 1); padding:calc(var(--dialog-unit) * .8) 0; font-size:clamp(12px,calc(var(--dialog-unit) * 2.5),18px); }
+html.in-game .result-score-row .score-name { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+html.in-game .result-score-row strong { font-size:clamp(12px,calc(var(--dialog-unit) * 2.8),18px); white-space:nowrap; font-variant-numeric:tabular-nums; }
+html.in-game .result-score-breakdown { grid-column:1 / -1; display:flex; flex-wrap:wrap; justify-content:space-between; gap:2px calc(var(--dialog-unit) * 1); font-size:clamp(9px,calc(var(--dialog-unit) * 1.8),13px); line-height:1.35; color:#9fb49f; font-variant-numeric:tabular-nums; }
+html.in-game .result-score-breakdown span { white-space:nowrap; }
 
 @media(prefers-reduced-motion:reduce) {
   .is-landscape,.is-landscape *,html.in-game .modal { transition:none!important; animation:none!important; }

@@ -8,7 +8,7 @@ import { renderWall } from './src/network/wall-view.js';
 import { createRoomOrientation } from './src/ui/orientation.js';
 import { createRoomFullscreen } from './src/ui/fullscreen.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
-import { createHintCalculator, hintText, specialGangKind, PLAY_TEXT } from './src/ui/play-assist.js';
+import { createHintCalculator, hintText, specialGangKind, settlementCoins, PLAY_TEXT } from './src/ui/play-assist.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
 import { createOpeningDeal, DEAL_TEXT } from './src/ui/opening-deal.js';
 import { createFlatOpponentView, tilePlane, planeCSS } from './src/ui/flat-opponents.js';
@@ -1175,13 +1175,24 @@ function showResult() {
   const method = winner === null ? '' : result.selfDraw ? PLAY_TEXT.resultSelfDraw : `${PLAY_TEXT.resultDiscardWin} · ${PLAY_TEXT.resultDiscarder}${displayNames[result.from]}`;
   $('#result-detail').textContent = displayGameText(winner === null ? PLAY_TEXT.drawResult : `${method} · ${resultLabels.join(' · ')} · ${result.points} 基础分`);
   $('#result-hand').innerHTML = winner === null ? '' : [...game.players[winner].melds.flatMap(meld => meld.tiles), ...result.hand].map(value => tile(value)).join('');
+  const coins = settlementCoins(game);
+  const signed = value => `${value > 0 ? '+' : ''}${value}`;
+  $('#result-scores').setAttribute('aria-label', PLAY_TEXT.settlementFields);
   $('#result-scores').replaceChildren(...displayNames.map((name, index) => {
     const row = document.createElement('div'); row.className = 'result-score-row';
-    const label = document.createElement('span'); label.textContent = name + (index === 0 ? '（你）' : '');
+    const label = document.createElement('span'); label.className = 'score-name'; label.textContent = name + (index === 0 ? '（你）' : ''); label.title = label.textContent;
+    const amount = winner === null ? coins.net[index] : coins.hu[index];
     const score = document.createElement('strong');
-    score.className = result.scoreDelta[index] > 0 ? 'positive' : result.scoreDelta[index] < 0 ? 'negative' : '';
-    score.textContent = `${result.scoreDelta[index] > 0 ? '+' : ''}${result.scoreDelta[index]}`;
-    row.append(label, score); return row;
+    score.className = `score-main ${amount > 0 ? 'positive' : amount < 0 ? 'negative' : ''}`.trim();
+    score.dataset.value = String(amount);
+    score.textContent = `${winner === null ? PLAY_TEXT.roundNet : PLAY_TEXT.huCoins} ${signed(amount)}`;
+    const details = document.createElement('small'); details.className = 'result-score-breakdown';
+    for (const [kind, text] of [['gang', PLAY_TEXT.gangSettled], ['net', PLAY_TEXT.roundNet], ['balance', PLAY_TEXT.balance]]) {
+      const item = document.createElement('span'); item.className = `score-${kind}`; item.dataset.value = String(coins[kind][index]);
+      item.textContent = `${text} ${kind === 'balance' ? coins[kind][index].toLocaleString('zh-CN') : signed(coins[kind][index])}`;
+      details.append(item);
+    }
+    row.append(label, score, details); return row;
   }));
   document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
   openModal('#result-dialog');
