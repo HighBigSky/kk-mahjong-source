@@ -68,7 +68,7 @@ const discardFocusState = createDiscardFocusState({storage:(() => {
 })()});
 let focusedDiscard = null;
 let discardFocusGeometry = null;
-const DISCARD_FOCUS_SCALE = 1.5;
+const DISCARD_FOCUS_SCALE = 2;
 const discardFlights = new Set();
 const calculateHints = createHintCalculator();
 let hintState = {mode:'none', candidates:[]};

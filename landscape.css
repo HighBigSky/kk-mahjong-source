@@ -229,9 +229,9 @@ html.in-game #game.is-landscape {
   aspect-ratio:5 / 7;
   min-width:0;
   min-height:0;
-  --tile-depth:calc(var(--table-unit) * .2);
-  --tile-side:calc(var(--table-unit) * .075);
-  border-radius:calc(var(--table-unit) * .25);
+  --tile-depth:calc(var(--table-unit) * .14);
+  --tile-side:calc(var(--table-unit) * .045);
+  border-radius:calc(var(--table-unit) * .14);
   transform:rotate(var(--river-tile-turn));
   transform-origin:center;
 }
@@ -704,15 +704,29 @@ html.in-game #game.is-landscape {
 .is-landscape .discard-focus-tile { display:block; width:100%; height:100%; }
 #game.is-landscape .discard-focus .tile,
 #game.is-landscape .discard-flight {
-  --tile-depth:calc(var(--table-unit) * .42);
-  --tile-side:calc(var(--table-unit) * .156);
+  --tile-depth:calc(var(--table-unit) * .14);
+  --tile-side:calc(var(--table-unit) * .045);
   width:100%;
   height:100%;
-  border-radius:calc(var(--table-unit) * .48);
+  border-radius:calc(var(--table-unit) * .14);
   pointer-events:none;
 }
-#game.is-landscape .discard-focus .tile { transform:scale(var(--discard-focus-scale,1.5)); transform-origin:center; outline:1px solid #ffdb81; box-shadow:0 0 calc(var(--table-unit) * 1.4) #ffe4a34d,0 calc(var(--table-unit) * .4) calc(var(--table-unit) * .8) #001c1980; }
+#game.is-landscape .discard-focus .tile { transform:scale(var(--discard-focus-scale,2)); transform-origin:center; outline:1px solid #ffdb81; box-shadow:0 0 calc(var(--table-unit) * .7) #ffe4a34d,0 1px 1px #001c1980; }
 #game.is-landscape .discard-flight { position:absolute; z-index:8; transform-origin:50% 50%; margin:0; }
+
+/* 小尺寸牌河用更薄的倒角和清晰的明暗边界，减少柔化阴影侵占牌面；图案仍为原矢量。 */
+#game.is-landscape .table .river .tile,
+#game.is-landscape .discard-focus .tile,
+#game.is-landscape .discard-flight {
+  --tile-face:linear-gradient(145deg,#fffef9 0%,#faf7eb 75%,#eae4d4 100%);
+}
+#game.is-landscape .table .river .tile { box-shadow:inset 0 1px 0 #ffffffc9,0 1px 0 #143d2a,1px 1px 1px #001c184d; }
+#game.is-landscape .table .river .tile::before,
+#game.is-landscape .discard-focus .tile::before,
+#game.is-landscape .discard-flight::before { border-width:.5px; box-shadow:inset 0 .5px 0 #fff; }
+#game.is-landscape .table .river .tile svg,
+#game.is-landscape .discard-focus .tile svg,
+#game.is-landscape .discard-flight svg { shape-rendering:geometricPrecision; filter:none; }
 
 /* Selected tiles keep the pointer target and get immediate, steady light. */
 #game.is-landscape .hand .tile { transition:transform 80ms,box-shadow 80ms; }

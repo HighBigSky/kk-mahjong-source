@@ -162,7 +162,7 @@ async function assertLocalFocus(page, label) {
   if (row.centerError > 1) report.focusGeometryFailure = { label, ...row };
   assert.equal(row.sameTable, true, `${label}: enlarged tile uses its river's table perspective`);
   assert.ok(row.centerError <= 1, `${label}: enlarged tile remains at the actual discard position (${row.centerError.toFixed(3)}px)`);
-  for (const ratio of [row.widthRatio, row.heightRatio]) assert.ok(ratio >= .99 && ratio <= 1.7, `${label}: enlargement fits the available river space, up to 1.5 times the original (${ratio.toFixed(3)})`);
+  for (const ratio of [row.widthRatio, row.heightRatio]) assert.ok(ratio >= .99 && ratio <= 2.2, `${label}: enlargement fits the available river space, up to 2 times the original (${ratio.toFixed(3)})`);
   const expected = [0, -90, 180, 90][row.player];
   for (const actual of [row.angle, row.originalAngle]) {
     const difference = ((actual - expected + 540) % 360) - 180;
@@ -244,7 +244,7 @@ async function shrinkEvidence(room, before, from, tile) {
     assert.equal(destination.yUnit, origin.yUnit, 'shrink retains the same vertical coordinate space');
     const displacement = Math.hypot(destination.x - origin.x, destination.y - origin.y);
     const relativeEndScale = scale(end) / scale(start);
-    assert.ok(scale(start) >= 1 && scale(start) <= 1.5, 'shrink starts at the actual enlargement fitted to the river');
+    assert.ok(scale(start) >= 1 && scale(start) <= 2, 'shrink starts at the actual enlargement fitted to the river');
     assert.equal(start.opacity, 1, 'shrink starts opaque');
     assert.ok(Math.abs(relativeEndScale * scale(start) - 1) < .001, 'shrink returns the fitted preview to its physical river size');
     assert.ok(displacement <= 1, `shrink stays at the original discard location (${displacement.toFixed(3)})`);
@@ -417,7 +417,7 @@ async function geometry(room, names) {
   assert.deepEqual(await animationCounts(), animationsBefore, 'reduced-motion pass settles without launching a shrink animation');
   for (const page of pages) assert.equal(await page.locator('.discard-flight').count(), 0, 'reduced-motion leaves no temporary animation tiles');
   await Promise.all(pages.map(page => page.emulateMedia({ reducedMotion: 'no-preference' })));
-  report.checks.push({ supportedViewportRiverAndHandAccess: true, supportedViewportResponseButtonAccess: true, fourViewerLocalFocusTracksSupportedViewports: true, maximumFocusCenterErrorPx: 1, moderateEnlargementRange: [1, 1.5], wholeTileSeatAngles: [0, -90, 180, 90], reducedMotionPassSettlesWithoutAnimation: true });
+  report.checks.push({ supportedViewportRiverAndHandAccess: true, supportedViewportResponseButtonAccess: true, fourViewerLocalFocusTracksSupportedViewports: true, maximumFocusCenterErrorPx: 1, moderateEnlargementRange: [1, 2], wholeTileSeatAngles: [0, -90, 180, 90], reducedMotionPassSettlesWithoutAnimation: true });
 }
 
 try {
