@@ -47,11 +47,12 @@ export function createFlatOpponentView(stage) {
     const left=parseFloat(surface.left),top=parseFloat(surface.top),frameWidth=parseFloat(surface.width),frameHeight=parseFloat(surface.height);
     const corners=[[left,top],[left+frameWidth,top],[left+frameWidth,top+frameHeight],[left,top+frameHeight]].map(([x,y])=>project(tablePlane,x,y));
     const edges={top:[corners[0],corners[1]],left:[corners[0],corners[3]],right:[corners[1],corners[2]]};
+    // 用桌框投影的视觉中心排四家座位；牌数和副露变化不再移动其他牌区。
+    // 只平移整组落点，沿用既有旋转、等比尺寸及牌体建模。
+    const anchor={x:corners.reduce((sum,p)=>sum+p.x,0)/4,y:corners.reduce((sum,p)=>sum+p.y,0)/4};
     const guides={};
     for(const [side,[start,end]] of Object.entries(edges)) {
       const length=Math.hypot(end.x-start.x,end.y-start.y),tangent={x:(end.x-start.x)/length,y:(end.y-start.y)/length};
-      const rack=stage.querySelector(`#rack-${{top:2,left:3,right:1}[side]}`),rackStyle=getComputedStyle(rack);
-      const anchor=project(tablePlane,rack.offsetLeft+parseFloat(rackStyle.width)/2,rack.offsetTop+parseFloat(rackStyle.height)/2);
       guides[side]={tangent,anchor,angle:Math.atan2(tangent.y,tangent.x)-(side==='top'?0:Math.PI/2)};
     }
     const groups=[...stage.querySelectorAll('.opponent-rack,#river-1,#river-2,#river-3'),...runs.values()];

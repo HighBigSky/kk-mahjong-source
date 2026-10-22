@@ -133,6 +133,7 @@ async function geometry(page) {
       return {id:node.closest('[id]')?.id,aspect:w/h,expected:parseFloat(s.width)/parseFloat(s.height),rectangular};
     });
     const tableEdges={top:[corners[0],corners[1]],left:[corners[0],corners[3]],right:[corners[1],corners[2]],bottom:[corners[3],corners[2]]};
+    const tableMiddle={x:corners.reduce((sum,p)=>sum+p.x,0)/4,y:corners.reduce((sum,p)=>sum+p.y,0)/4};
     const edgeError=(vector,side)=>{const [a,b]=tableEdges[side],dx=b.x-a.x,dy=b.y-a.y;return Math.abs(vector.x*dy-vector.y*dx)/(Math.hypot(vector.x,vector.y)*Math.hypot(dx,dy));};
     const centre=node=>{const q=rect(node).quad;return{x:q.reduce((sum,p)=>sum+p.x,0)/4,y:q.reduce((sum,p)=>sum+p.y,0)/4};};
     const edgeAlignment=[...document.querySelectorAll('.opponent-rack,#river-1,#river-2,#river-3,.flat-wall-run')].filter(visible).map(node=>{
@@ -143,7 +144,11 @@ async function geometry(page) {
       const reference=centre(document.querySelector(`#rack-${{top:2,left:3,right:1}[side]}`));
       const [a,b]=tableEdges[side],length=Math.hypot(b.x-a.x,b.y-a.y);
       const normalError=Math.abs((middle.x-reference.x)*(b.x-a.x)+(middle.y-reference.y)*(b.y-a.y))/length;
-      return{side,parallelError:edgeError({x:end.x-q[0].x,y:end.y-q[0].y},side),normalError};
+      const centreError=Math.abs((middle.x-tableMiddle.x)*(b.x-a.x)+(middle.y-tableMiddle.y)*(b.y-a.y))/length;
+      const sign=side==='left'?-1:1,inward={x:sign*(a.y-b.y)/length,y:sign*(b.x-a.x)/length};
+      const depth=(middle.x-tableMiddle.x)*inward.x+(middle.y-tableMiddle.y)*inward.y;
+      const kind=node.classList.contains('flat-wall-run')?'wall':node.classList.contains('river')?'river':'hand';
+      return{side,kind,depth,centreError,parallelError:edgeError({x:end.x-q[0].x,y:end.y-q[0].y},side),normalError};
     });
     const ownEdgeAlignment=[...document.querySelectorAll('#hand button,.my-melds .tile,#river-0 .tile,.wall-stack[data-side="bottom"] .wall-piece:not(.is-empty)')].filter(visible).map(node=>{
       const q=rect(node).quad;return edgeError({x:q[1].x-q[0].x,y:q[1].y-q[0].y},'bottom');
@@ -232,6 +237,7 @@ try {
     check(initial.outsideAllSeatFelt.length===0, 'all four hands including the local flat hand stay fully inside felt', {size,outside:initial.outsideAllSeatFelt});
     check(initial.opponentFlat.length>0&&initial.opponentFlat.every(tile=>tile.rectangular&&Math.abs(tile.aspect/tile.expected-1)<.02), 'opponents hands and walls retain normal rectangular tile proportions', {size,bad:initial.opponentFlat.filter(tile=>!tile.rectangular||Math.abs(tile.aspect/tile.expected-1)>=.02)});
     check(initial.edgeAlignment.every(group=>group.parallelError<.002&&group.normalError<1.2)&&initial.ownEdgeAlignment.every(error=>error<.002)&&initial.ownWallCenterError<.8, 'all four seat zones align with their table edge and shared normal centreline', {size,groups:initial.edgeAlignment,near:initial.ownWallCenterError});
+    check(initial.edgeAlignment.every(group=>group.centreError<1.2), 'opponent zones use the fixed visual table centre rather than a changing hand container', {size,groups:initial.edgeAlignment});
     check(initial.wallSlotOrder.length===136&&initial.wallSlotOrder.every((position,index)=>position===index), 'wall grouping preserves all 136 original slots in order', {size});
     check(initial.outsideViewport.length===0 && initial.tableHudOverlaps.length===0, 'enlarged table keeps every physical tile clear of viewport edges and flat HUD', {size,outside:initial.outsideViewport,overlaps:initial.tableHudOverlaps});
     check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side concealed hands restore the flat pre-first-person tile model', {size, sideHands:initial.sideHands});
@@ -300,6 +306,18 @@ try {
       check(data.outsideAllSeatFelt.length===0, 'full rivers and maximum public groups including the local rack fit on felt', {size,scenario,outside:data.outsideAllSeatFelt});
       check(data.opponentFlat.every(tile=>tile.rectangular&&Math.abs(tile.aspect/tile.expected-1)<.02), 'opponents full rivers and maximum chi/peng/kong groups keep normal proportions', {size,scenario,bad:data.opponentFlat.filter(tile=>!tile.rectangular||Math.abs(tile.aspect/tile.expected-1)>=.02)});
       check(data.edgeAlignment.every(group=>group.parallelError<.002&&group.normalError<1.2)&&data.ownEdgeAlignment.every(error=>error<.002)&&data.ownWallCenterError<.8, 'full rivers and maximum melds retain edge alignment', {size,scenario,groups:data.edgeAlignment,near:data.ownWallCenterError});
+      check(data.edgeAlignment.every(group=>group.centreError<1.2), 'maximum melds keep all seat centre lines anchored to the same table centre', {size,scenario,groups:data.edgeAlignment});
+      for(const side of ['top','left','right']) {
+        const depth=Object.fromEntries(data.edgeAlignment.filter(group=>group.side===side).map(group=>[group.kind,group.depth]));
+        check(depth.hand<depth.wall&&depth.wall<depth.river, 'hand, wall and river form outer-to-inner lanes at every opponent seat', {size,scenario,side,depth});
+      }
+      if(process.env.KK_TILE_BASELINE) {
+        const before=JSON.parse(readFileSync(process.env.KK_TILE_BASELINE,'utf8')).geometry.find(item=>item.size.width===size.width&&item.size.height===size.height&&item.scenario===scenario);
+        const vectors=tile=>tile.quad.slice(1).map(point=>({x:point.x-tile.quad[0].x,y:point.y-tile.quad[0].y}));
+        const differences=data.allSeatGeometry.map((tile,index)=>vectors(tile).map((v,i)=>Math.hypot(v.x-vectors(before.allSeatGeometry[index])[i].x,v.y-vectors(before.allSeatGeometry[index])[i].y))).flat();
+        check(data.allSeatGeometry.length===before.allSeatGeometry.length&&differences.every(error=>error<.1), 'layout only translates tile groups; every tile keeps its original size, angle and proportions', {size,scenario,maxError:Math.max(...differences)});
+        check(JSON.stringify(data.ownGeometry)===JSON.stringify(before.ownGeometry)&&JSON.stringify(data.corners)===JSON.stringify(before.corners)&&JSON.stringify(data.hud)===JSON.stringify(before.hud), 'local hand, local river, local wall, HUD and table camera remain unchanged', {size,scenario});
+      }
       check(data.outsideViewport.length===0 && data.tableHudOverlaps.length===0, 'maximum table contents stay visible without covering HUD or local hand', {size,scenario,outside:data.outsideViewport,overlaps:data.tableHudOverlaps});
       check(data.scroll[0] <= size.width + 1 && data.scroll[1] <= size.height + 1, 'full table creates no page scrolling', { size, scenario, scroll: data.scroll });
       report.geometry.push({ size, scenario, ...data });
