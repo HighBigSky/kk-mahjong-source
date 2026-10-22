@@ -12,6 +12,7 @@ import { createHintCalculator, hintText, specialGangKind, settlementCoins, PLAY_
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
 import { createOpeningDeal, DEAL_TEXT } from './src/ui/opening-deal.js';
 import { createFlatOpponentView, tilePlane, planeCSS } from './src/ui/flat-opponents.js';
+import { createDiscardSpeech } from './src/ui/discard-speech.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
@@ -49,6 +50,7 @@ let resultShown = 0;
 let audio = null;
 let lastSoundEvent = '';
 const preferences = { sound: false };
+const discardSpeech = createDiscardSpeech({isEnabled:() => preferences.sound});
 let previousRoomCode = null;
 let previousRound = 0;
 let previousVersion = -1;
@@ -300,8 +302,7 @@ function roomChanged() {
   if (!changedRound && lastEvent && lastSoundEvent !== lastEvent) playSound();
   lastSoundEvent = lastEvent || '';
   // 换房或换局后重新对齐朗读基线，避免把上一局/进房前的日志读出来。
-  if (changedRoom || changedRound) announcedEvents = -1;
-  announceDiscards();
+  discardSpeech.update(game.events || [], {reset:changedRoom || changedRound});
   previousRoomCode = room?.code || null;
   previousVersion = room?.version ?? -1;
   previousRound = game.round;
@@ -434,38 +435,9 @@ function playSound(kind = 'tile') {
   } catch { /* Audio support is optional. */ }
 }
 
-// 出牌报牌名：用浏览器自带语音合成，零依赖。字牌单字容易听混，读全称。
-const SPEECH_NAMES = Object.freeze({ 中: '红中', 发: '发财', 白: '白板' });
-// 已读到的引擎日志条数：一个快照里可能同时带来好几条出牌，逐条读才不会漏。
-let announcedEvents = -1;
-
-function speakTile(name) {
-  if (!preferences.sound || typeof speechSynthesis === 'undefined' || !name) return;
-  try {
-    const utterance = new SpeechSynthesisUtterance(SPEECH_NAMES[name] || name);
-    utterance.lang = 'zh-CN';
-    utterance.rate = 1.15;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    speechSynthesis.speak(utterance);
-  } catch { /* 没有语音合成的浏览器只保留提示音。 */ }
-}
-
-function announceDiscards() {
-  const events = game.events || [];
-  if (announcedEvents < 0 || events.length < announcedEvents) {
-    // 刚进房或刚开一局：只对齐基线，不把历史日志重读一遍。
-    announcedEvents = events.length;
-    return;
-  }
-  for (const event of events.slice(announcedEvents)) {
-    const discarded = /打出(.+?)。$/.exec(event);
-    if (discarded) speakTile(discarded[1]);
-  }
-  announcedEvents = events.length;
-}
-
 function syncSettings() {
+  if (!preferences.sound) discardSpeech.stop();
+  else discardSpeech.resume();
   $('#sound-setting').checked = preferences.sound;
   $('#sound-btn use').setAttribute('href', preferences.sound ? '#i-sound' : '#i-mute');
   $('#sound-btn').setAttribute('aria-label', preferences.sound ? '关闭音效' : '开启音效');
@@ -1268,6 +1240,10 @@ $('#sound-btn').addEventListener('click', () => {
   preferences.sound = !preferences.sound; persist(); syncSettings(); playSound('select');
   toast(preferences.sound ? '音效已开启' : '音效已关闭');
 });
+// 回到页面或再次触碰时恢复系统暂停的朗读，不重读已经消费的日志。
+document.addEventListener('pointerdown', () => discardSpeech.resume(), {capture:true});
+document.addEventListener('keydown', () => discardSpeech.resume(), {capture:true});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) discardSpeech.resume(); });
 $('#voice-btn').addEventListener('click', () => {
   updateVoiceState();
   openModal('#voice-dialog');
