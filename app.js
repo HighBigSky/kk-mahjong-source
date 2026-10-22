@@ -972,8 +972,8 @@ function render() {
 
   const drawnIndex = game.phase.kind === PHASE.DISCARD && game.current === 0 && game.lastDraw?.player === 0 ? game.lastDraw.index : -1;
   const tilePriority = type => specialTile(type) ? 0 : type === game.wildTile ? 1 : 2;
-  // Special tiles stay in their priority group even when just drawn.
-  const separatedDrawnIndex = drawnIndex >= 0 && tilePriority(hand[drawnIndex]) === 2 ? drawnIndex : -1;
+  // 新摸或补入的痞子（含标「痞」的红中）留在右侧待定区；癞子仍沿用原分组。
+  const separatedDrawnIndex = drawnIndex >= 0 && tilePriority(hand[drawnIndex]) !== 1 ? drawnIndex : -1;
   const order = hand.map((type, index) => ({ type, index }))
     .filter(entry => entry.index !== separatedDrawnIndex)
     .sort((left, right) => tilePriority(left.type) - tilePriority(right.type) || left.type - right.type);

@@ -39,6 +39,11 @@ try{
    assert.equal(await page.locator('#rules-dialog').textContent().then(text=>text.includes('皮')),false);
    const oldLabels=await page.evaluate(()=>[...document.querySelectorAll('[aria-label],[title]')].flatMap(node=>['aria-label','title'].map(name=>node.getAttribute(name)||'')).filter(text=>text.includes('皮')));
    assert.deepEqual(oldLabels,[],'visible and assistive game labels use the same spelling');
+   if(kind!=='wildGang'){
+    assert.equal(await page.locator('#hand button.drawn').getAttribute('data-index'),'13');
+    assert.equal(await page.locator('#hand button').last().getAttribute('data-index'),'13','new pizi/red stays in the pending draw area');
+    assert.ok(await page.locator('#hand button.drawn').evaluate(node=>parseFloat(getComputedStyle(node).marginLeft)>0));
+   }else assert.equal(await page.locator('#hand button.drawn').count(),0,'wildcard grouping stays unchanged');
    const tile=page.locator('#hand button[data-index="13"]');await tap(tile);
    if(kind!=='wildGang')assert.equal(await tile.locator('.red-kong-marker,.pizi-marker').textContent(),'痞');
    assert.equal(sent.length,0);assert.equal(await tile.getAttribute('aria-pressed'),'true');
@@ -62,6 +67,26 @@ try{
    assert.deepEqual(game.players.map(player=>player.score),[1000+30*multiple,1000-10*multiple,1000-10*multiple,1000-10*multiple]);
    report.cases.push({touch,kind,indicator,type,label,singleRequest:true,tailDraws:1,duplicateRejected:true});
   }
+  // 真实单张杠从墙尾补到同一张痞子：旧痞子在左，新痞子在右，重复渲染/刷新不能归并。
+  const duplicate=actionFixture({names,hand:[...scattered.slice(0,12),33,33]});
+  const piziTail=duplicate.wall.indexOf(33);assert.ok(piziTail>=0);
+  [duplicate.wall[0],duplicate.wall[piziTail]]=[duplicate.wall[piziTail],duplicate.wall[0]];
+  await publish(duplicate);
+  const pending=async()=>{
+   assert.equal(await page.locator('#hand button').first().getAttribute('data-index'),'12');
+   assert.equal(await page.locator('#hand button').last().getAttribute('data-index'),'13');
+   assert.equal(await page.locator('#hand button.drawn').getAttribute('data-index'),'13');
+   assert.equal(await page.locator('#hand button:has(.pizi-marker)').count(),2);
+  };
+  await pending();const beforeHand=[...duplicate.players[0].hand];
+  await page.evaluate(()=>{for(let i=0;i<3;i++)window.renderMahjong();});await pending();assert.deepEqual(duplicate.players[0].hand,beforeHand);
+  await tap(page.locator('#hand button.drawn'));await tap(page.locator('#hand button.drawn'));await sync();await page.waitForTimeout(450);
+  assert.equal(sent.length,1);assert.equal(sent[0].action.kind,'piziGang');assert.equal(duplicate.lastDraw.replacement,true);assert.equal(duplicate.lastDraw.tile,33);assert.equal(duplicate.wallInfo.tailDraws,1);await pending();assertInvariants(duplicate);
+  await page.reload({waitUntil:'networkidle'});
+  await page.waitForFunction(()=>window.mahjongRoom.status==='connected'&&window.mahjongRoom.room?.status==='playing'&&!window.mahjongRoom.room.paused&&!window.mahjongRoom.busy);
+  if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();
+  await pending();assertInvariants(duplicate);
+  report.cases.push({touch,newPiziAndRedPending:true,oldPiziStaysLeft:true,duplicateCopiesIndependent:true,replacementPiziPending:true,renderAndReloadStable:true});
   // 超过 300ms 的两次特殊牌单击不能触发杠。
   await publish(actionFixture({names,hand:[...scattered,31]}));let tile=page.locator('#hand button[data-index="13"]');await tap(tile);await page.waitForTimeout(350);await tap(tile);assert.equal(sent.length,0);
   await publish(actionFixture({names,hand:[...scattered,24]}));tile=page.locator('#hand button[data-index="13"]');await tap(tile);await tap(tile);await sync();assert.equal(sent[0].action.kind,'discard');assert.equal(sent.length,1);
