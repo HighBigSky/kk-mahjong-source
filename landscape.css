@@ -363,8 +363,7 @@ html.in-game .result-score-row strong { font-size:calc(var(--dialog-unit) * 3.2)
   .is-landscape,.is-landscape *,html.in-game .modal { transition:none!important; animation:none!important; }
 }
 
-/* The table keeps its seated camera; opponent groups cancel that projection,
-   while the local hand and HUD keep their existing screen-space hit targets. */
+/* 四家牌区围绕方桌中心，共用桌面相机；本家手牌与 HUD 保留正视操作平面。 */
 html.in-game #game.is-landscape {
   /* 轻微坐席透视：桌面倾斜 46°、焦距为桌深两倍；本家手牌保持屏幕平面。 */
   /* 按屏宽确定方桌，按可用高度封顶；桌上牌列和相机同步等比缩放。 */
@@ -486,7 +485,7 @@ html.in-game #game.is-landscape {
   --wall-piece-height:calc(var(--table-unit) * 3.5);
   --wall-stack-depth:calc(var(--table-unit) * .3772);
   display:block;
-  top:calc(var(--table-depth-unit) * 57.4);
+  top:calc(var(--table-frame-size) * .765 - var(--table-unit) * 1.9386);
   bottom:auto;
   left:calc(var(--table-unit) * (13.75 + var(--wall-stack-index) * 2.5));
 }
@@ -504,7 +503,7 @@ html.in-game #game.is-landscape {
 }
 #game.is-landscape .wall-piece.is-empty { opacity:.22; }
 
-/* 桌框继续使用原透视；另外三家的牌区抵消倾斜，整组等比显示，不压扁牌面。 */
+/* 另外三家的同心牌区共用原桌面透视，牌体只等比显示。 */
 #game.is-landscape .table .opponent-rack {
   transform:var(--opponent-view,none);
   transform-origin:0 0;
@@ -529,7 +528,7 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .river-top,
 #game.is-landscape .table .river-bottom { height:var(--river-zone-height); }
 #game.is-landscape .table .river-top { top:calc(var(--table-depth-unit) * 15.4); }
-#game.is-landscape .table .river-bottom { top:calc(var(--table-depth-unit) * 40.6); }
+#game.is-landscape .table .river-bottom { top:calc(var(--table-frame-size) * .66 - var(--river-zone-height) / 2); }
 #game.is-landscape .table .river-left,
 #game.is-landscape .table .river-right {
   top:calc(var(--table-depth-unit) * 22.4);
@@ -542,7 +541,7 @@ html.in-game #game.is-landscape {
 /* The four directions form a compact dark square around the dice. */
 #game.is-landscape .table .table-center {
   left:calc(50% - var(--table-unit) * 7);
-  top:calc(var(--table-depth-unit) * 28);
+  top:calc(var(--table-frame-size) / 2 - var(--table-unit) * 7);
   width:calc(var(--table-unit) * 14);
   height:calc(var(--table-unit) * 14);
   border:1px solid #abc0ac80;
