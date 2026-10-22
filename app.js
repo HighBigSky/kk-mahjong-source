@@ -742,6 +742,9 @@ function renderTing() {
     $('#hint-close').setAttribute('aria-label', PLAY_TEXT.closeHint);
     $('#hint-details').setAttribute('aria-label', PLAY_TEXT.waits);
     $('#hint-waits').setAttribute('aria-label', PLAY_TEXT.waits);
+    // 按待胡牌的种类数缩放预览；剩余实牌张数只作标注，不影响尺寸。
+    $('#hint-details').style.setProperty('--hint-count', String(candidate.waits.length));
+    $('#hint-details').style.setProperty('--hint-columns', String(Math.min(6, candidate.waits.length)));
     setHTMLIfChanged($('#hint-waits'), candidate.waits.map(wait => `<div class="hint-wait" role="listitem">${tile(wait.type)}<span class="hint-wait-meta"><b>${PLAY_TEXT.remaining}${wait.remaining}${PLAY_TEXT.copies}</b><small>${wait.claim ? PLAY_TEXT.claim : PLAY_TEXT.selfDrawOnly}</small></span></div>`).join(''));
   }
   $('#hint-text').textContent = text;
@@ -1232,7 +1235,7 @@ $('#hint-btn').addEventListener('click', () => {
   selectHint();
 });
 $('#hint-close')?.addEventListener('click', closeHintDetails);
-$('#hint-choice').addEventListener('change', event => { hintChoice = Number(event.target.value); selectHint(); });
+$('#hint-choice').addEventListener('change', event => { hintChoice = Number(event.target.value); renderTing(); selectHint(); });
 // 设置里的两个入口都会先关掉设置弹窗，再开对应对弹窗，避免两层弹窗叠在一起。
 $('#settings-rules').addEventListener('click', () => {
   $('#settings-dialog').close();

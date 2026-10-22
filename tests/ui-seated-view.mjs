@@ -402,7 +402,7 @@ try {
     await page.locator('#play-assist:not([hidden])').waitFor();
     const hinted = await geometry(page);
     check(hinted.canvasScroll.every(value => value === 0), 'focus never scrolls the table canvas', { size, canvasScroll: hinted.canvasScroll });
-    check(hinted.hint && inside(hinted.hint, size) && hinted.hint.right < hinted.handZone.left && Math.abs(hinted.hint.top - hinted.handZone.top) <= 1, 'unified hint stays left-aligned with the hand top and unobscured', { size, hint: hinted.hint, handZone: hinted.handZone });
+    check(hinted.hint && inside(hinted.hint, size) && hinted.hint.left > hinted.handZone.right && Math.abs(hinted.hint.bottom - hinted.handZone.bottom) <= 1, 'unified hint stays to the right of the hand and below action controls', { size, hint: hinted.hint, handZone: hinted.handZone });
     await page.locator('#hint-btn').click();
     check(player.sent().length === 0 && await page.locator('#hand .hinted').count() === 1, 'hint first click only highlights', { size });
     const hintTarget = page.locator('#hand .hinted');

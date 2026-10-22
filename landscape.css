@@ -589,25 +589,25 @@ html.in-game #game.is-landscape {
 
 /* Large local tiles finish the near edge. Available width caps all 14 tiles. */
 .is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:50%; width:var(--rack-width); bottom:calc(1.5% + var(--ui-unit) * 6.2); transform:translateX(-50%); }
-/* 两侧对称留白保持手牌中心，提示独立定位，显隐不挤动手牌。 */
-.is-landscape .play-assist { position:absolute; right:calc(100% + var(--stage-width) * .012); top:0; width:calc(var(--stage-width) * .145); max-height:none; overflow:visible; border:0; background:none; box-shadow:none; }
+/* 提示放在手牌右下侧，低于吃碰杠热区，显隐不挤动手牌。 */
+.is-landscape .play-assist { position:absolute; left:calc(100% + var(--stage-width) * .012); right:auto; top:auto; bottom:0; width:min(calc(var(--stage-width) * .145),max(48px,calc(var(--ui-unit) * 13))); max-height:none; overflow:visible; border:0; background:none; box-shadow:none; }
 .play-assist[hidden],.play-assist select[hidden] { display:none; }
 .hint-button { display:grid; place-items:center; width:100%; min-height:32px; padding:calc(var(--ui-unit) * 1); border:1px solid #d6c183; border-radius:calc(var(--ui-unit) * 1.2); background:linear-gradient(145deg,#225b4b,#103b32); box-shadow:0 2px 5px #002b27aa; color:#ffe8a0; touch-action:manipulation; }
 .hint-button strong { font-size:calc(var(--ui-unit) * 2.8); line-height:1; }
 .hint-button span { font-size:max(9px,calc(var(--ui-unit) * 1.9)); line-height:1.3; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
-.hint-details { position:absolute; right:calc(var(--stage-width) * -.08); bottom:calc(100% + var(--ui-unit) * 2); z-index:7; width:calc(var(--stage-width) * .33); max-height:calc(var(--stage-height) * .27); padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * 9) calc(var(--ui-unit) * 1.2) calc(var(--ui-unit) * 1.5); border:calc(var(--ui-unit) * .7) solid #647f70; border-radius:calc(var(--ui-unit) * 2); background:linear-gradient(145deg,#fff8dc,#eee0ad); box-shadow:inset 0 0 0 1px #ffffef,0 2px 6px #001c1bb3; color:#79522b; }
+.hint-details { --hint-count:1; --hint-columns:1; --hint-tile-width:calc(var(--ui-unit) * max(5.5,9 - min(var(--hint-count),7) * .5)); position:absolute; right:0; bottom:calc(100% + var(--ui-unit) * 2); z-index:7; width:max-content; max-width:calc(var(--stage-width) * .42); padding:calc(var(--ui-unit) * 1.5) max(32px,calc(var(--ui-unit) * 8)) calc(var(--ui-unit) * 1.2) calc(var(--ui-unit) * 1.5); border:calc(var(--ui-unit) * .7) solid #647f70; border-radius:calc(var(--ui-unit) * 2); background:linear-gradient(145deg,#fff8dc,#eee0ad); box-shadow:inset 0 0 0 1px #ffffef,0 2px 6px #001c1bb3; color:#79522b; }
 .hint-details[hidden] { display:none; }
 .hint-close { position:absolute; right:0; top:0; width:max(32px,calc(var(--ui-unit) * 7)); height:max(32px,calc(var(--ui-unit) * 7)); padding:0; border:0; border-radius:50%; background:none; color:#79522b; font-size:max(18px,calc(var(--ui-unit) * 4.5)); line-height:1; touch-action:manipulation; }
-.hint-preview { display:flex; align-items:center; gap:calc(var(--ui-unit) * 1.7); }
+.hint-preview { display:flex; align-items:center; gap:calc(var(--ui-unit) * 1.7); min-width:0; }
 #hint-hu { flex:none; color:#a34d2a; font:700 calc(var(--ui-unit) * 7)/1 "KaiTi","STKaiti",serif; }
-.hint-waits { display:flex; gap:calc(var(--ui-unit) * 1.8); min-width:0; overflow-x:auto; overscroll-behavior:contain; scrollbar-width:thin; padding:calc(var(--ui-unit) * .5); }
-.hint-wait { display:flex; flex:none; align-items:center; gap:calc(var(--ui-unit) * 1); }
-.hint-wait .tile { flex:none; width:calc(var(--ui-unit) * 7); height:calc(var(--ui-unit) * 9.8); --tile-depth:calc(var(--ui-unit) * .45); --tile-side:calc(var(--ui-unit) * .16); border-radius:calc(var(--ui-unit) * .6); }
-.hint-wait-meta { display:grid; gap:calc(var(--ui-unit) * .7); white-space:nowrap; font-size:max(9px,calc(var(--ui-unit) * 2.3)); font-variant-numeric:tabular-nums; line-height:1.2; }
+.hint-waits { display:grid; grid-template-columns:repeat(var(--hint-columns),minmax(0,1fr)); gap:calc(var(--ui-unit) * 1.5); min-width:0; max-height:calc(var(--stage-height) * .34); overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; scrollbar-width:thin; padding:calc(var(--ui-unit) * .5); }
+.hint-wait { display:flex; flex-direction:column; align-items:center; gap:calc(var(--ui-unit) * .8); min-width:max(27px,var(--hint-tile-width)); }
+/* 牌面始终等比缩放；极多听牌保留可读下限，在浮窗内纵向查看。 */
+.hint-wait .tile { flex:none; width:var(--hint-tile-width); height:auto; aspect-ratio:5 / 7; --tile-depth:calc(var(--hint-tile-width) * .064); --tile-side:calc(var(--hint-tile-width) * .023); border-radius:calc(var(--hint-tile-width) * .086); }
+.hint-wait-meta { display:grid; gap:calc(var(--ui-unit) * .4); white-space:nowrap; text-align:center; font-size:max(9px,calc(var(--ui-unit) * 2.3)); font-variant-numeric:tabular-nums; line-height:1.2; }
 .hint-wait-meta small { font-size:max(8px,calc(var(--ui-unit) * 1.9)); }
-#hint-text { margin:calc(var(--ui-unit) * 1) 0 0; max-height:2.6em; overflow:auto; font-size:max(9px,calc(var(--ui-unit) * 2)); line-height:1.3; }
+#hint-text { margin:calc(var(--ui-unit) * 1) 0 0; width:0; min-width:100%; max-height:2.6em; overflow:auto; overflow-wrap:anywhere; font-size:max(9px,calc(var(--ui-unit) * 2)); line-height:1.3; }
 .hint-details select { width:100%; min-width:0; margin-top:calc(var(--ui-unit) * .5); border:0; border-top:1px solid #b89d6155; background:#f3e7bf; color:#79522b; font-size:max(9px,calc(var(--ui-unit) * 1.9)); }
-#game:has(.action-zone:not([hidden])) .hint-details { right:0; width:calc(var(--stage-width) * .26); }
 .is-landscape .player-rack .special-gang .meld-label { left:50%; right:auto; transform:translateX(-50%); white-space:nowrap; font-size:max(6px,calc(var(--ui-unit) * 1.3)); }
 .is-landscape .player-rack .my-melds .special-gang .tile { width:var(--self-public-tile-height); height:var(--self-public-tile-width); }
 .is-landscape .player-rack .my-melds .special-gang .tile svg { width:var(--self-public-tile-width); height:var(--self-public-tile-height); transform:rotate(90deg); flex:none; }

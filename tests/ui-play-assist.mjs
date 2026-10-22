@@ -57,7 +57,7 @@ try{
   for(const size of [{width:640,height:360},{width:844,height:390},{width:1280,height:720},{width:1920,height:1080}]){
    await page.setViewportSize(size);await page.waitForTimeout(80);
    const geometry=await page.evaluate(()=>{const rect=selector=>document.querySelector(selector).getBoundingClientRect().toJSON();return {hint:rect('#play-assist'),details:rect('#hint-details'),hand:rect('.hand-zone'),rack:rect('#rack-0'),scroll:document.documentElement.scrollWidth>innerWidth+1};});
-   assert.ok(Math.abs(geometry.hint.top-geometry.hand.top)<=1);assert.ok(geometry.hint.right<geometry.hand.left);assert.ok(geometry.details.bottom<geometry.hand.top);assert.ok(geometry.details.left>=0&&geometry.details.right<=size.width+1);assert.equal(geometry.scroll,false);report.geometry.push({touch,size,...geometry});
+   assert.ok(Math.abs(geometry.hint.bottom-geometry.hand.bottom)<=1);assert.ok(geometry.hint.left>geometry.hand.right);assert.ok(geometry.details.bottom<geometry.hand.top);assert.ok(geometry.details.left>=0&&geometry.details.right<=size.width+1);assert.equal(geometry.scroll,false);report.geometry.push({touch,size,...geometry});
    await page.screenshot({path:`output/play-assist-${touch?'touch':'pc'}-${size.width}.png`});
   }
   assert.ok(await page.locator('#hint-waits .tile').count()>0,'waits show actual tile faces');
@@ -89,6 +89,54 @@ try{
   await page.screenshot({path:`output/reference-table-${touch?'touch':'pc'}.png`});
   await page.locator('#hint-close').click();service._changed(room);await sync();assert.equal(await page.locator('#hint-details').isVisible(),false);await page.locator('#hint-btn').click();assert.equal(sent.length,0);
   report.cases.push({touch,referenceRivers:true,readyOtherTurnFaces:true,closePersistsAcrossSnapshot:true});
+  // 真实规则产生的 1 / 2 / 5 / 10 / 32 种听牌，验证数量驱动尺寸和极多牌的可读下限。
+  const sizes=[{width:640,height:360},{width:844,height:390},{width:800,height:360},{width:1920,height:1080}];
+  const previews=[
+   {count:1,hand:waiting,exhaustWild:true},
+   {count:2,hand:waiting},
+   {count:5,hand:[0,0,0,1,2,3,4,5,6,7,8,8,27]},
+   {count:10,hand:[1,1,4,4,7,7,10,10,13,13,16,16,19]},
+   {count:32,hand:[1,1,4,4,7,7,10,10,13,13,16,16,27]},
+  ];
+  const previousWidths=new Map();
+  for(const preview of previews){
+   const game=actionFixture({names,hand:preview.hand});
+   if(preview.exhaustWild)for(let index=game.wall.length-1;index>=0;index--)if(game.wall[index]===27)game.players[3].discards.push(game.wall.splice(index,1)[0]);
+   game.players[1].hand.push(game.wall.pop());game.current=1;game.phase={kind:'discard',seat:1};game.lastDraw=null;
+   await publish(game);
+   assert.equal(await page.locator('#hint-waits .tile').count(),preview.count);
+   for(const size of sizes){
+    await page.setViewportSize(size);await page.waitForTimeout(50);
+    const layout=await page.evaluate(()=>{
+     const rect=node=>node.getBoundingClientRect().toJSON();
+     const hint=document.querySelector('#hint-btn'),details=document.querySelector('#hint-details'),waits=document.querySelector('#hint-waits'),close=document.querySelector('#hint-close'),action=document.querySelector('.action-zone');
+     // 吃碰杠区域的最大占位只用于测量，不发送命令，也不改动牌局数据。
+     action.hidden=false;for(const button of action.querySelectorAll('button'))button.hidden=false;
+     const hit=node=>{const box=rect(node);return node.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));};
+     return {button:rect(hint),details:rect(details),hand:rect(document.querySelector('.hand-zone')),action:rect(action),tile:rect(waits.querySelector('.tile')),horizontalOverflow:waits.scrollWidth>waits.clientWidth+1,verticalScroll:waits.scrollHeight>waits.clientHeight+1,buttonHit:hit(hint),closeHit:hit(close),pageOverflow:document.documentElement.scrollWidth>innerWidth+1};
+    });
+    const overlap=(a,b)=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>.5&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.5;
+    assert.ok(layout.button.left>layout.hand.right);assert.ok(layout.button.right<=size.width);
+    assert.equal(overlap(layout.button,layout.action),false);assert.equal(overlap(layout.details,layout.action),false);assert.equal(overlap(layout.details,layout.hand),false);
+    assert.ok(layout.details.top>=0&&layout.details.right<=size.width);assert.ok(Math.abs(layout.tile.width/layout.tile.height-5/7)<.002);
+    assert.equal(layout.horizontalOverflow,false);assert.equal(layout.pageOverflow,false);assert.equal(layout.buttonHit,true);assert.equal(layout.closeHit,true);
+    const previous=previousWidths.get(size.width);if(previous!==undefined)assert.ok(layout.tile.width<=previous+.1);previousWidths.set(size.width,layout.tile.width);
+    if(preview.count===1||preview.count===5||preview.count===32)await page.screenshot({path:`output/hint-right-${touch?'touch':'pc'}-${size.width}-${preview.count}.png`});
+    // 最后一种听牌可在浮窗内查看，滚动不会把桌面或手牌带走。
+    await page.locator('#hint-waits .hint-wait').last().scrollIntoViewIfNeeded();
+    assert.equal(await page.locator('#hint-waits .hint-wait').last().isVisible(),true);
+    report.geometry.push({touch,size,waitCount:preview.count,...layout});
+    await page.evaluate(()=>window.renderMahjong());
+   }
+  }
+  report.cases.push({touch,rightOfHand:true,countScaled:[1,2,5,10,32],aspectPreserved:true,actionHotspotsClear:true});
+  await publish(actionFixture({names,hand:[1,1,4,4,7,7,10,10,13,13,16,16,27,28]}));
+  assert.equal(await page.locator('#hint-waits .tile').count(),32);
+  await page.locator('#hint-choice').selectOption('1');
+  assert.equal(await page.locator('#hint-waits .tile').count(),3);
+  assert.equal(await page.locator('#hint-details').evaluate(node=>node.style.getPropertyValue('--hint-count')),'3');
+  assert.equal(await page.locator('#hand .hinted').count(),1);assert.equal(sent.length,0);
+  report.cases.push({touch,candidateChangeRefreshesFacesAndSize:true,selectionOnly:true});
   const ended=actionFixture({names,hand:[...waiting,28]});ended._finishDraw();await publish(ended);assert.equal(await page.locator('#play-assist').isVisible(),false);assert.equal(await page.locator('#hand button:enabled').count(),0);
   await context.close();
  }
