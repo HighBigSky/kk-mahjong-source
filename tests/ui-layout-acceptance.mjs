@@ -104,7 +104,9 @@ async function measure(page, screen, scenario) {
       const edge = (q,a,b) => Math.hypot(q[a].x-q[b].x,q[a].y-q[b].y);
       return {
         seat, tiles, box: box(river), gap:getComputedStyle(river).gap, maxJointGap:Math.max(...contacts), sideAspects:seat%2?tiles.map(tile=>(edge(tile.quad,0,3)+edge(tile.quad,1,2))/(edge(tile.quad,0,1)+edge(tile.quad,2,3))):[], clientWidth: river.clientWidth, clientHeight: river.clientHeight,
-        modelAspects:seat%2?tiles.map(tile=>{const q=onTable(tile.quad);return edge(q,0,1)/edge(q,0,3);}):[],
+        modelAspects:tiles.map(tile=>{const q=onTable(tile.quad);return edge(q,0,1)/edge(q,0,3);}),
+        tableWidths:tiles.map(tile=>edge(onTable(tile.quad),0,1)),
+        tableHeights:tiles.map(tile=>edge(onTable(tile.quad),0,3)),
         scrollWidth: river.scrollWidth, scrollHeight: river.scrollHeight, overflow: getComputedStyle(river).overflow,
       };
     });
@@ -154,6 +156,9 @@ async function measure(page, screen, scenario) {
   check(data.rivers.every(river => river.tiles.length === capacity), 'all 36 physical river tiles render without truncation', { ...detail, counts: data.rivers.map(river => river.tiles.length) });
   check(data.rivers.every(river=>river.gap==='0px' && river.maxJointGap<.25), 'all river tiles touch adjacent cells without artificial gaps', {...detail,joints:data.rivers.map(river=>({seat:river.seat,gap:river.gap,max:river.maxJointGap}))});
   check(data.rivers.filter(river=>river.seat%2).every(river=>river.modelAspects.every(ratio=>Math.abs(ratio/(5/7)-1)<.02)), 'side tiles retain their original model proportions in the common table plane', {...detail,ratios:data.rivers.filter(river=>river.seat%2).map(river=>river.modelAspects)});
+  const widths=data.rivers.flatMap(river=>river.tableWidths),heights=data.rivers.flatMap(river=>river.tableHeights);
+  check(Math.max(...widths)/Math.min(...widths)<1.002&&Math.max(...heights)/Math.min(...heights)<1.002, 'all four rivers use identical tile size on the actual table, with natural perspective only', {...detail,widthRange:[Math.min(...widths),Math.max(...widths)],heightRange:[Math.min(...heights),Math.max(...heights)]});
+  check(data.rivers.every(river=>river.modelAspects.every(ratio=>Math.abs(ratio/(5/7)-1)<.002)), 'uniform river layout preserves every tile model aspect and right-angle geometry', detail);
   check(data.rivers.every(river => river.tiles.every(tile => tile.width > 0 && tile.height > 0 && inside(tile, river.box) && inside(tile, data.table) && inside(tile, viewport))), 'every river tile remains fully in its container, on table and in viewport', detail);
   // Transformed decorative descendants may extend scrollHeight by a pixel or
   // two even with visible overflow. Test actual scrollbars and tile containment.

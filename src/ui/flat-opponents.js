@@ -73,18 +73,22 @@ export function createFlatOpponentView(stage) {
     }
     // 牌区回到桌面的同一平面，只保留原有等比尺寸；牌体样式和模型不变。
     const anchor={x:left+frameWidth/2,y:top+frameHeight/2};
-    const groups=[...stage.querySelectorAll('.opponent-rack,#river-1,#river-2,#river-3'),...runs.values()];
+    const groups=[...stage.querySelectorAll('.opponent-rack,.river'),...runs.values()];
     for(const node of groups) {
       if(!node.isConnected||!node.getClientRects().length)continue;
       const style=getComputedStyle(node),width=parseFloat(style.width),height=parseFloat(style.height);
       if(!(width>0&&height>0))continue;
-      const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
+      const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-0':'bottom','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
       const kind=node.classList.contains('flat-wall-run')?'wall':node.classList.contains('river')?'river':'hand';
       // 各家共用同心分区：外圈手牌、中圈牌墙、内圈牌河，不再沿用零散的旧坐标。
-      const radius=kind==='river'?(side==='top'?.162:.208):kind==='wall'?(side==='top'?.27:.29):.39;
-      const direction={top:[0,-1],left:[-1,0],right:[1,0]}[side];
+      const radius=kind==='river'?.18:kind==='wall'?(side==='top'?.27:.29):.39;
+      const direction={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]}[side];
       const aligned={x:anchor.x+direction[0]*frameWidth*radius,y:anchor.y+direction[1]*frameHeight*radius};
-      const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${aligned.x}:${aligned.y}`;
+      // 四家牌河只在整个区域上等比缩放：共用实物牌宽与桌心半径，不改牌体、朝向或原始格位。
+      const face=kind==='river'?node.querySelector('.tile'):null;
+      // 空牌河也先对齐中心；第一张牌出现时再按原牌体宽度求等比缩放。
+      const size=kind==='river'?(face?frameWidth*.023/parseFloat(getComputedStyle(face).width):1):.72;
+      const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${aligned.x}:${aligned.y}:${size}`;
       if(cache.get(node)===key)continue;
       node.style.setProperty('--opponent-view','none');
       const source=projection(node,width,height,stageBox),undo=source&&inverse(source);
@@ -95,7 +99,6 @@ export function createFlatOpponentView(stage) {
         x=(Math.min(...bounds.map(b=>b.x))+Math.max(...bounds.map(b=>b.x+b.w)))/2;
         y=(Math.min(...bounds.map(b=>b.y))+Math.max(...bounds.map(b=>b.y+b.h)))/2;
       }
-      const size=node.id==='river-2' ? .70 : ['river-1','river-3'].includes(node.id) ? .90 : .72;
       const m=multiply(undo,multiply(tablePlane,[size,0,aligned.x-size*x,0,size,aligned.y-size*y,0,0,1]));
       if(Math.abs(m[8])<1e-10)continue;
       const n=m.map(value=>value/m[8]);

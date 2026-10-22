@@ -169,10 +169,10 @@ async function geometry(page) {
     });
     const nearStacks=[...document.querySelectorAll('.wall-stack[data-side="bottom"]')],first=centre(nearStacks[0]),last=centre(nearStacks.at(-1));
     const ownWallCenterError=Math.abs((first.x+last.x)/2-.5)*width;
-    const ringErrors=edgeAlignment.map(group=>Math.abs(group.depth+(group.kind==='river'?(group.side==='top'?.162:.208):group.kind==='wall'?(group.side==='top'?.27:.29):.39))*width);
+    const ringErrors=edgeAlignment.map(group=>Math.abs(group.depth+(group.kind==='river'?.18:group.kind==='wall'?(group.side==='top'?.27:.29):.39))*width);
     const compass=centre(document.querySelector('.table-center')),ownRiver=centre(document.querySelector('#river-0'));
     const tableCentreError=Math.hypot(compass.x-.5,compass.y-.5)*width;
-    const ownLaneErrors=[Math.hypot(ownRiver.x-.5,ownRiver.y-.662)*width,Math.hypot((first.x+last.x)/2-.5,(first.y+last.y)/2-.77)*width];
+    const ownLaneErrors=[Math.hypot(ownRiver.x-.5,ownRiver.y-.68)*width,Math.hypot((first.x+last.x)/2-.5,(first.y+last.y)/2-.77)*width];
     const outsideAllSeatFelt = allSeatTiles.filter(tile=>!tile.quad.every(p=>feltCorners.every((a,index)=>{
       const b=feltCorners[(index+1)%4];
       return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;

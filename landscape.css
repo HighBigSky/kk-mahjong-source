@@ -238,7 +238,7 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:4; --river-rows:9; --river-zone-width:calc(var(--table-unit) * 13); --river-zone-height:calc(var(--table-depth-unit) * 26); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
 #game.is-landscape .table .river-left { left:calc(var(--table-unit) * 8); --river-tile-turn:90deg; }
 #game.is-landscape .table .river-right { right:calc(var(--table-unit) * 8); --river-tile-turn:-90deg; }
-/* 他家牌河在独立的正视平面显示，只保留各家朝向，不再纵向补偿或拉伸。 */
+/* 左右牌河保留各家朝向，布局层只对整个区域等比摆放。 */
 #game.is-landscape .table :is(.river-left,.river-right) .tile { transform:rotate(var(--river-tile-turn)); }
 .is-landscape .table-dice { gap:calc(var(--table-unit) * 1); }
 .is-landscape .table-die {
@@ -508,11 +508,7 @@ html.in-game #game.is-landscape {
   transform:var(--opponent-view,none);
   transform-origin:0 0;
 }
-#game.is-landscape #river-2 {
-  transform:var(--opponent-view,none);
-  transform-origin:0 0;
-}
-#game.is-landscape :is(#river-1,#river-3) {
+#game.is-landscape .table .river {
   transform:var(--opponent-view,none);
   transform-origin:0 0;
 }
