@@ -6,6 +6,7 @@ const inverse = m => {
   const determinant=a*result[0]+b*result[3]+c*result[6];
   return Math.abs(determinant)>1e-10 ? result.map(value=>value/determinant) : null;
 };
+const project = (m,x,y) => {const w=m[6]*x+m[7]*y+m[8];return{x:(m[0]*x+m[1]*y+m[2])/w,y:(m[3]*x+m[4]*y+m[5])/w};};
 
 /** 由浏览器真实投影的四角反算平面，不依赖设备方向或人为压扁系数。 */
 function projection(node,width,height,stageBox) {
@@ -54,6 +55,22 @@ export function createFlatOpponentView(stage) {
     const tablePlane=projection(table,parseFloat(tableStyle.width),parseFloat(tableStyle.height),stageBox);
     if(!tablePlane)return;
     const left=parseFloat(surface.left),top=parseFloat(surface.top),frameWidth=parseFloat(surface.width),frameHeight=parseFloat(surface.height);
+    const localPublic=stage.querySelector('.my-melds');
+    if(localPublic&&!localPublic.hidden) {
+      // 正视副露随手牌上移后，按真实绒布左边界内收，不能贴到木框或影响手牌中心。
+      localPublic.style.transform='none';
+      const far=project(tablePlane,left+frameWidth*.055,top+frameHeight*.055);
+      const near=project(tablePlane,left+frameWidth*.055,top+frameHeight*.945);
+      let inset=0;
+      for(const tile of localPublic.querySelectorAll('.tile')) {
+        const box=tile.getBoundingClientRect();
+        for(const y of [box.top-stageBox.top,box.bottom-stageBox.top]) {
+          const edge=far.x+(y-far.y)*(near.x-far.x)/(near.y-far.y);
+          inset=Math.max(inset,edge+1-(box.left-stageBox.left));
+        }
+      }
+      localPublic.style.transform=`translateX(${inset}px)`;
+    }
     // 牌区回到桌面的同一平面，只保留原有等比尺寸；牌体样式和模型不变。
     const anchor={x:left+frameWidth/2,y:top+frameHeight/2};
     const groups=[...stage.querySelectorAll('.opponent-rack,#river-1,#river-2,#river-3'),...runs.values()];
@@ -64,7 +81,7 @@ export function createFlatOpponentView(stage) {
       const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
       const kind=node.classList.contains('flat-wall-run')?'wall':node.classList.contains('river')?'river':'hand';
       // 各家共用同心分区：外圈手牌、中圈牌墙、内圈牌河，不再沿用零散的旧坐标。
-      const radius=kind==='river'?(side==='top'?.16:.20):kind==='wall'?(side==='top'?.265:.28):.39;
+      const radius=kind==='river'?(side==='top'?.162:.208):kind==='wall'?(side==='top'?.27:.29):.39;
       const direction={top:[0,-1],left:[-1,0],right:[1,0]}[side];
       const aligned={x:anchor.x+direction[0]*frameWidth*radius,y:anchor.y+direction[1]*frameHeight*radius};
       const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${aligned.x}:${aligned.y}`;

@@ -373,8 +373,8 @@ html.in-game #game.is-landscape {
   --table-depth-unit:calc(var(--board-height) / 70);
   /* 实物桌框为正方形；重排桌内区域，不横向压缩牌或整个场景。 */
   --table-surface-width:var(--board-height);
-  /* 只扩大方形桌框与绒布，牌区继续使用原内容坐标，避免连带缩放或移动牌列。 */
-  --table-frame-size:calc(var(--board-height) * 1.10);
+  /* 方框等比收拢，露出近侧木沿；牌体尺寸仍取原内容坐标，不随桌框压缩。 */
+  --table-frame-size:calc(var(--board-height) * 1.05);
   --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
   --rack-width:calc(var(--stage-width) * .66);
@@ -390,7 +390,7 @@ html.in-game #game.is-landscape {
     radial-gradient(ellipse at 50% 2%,#b08e4933,transparent 47%),
     linear-gradient(180deg,#202921,#0e1b17 60%,#070f0d);
   box-shadow:inset 0 0 calc(var(--ui-unit) * 12) #020e0b99;
-  /* 桌沿允许出画，但禁止浏览器为聚焦手牌而滚动内部画布。 */
+  /* 桌沿厚度允许少量出画，近侧木面保持可见；聚焦手牌不能滚动画布。 */
   overflow:clip;
 }
 
@@ -408,8 +408,8 @@ html.in-game #game.is-landscape {
 #game.is-landscape::after { content:none; }
 
 #game.is-landscape .table {
-  /* 46°、焦距为桌深两倍时，近沿距中心约 .4236T；固定近沿，完整保留远端牌列。 */
-  top:calc(var(--stage-height) * .98 - var(--board-height) * .9236);
+  /* 相机参数保持不变，桌面整体上移 .03H，让近侧木沿进入视口。 */
+  top:calc(var(--stage-height) * .98 - var(--board-height) * .9236 - var(--ui-unit) * 3);
   left:calc(50% - var(--board-size) / 2);
   width:var(--board-size);
   height:var(--board-height);
@@ -423,7 +423,7 @@ html.in-game #game.is-landscape {
   transform-style:preserve-3d;
   isolation:auto;
 }
-/* 方形桌框以远沿为锚点等比外扩，近端绒布托住本家手牌；共用原相机，不拉伸。 */
+/* 方形桌框继续共用原相机，不拉伸；近侧木沿在手牌下方露出。 */
 #game.is-landscape .table::before {
   content:"";
   position:absolute;
@@ -481,13 +481,13 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .wall-stack[data-side="right"] { right:calc(50% - var(--table-surface-width) * .35); }
 #game.is-landscape .table .wall-stack[data-side="bottom"] {
   /* 前墙等比收拢、17 墩紧密排列，给左侧最多副露留出空间。 */
-  --wall-piece-width:calc(var(--table-unit) * 2.5);
-  --wall-piece-height:calc(var(--table-unit) * 3.5);
-  --wall-stack-depth:calc(var(--table-unit) * .3772);
+  --wall-piece-width:calc(var(--table-unit) * 2.25);
+  --wall-piece-height:calc(var(--table-unit) * 3.15);
+  --wall-stack-depth:calc(var(--table-unit) * .33948);
   display:block;
-  top:calc(var(--table-frame-size) * .765 - var(--table-unit) * 1.9386);
+  top:calc(var(--table-frame-size) * .77 - var(--table-unit) * 1.74474);
   bottom:auto;
-  left:calc(var(--table-unit) * (13.75 + var(--wall-stack-index) * 2.5));
+  left:calc(var(--table-unit) * (15.875 + var(--wall-stack-index) * 2.25));
 }
 #game.is-landscape .back {
   border-color:#90b74b;
@@ -528,7 +528,7 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .river-top,
 #game.is-landscape .table .river-bottom { height:var(--river-zone-height); }
 #game.is-landscape .table .river-top { top:calc(var(--table-depth-unit) * 15.4); }
-#game.is-landscape .table .river-bottom { top:calc(var(--table-frame-size) * .66 - var(--river-zone-height) / 2); }
+#game.is-landscape .table .river-bottom { top:calc(var(--table-frame-size) * .662 - var(--river-zone-height) / 2); }
 #game.is-landscape .table .river-left,
 #game.is-landscape .table .river-right {
   top:calc(var(--table-depth-unit) * 22.4);
@@ -578,7 +578,7 @@ html.in-game #game.is-landscape {
 }
 .is-landscape .seat-left { left:1.4%; top:30%; }
 .is-landscape .seat-right { right:1.4%; top:30%; }
-.is-landscape .seat-bottom { left:1.4%; bottom:12%; }
+.is-landscape .seat-bottom { left:1.4%; bottom:25%; }
 .is-landscape .seat-top { left:auto; right:1.4%; top:12%; width:calc(var(--ui-unit) * 16); height:calc(var(--ui-unit) * 10.5); transform:none; }
 .is-landscape .seat-top .opponent-score svg { display:none; }
 .is-landscape .seat-top .opponent-score { font-size:calc(var(--ui-unit) * 2.2); }
@@ -588,7 +588,7 @@ html.in-game #game.is-landscape {
 .is-landscape .room-meta { top:13%; left:2%; width:23%; opacity:.7; font-size:calc(var(--ui-unit) * 2.1); flex-direction:column; align-items:flex-start; gap:0; }
 
 /* Large local tiles finish the near edge. Available width caps all 14 tiles. */
-.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:50%; width:var(--rack-width); bottom:1.5%; transform:translateX(-50%); }
+.is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:50%; width:var(--rack-width); bottom:calc(1.5% + var(--ui-unit) * 6.2); transform:translateX(-50%); }
 /* 两侧对称留白保持手牌中心，提示独立定位，显隐不挤动手牌。 */
 .is-landscape .play-assist { position:absolute; right:calc(100% + var(--stage-width) * .012); top:0; width:calc(var(--stage-width) * .145); max-height:none; overflow:visible; border:0; background:none; box-shadow:none; }
 .play-assist[hidden],.play-assist select[hidden] { display:none; }

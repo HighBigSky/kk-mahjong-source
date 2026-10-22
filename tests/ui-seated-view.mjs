@@ -113,6 +113,7 @@ async function geometry(page) {
     const corners = [point(left, top), point(left + width, top), point(left + width, top + height), point(left, top + height)];
     // 方框木边占 4.2%，额外留 1.3% 安全带；牌必须落在绒布内，不能只落在外框内。
     const feltCorners = [[.055,.055],[.945,.055],[.945,.945],[.055,.945]].map(([x,y])=>point(left+width*x,top+height*y));
+    const nearRailTop=point(left+width/2,top+height*.96).y;
     const tableContents = list('.table .river .tile,.opponent-rack .tile,.opponent-rack .back,#wall-tail .wall-piece:not(.is-empty)');
     const insideFrame = p => corners.every((a,index)=>{
       const b=corners[(index+1)%4];
@@ -168,10 +169,10 @@ async function geometry(page) {
     });
     const nearStacks=[...document.querySelectorAll('.wall-stack[data-side="bottom"]')],first=centre(nearStacks[0]),last=centre(nearStacks.at(-1));
     const ownWallCenterError=Math.abs((first.x+last.x)/2-.5)*width;
-    const ringErrors=edgeAlignment.map(group=>Math.abs(group.depth+(group.kind==='river'?(group.side==='top'?.16:.20):group.kind==='wall'?(group.side==='top'?.265:.28):.39))*width);
+    const ringErrors=edgeAlignment.map(group=>Math.abs(group.depth+(group.kind==='river'?(group.side==='top'?.162:.208):group.kind==='wall'?(group.side==='top'?.27:.29):.39))*width);
     const compass=centre(document.querySelector('.table-center')),ownRiver=centre(document.querySelector('#river-0'));
     const tableCentreError=Math.hypot(compass.x-.5,compass.y-.5)*width;
-    const ownLaneErrors=[Math.hypot(ownRiver.x-.5,ownRiver.y-.66)*width,Math.hypot((first.x+last.x)/2-.5,(first.y+last.y)/2-.765)*width];
+    const ownLaneErrors=[Math.hypot(ownRiver.x-.5,ownRiver.y-.662)*width,Math.hypot((first.x+last.x)/2-.5,(first.y+last.y)/2-.77)*width];
     const outsideAllSeatFelt = allSeatTiles.filter(tile=>!tile.quad.every(p=>feltCorners.every((a,index)=>{
       const b=feltCorners[(index+1)%4];
       return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
@@ -194,6 +195,8 @@ async function geometry(page) {
       for (const x of [.25, .5, .75]) for (const y of [.25, .5, .75]) hits.push(document.elementFromPoint(r.left + r.width * x, r.top + r.height * y)?.closest('#hand button') === node);
       return { index: Number(node.dataset.index), ...r, transform: getComputedStyle(node).transform, hits: hits.filter(Boolean).length, centerHit: hits[4] };
     });
+    const localRackOverlaps=[];
+    for(const tile of list('#hand button'))for(const meld of list('.my-melds .tile'))if(window.visualGeometry.intersects(tile.quad,meld.quad))localRackOverlaps.push([tile.id,meld.id]);
     const overlap = (a, b) => window.visualGeometry.intersects(a.quad,b.quad);
     const rivers = [0, 1, 2, 3].map(seat => ({
       seat, box: rect(document.querySelector(`#river-${seat}`)), tiles: list(`#river-${seat} .tile`),
@@ -217,7 +220,7 @@ async function geometry(page) {
       stage: rect(stage), table: rect(table), corners, tableTransform: style.transform, tableOrigin: style.transformOrigin,
       surface: { left, top, width, height }, nearWidth: corners[2].x - corners[3].x, farWidth: corners[1].x - corners[0].x,
       tableDepth: (corners[2].y + corners[3].y - corners[0].y - corners[1].y) / 2,
-      hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, feltCorners, outsideFelt, outsideAllSeatFelt, outsideViewport, tableHudOverlaps, rackWallOverlaps, allSeatGeometry:allSeatTiles, opponentFlat,
+      hand, handZone: rect(document.querySelector('.hand-zone')), nearRailTop,localRackOverlaps, riverOverlaps, rivers, actions, hud, outsideFrame, feltCorners, outsideFelt, outsideAllSeatFelt, outsideViewport, tableHudOverlaps, rackWallOverlaps, allSeatGeometry:allSeatTiles, opponentFlat,
       ownGeometry:list('#hand button,.my-melds .tile,#river-0 .tile,.wall-stack[data-side="bottom"] .wall-piece:not(.is-empty)'),
       wallSlotOrder:[...document.querySelectorAll('.wall-piece')].map(node=>Number(node.dataset.position)),
       edgeAlignment,ownEdgeAlignment,ownWallCenterError,facing,ringErrors,tableCentreError,ownLaneErrors,
@@ -245,8 +248,8 @@ try {
     const initial = await geometry(page);
     // 方桌维持上一版；他家牌区为正常平面，自家牌区与 HUD 保持原样。
     const bodyWidthRatio = (initial.nearWidth + initial.farWidth) / 2 / size.width;
-    check(bodyWidthRatio >= .70 && bodyWidthRatio <= .76, 'enlarged table supports all four seats without filling the entire width', { size, bodyWidthRatio });
-    check(initial.nearWidth / size.width >= .85 && initial.nearWidth / size.width <= .91, 'near table edge expands uniformly to support the local hand', { size, widthRatio: initial.nearWidth / size.width });
+    check(bodyWidthRatio >= .65 && bodyWidthRatio <= .72, 'square table stays about two thirds of the viewport width with room for its front rail', { size, bodyWidthRatio });
+    check(initial.nearWidth / size.width >= .78 && initial.nearWidth / size.width <= .85, 'near edge remains wide enough to support the original local hand size', { size, widthRatio: initial.nearWidth / size.width });
     check(Math.abs(initial.surface.width / initial.surface.height - 1) < .003, 'physical tabletop stays square rather than a squeezed long table', {size, surface:initial.surface});
     check(Math.abs(Number(initial.tableTransform.slice(9,-1).split(',')[0])-1)<.0001, 'table projection has no horizontal scale compression', {size,transform:initial.tableTransform});
     check(initial.outsideFrame.length===0 && initial.rackWallOverlaps.length===0, 'reanchored hands and walls fit the square frame without obstruction', {size,outside:initial.outsideFrame,overlaps:initial.rackWallOverlaps});
@@ -259,7 +262,7 @@ try {
     check(initial.outsideViewport.length===0 && initial.tableHudOverlaps.length===0, 'enlarged table keeps every physical tile clear of viewport edges and flat HUD', {size,outside:initial.outsideViewport,overlaps:initial.tableHudOverlaps});
     check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side hand tile models stay unchanged and only their group receives the table projection', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
-    check(initial.corners[2].y > size.height && initial.feltCorners[2].y >= initial.handZone.bottom, 'near felt extends beneath the entire local hand, with the wooden apron allowed off screen', { size, corners: initial.corners, felt:initial.feltCorners,hand:initial.handZone });
+    check(initial.nearRailTop<=size.height*.975&&initial.handZone.bottom<initial.nearRailTop-1&&initial.feltCorners[2].y>=initial.handZone.bottom-.8, 'front wooden rail is visible below the complete local hand, with all cards still supported by felt', {size,railTop:initial.nearRailTop,felt:initial.feltCorners,hand:initial.handZone});
     check(initial.farTile && initial.farTile.height < initial.hand[0].height * .7, 'far hand is clearly smaller than the local hand', { size, far: initial.farTile, near: initial.hand[0] });
     check(initial.hud.every(node => !node.inTableProjection), 'labels and operation HUD stay outside the table projection', { size, hud: initial.hud });
     await screenshot(page, size, 'normal');
@@ -323,6 +326,7 @@ try {
       check(data.outsideFrame.length===0 && data.rackWallOverlaps.length===0, 'maximum racks and full rivers remain within the physical square frame', {size,scenario,outside:data.outsideFrame,overlaps:data.rackWallOverlaps});
       check(data.outsideFelt.length===0, 'maximum racks and full rivers retain a clear felt safety margin', {size,scenario,outside:data.outsideFelt});
       check(data.outsideAllSeatFelt.length===0, 'full rivers and maximum public groups including the local rack fit on felt', {size,scenario,outside:data.outsideAllSeatFelt});
+      check(data.localRackOverlaps.length===0, 'inset public melds remain separate from the centered local hand', {size,scenario,overlaps:data.localRackOverlaps});
       check(data.opponentFlat.every(tile=>tile.rectangular&&Math.abs(tile.aspect/tile.expected-1)<.02), 'opponents full rivers and maximum chi/peng/kong groups keep normal proportions', {size,scenario,bad:data.opponentFlat.filter(tile=>!tile.rectangular||Math.abs(tile.aspect/tile.expected-1)>=.02)});
       check(data.edgeAlignment.every(group=>group.parallelError<.002&&group.normalError<1.2)&&data.ownEdgeAlignment.every(error=>error<.002)&&data.ownWallCenterError<.8, 'full rivers and maximum melds retain edge alignment', {size,scenario,groups:data.edgeAlignment,near:data.ownWallCenterError});
       check(data.edgeAlignment.every(group=>group.centreError<1.2), 'maximum melds keep all seat centre lines anchored to the same table centre', {size,scenario,groups:data.edgeAlignment});
@@ -334,7 +338,9 @@ try {
       if(process.env.KK_TILE_BASELINE) {
         const before=JSON.parse(readFileSync(process.env.KK_TILE_BASELINE,'utf8')).geometry.find(item=>item.size.width===size.width&&item.size.height===size.height&&item.scenario===scenario);
         check(data.opponentFlat.length===before.opponentFlat.length&&data.opponentFlat.every((tile,index)=>tile.expected===before.opponentFlat[index].expected), 'intrinsic tile proportions are unchanged while the camera projection changes', {size,scenario});
-        check(JSON.stringify(data.hand)===JSON.stringify(before.hand)&&JSON.stringify(data.corners)===JSON.stringify(before.corners)&&JSON.stringify(data.hud)===JSON.stringify(before.hud), 'local hand input geometry, HUD and table camera remain unchanged', {size,scenario});
+        const handSize=items=>items.map(({left,width,height})=>({left,width,height}));
+        const fixedHUD=items=>items.filter(item=>!['play-assist','opponent-0'].includes(item.id));
+        check(JSON.stringify(handSize(data.hand))===JSON.stringify(handSize(before.hand))&&data.tableTransform===before.tableTransform&&JSON.stringify(fixedHUD(data.hud))===JSON.stringify(fixedHUD(before.hud)), 'hand sizes, horizontal hit positions, fixed HUD and camera perspective remain unchanged', {size,scenario});
       }
       check(data.outsideViewport.length===0 && data.tableHudOverlaps.length===0, 'maximum table contents stay visible without covering HUD or local hand', {size,scenario,outside:data.outsideViewport,overlaps:data.tableHudOverlaps});
       check(data.scroll[0] <= size.width + 1 && data.scroll[1] <= size.height + 1, 'full table creates no page scrolling', { size, scenario, scroll: data.scroll });
