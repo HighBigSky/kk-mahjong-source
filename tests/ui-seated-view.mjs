@@ -125,36 +125,35 @@ async function geometry(page) {
     }))).map(tile=>tile.id);
     // 本家为屏幕平面中的兄弟节点，也必须由桌内绒布完整承托，不能漏验。
     const allSeatTiles = list('#hand button,.my-melds .tile,.table .river .tile,.opponent-rack .tile,.opponent-rack .back,#wall-tail .wall-piece:not(.is-empty)');
+    const onTable=window.visualGeometry.tablePlane(corners);
     const opponentFlat = [...document.querySelectorAll('.opponent-rack .tile,.opponent-rack .back,#river-1 .tile,#river-2 .tile,#river-3 .tile,.flat-wall-run .wall-piece:not(.is-empty)')].filter(visible).map(node=>{
-      const box=rect(node),s=getComputedStyle(node),q=box.quad;
+      const box=rect(node),s=getComputedStyle(node),q=onTable(box.quad);
       const u={x:q[1].x-q[0].x,y:q[1].y-q[0].y},v={x:q[3].x-q[0].x,y:q[3].y-q[0].y};
       const w=Math.hypot(u.x,u.y),h=Math.hypot(v.x,v.y);
       const rectangular=Math.abs(u.x*v.x+u.y*v.y)/(w*h)<.002;
       return {id:node.closest('[id]')?.id,aspect:w/h,expected:parseFloat(s.width)/parseFloat(s.height),rectangular};
     });
     const tableEdges={top:[corners[0],corners[1]],left:[corners[0],corners[3]],right:[corners[1],corners[2]],bottom:[corners[3],corners[2]]};
-    const tableMiddle={x:corners.reduce((sum,p)=>sum+p.x,0)/4,y:corners.reduce((sum,p)=>sum+p.y,0)/4};
     const edgeError=(vector,side)=>{const [a,b]=tableEdges[side],dx=b.x-a.x,dy=b.y-a.y;return Math.abs(vector.x*dy-vector.y*dx)/(Math.hypot(vector.x,vector.y)*Math.hypot(dx,dy));};
-    const centre=node=>{const q=rect(node).quad;return{x:q.reduce((sum,p)=>sum+p.x,0)/4,y:q.reduce((sum,p)=>sum+p.y,0)/4};};
+    const centre=node=>{const q=onTable(rect(node).quad);return{x:q.reduce((sum,p)=>sum+p.x,0)/4,y:q.reduce((sum,p)=>sum+p.y,0)/4};};
     const edgeAlignment=[...document.querySelectorAll('.opponent-rack,#river-1,#river-2,#river-3,.flat-wall-run')].filter(visible).map(node=>{
       const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
-      const q=rect(node).quad,end=side==='top'?q[1]:q[3];
+      const q=onTable(rect(node).quad),end=side==='top'?q[1]:q[3];
       let middle=centre(node);
       if(node.classList.contains('flat-wall-run')){const members=node.querySelectorAll('.wall-stack'),first=centre(members[0]),last=centre(members[members.length-1]);middle={x:(first.x+last.x)/2,y:(first.y+last.y)/2};}
       const reference=centre(document.querySelector(`#rack-${{top:2,left:3,right:1}[side]}`));
-      const [a,b]=tableEdges[side],length=Math.hypot(b.x-a.x,b.y-a.y);
-      const normalError=Math.abs((middle.x-reference.x)*(b.x-a.x)+(middle.y-reference.y)*(b.y-a.y))/length;
-      const centreError=Math.abs((middle.x-tableMiddle.x)*(b.x-a.x)+(middle.y-tableMiddle.y)*(b.y-a.y))/length;
-      const sign=side==='left'?-1:1,inward={x:sign*(a.y-b.y)/length,y:sign*(b.x-a.x)/length};
-      const depth=(middle.x-tableMiddle.x)*inward.x+(middle.y-tableMiddle.y)*inward.y;
+      const normalError=Math.abs(side==='top'?middle.x-reference.x:middle.y-reference.y)*width;
+      const centreError=Math.abs((side==='top'?middle.x:middle.y)-.5)*width;
+      const depth=side==='top'?middle.y-.5:side==='left'?middle.x-.5:.5-middle.x;
       const kind=node.classList.contains('flat-wall-run')?'wall':node.classList.contains('river')?'river':'hand';
-      return{side,kind,depth,centreError,parallelError:edgeError({x:end.x-q[0].x,y:end.y-q[0].y},side),normalError};
+      const vx=end.x-q[0].x,vy=end.y-q[0].y;
+      return{side,kind,depth,centreError,parallelError:Math.abs(side==='top'?vy:vx)/Math.hypot(vx,vy),normalError};
     });
     const ownEdgeAlignment=[...document.querySelectorAll('#hand button,.my-melds .tile,#river-0 .tile,.wall-stack[data-side="bottom"] .wall-piece:not(.is-empty)')].filter(visible).map(node=>{
       const q=rect(node).quad;return edgeError({x:q[1].x-q[0].x,y:q[1].y-q[0].y},'bottom');
     });
     const nearStacks=[...document.querySelectorAll('.wall-stack[data-side="bottom"]')],first=centre(nearStacks[0]),last=centre(nearStacks.at(-1));
-    const ownWallCenterError=Math.abs((first.x+last.x)/2-(corners[2].x+corners[3].x)/2);
+    const ownWallCenterError=Math.abs((first.x+last.x)/2-.5)*width;
     const outsideAllSeatFelt = allSeatTiles.filter(tile=>!tile.quad.every(p=>feltCorners.every((a,index)=>{
       const b=feltCorners[(index+1)%4];
       return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
@@ -235,12 +234,12 @@ try {
     check(initial.outsideFrame.length===0 && initial.rackWallOverlaps.length===0, 'reanchored hands and walls fit the square frame without obstruction', {size,outside:initial.outsideFrame,overlaps:initial.rackWallOverlaps});
     check(initial.outsideFelt.length===0, 'all tabletop hands, rivers and walls stay on felt inside the wooden rim', {size,outside:initial.outsideFelt});
     check(initial.outsideAllSeatFelt.length===0, 'all four hands including the local flat hand stay fully inside felt', {size,outside:initial.outsideAllSeatFelt});
-    check(initial.opponentFlat.length>0&&initial.opponentFlat.every(tile=>tile.rectangular&&Math.abs(tile.aspect/tile.expected-1)<.02), 'opponents hands and walls retain normal rectangular tile proportions', {size,bad:initial.opponentFlat.filter(tile=>!tile.rectangular||Math.abs(tile.aspect/tile.expected-1)>=.02)});
+    check(initial.opponentFlat.length>0&&initial.opponentFlat.every(tile=>tile.rectangular&&Math.abs(tile.aspect/tile.expected-1)<.02), 'opponent tiles retain their rectangular model and proportions after unprojecting the common table camera', {size,bad:initial.opponentFlat.filter(tile=>!tile.rectangular||Math.abs(tile.aspect/tile.expected-1)>=.02)});
     check(initial.edgeAlignment.every(group=>group.parallelError<.002&&group.normalError<1.2)&&initial.ownEdgeAlignment.every(error=>error<.002)&&initial.ownWallCenterError<.8, 'all four seat zones align with their table edge and shared normal centreline', {size,groups:initial.edgeAlignment,near:initial.ownWallCenterError});
     check(initial.edgeAlignment.every(group=>group.centreError<1.2), 'opponent zones use the fixed visual table centre rather than a changing hand container', {size,groups:initial.edgeAlignment});
     check(initial.wallSlotOrder.length===136&&initial.wallSlotOrder.every((position,index)=>position===index), 'wall grouping preserves all 136 original slots in order', {size});
     check(initial.outsideViewport.length===0 && initial.tableHudOverlaps.length===0, 'enlarged table keeps every physical tile clear of viewport edges and flat HUD', {size,outside:initial.outsideViewport,overlaps:initial.tableHudOverlaps});
-    check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side concealed hands restore the flat pre-first-person tile model', {size, sideHands:initial.sideHands});
+    check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side hand tile models stay unchanged and only their group receives the table projection', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
     check(initial.corners[2].y > size.height && initial.feltCorners[2].y >= initial.handZone.bottom, 'near felt extends beneath the entire local hand, with the wooden apron allowed off screen', { size, corners: initial.corners, felt:initial.feltCorners,hand:initial.handZone });
     check(initial.farTile && initial.farTile.height < initial.hand[0].height * .7, 'far hand is clearly smaller than the local hand', { size, far: initial.farTile, near: initial.hand[0] });
@@ -313,9 +312,7 @@ try {
       }
       if(process.env.KK_TILE_BASELINE) {
         const before=JSON.parse(readFileSync(process.env.KK_TILE_BASELINE,'utf8')).geometry.find(item=>item.size.width===size.width&&item.size.height===size.height&&item.scenario===scenario);
-        const vectors=tile=>tile.quad.slice(1).map(point=>({x:point.x-tile.quad[0].x,y:point.y-tile.quad[0].y}));
-        const differences=data.allSeatGeometry.map((tile,index)=>vectors(tile).map((v,i)=>Math.hypot(v.x-vectors(before.allSeatGeometry[index])[i].x,v.y-vectors(before.allSeatGeometry[index])[i].y))).flat();
-        check(data.allSeatGeometry.length===before.allSeatGeometry.length&&differences.every(error=>error<.1), 'layout only translates tile groups; every tile keeps its original size, angle and proportions', {size,scenario,maxError:Math.max(...differences)});
+        check(data.opponentFlat.length===before.opponentFlat.length&&data.opponentFlat.every((tile,index)=>tile.expected===before.opponentFlat[index].expected), 'intrinsic tile proportions are unchanged while the camera projection changes', {size,scenario});
         check(JSON.stringify(data.ownGeometry)===JSON.stringify(before.ownGeometry)&&JSON.stringify(data.corners)===JSON.stringify(before.corners)&&JSON.stringify(data.hud)===JSON.stringify(before.hud), 'local hand, local river, local wall, HUD and table camera remain unchanged', {size,scenario});
       }
       check(data.outsideViewport.length===0 && data.tableHudOverlaps.length===0, 'maximum table contents stay visible without covering HUD or local hand', {size,scenario,outside:data.outsideViewport,overlaps:data.tableHudOverlaps});

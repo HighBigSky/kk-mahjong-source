@@ -92,6 +92,10 @@ async function measure(page, screen, scenario) {
     const visible = element => element.getClientRects().length && getComputedStyle(element).display !== 'none' && getComputedStyle(element).visibility !== 'hidden';
     const collect = selector => [...document.querySelectorAll(selector)].filter(visible).map((element, index) => ({ id: element.id || `${selector}[${index}]`, ...box(element) }));
     const hit = (a, b) => window.visualGeometry.intersects(a.quad,b.quad);
+    const tableNode=document.querySelector('.table'),surface=getComputedStyle(tableNode,'::before');
+    const probe=document.createElement('i');probe.style.cssText='position:absolute;width:0;height:0;pointer-events:none';tableNode.append(probe);
+    const corners=[[0,0],[1,0],[1,1],[0,1]].map(([x,y])=>{probe.style.left=`${parseFloat(surface.left)+parseFloat(surface.width)*x}px`;probe.style.top=`${parseFloat(surface.top)+parseFloat(surface.height)*y}px`;const r=probe.getBoundingClientRect();return{x:r.left,y:r.top};});probe.remove();
+    const onTable=window.visualGeometry.tablePlane(corners);
     const rivers = [0, 1, 2, 3].map(seat => {
       const river = document.querySelector(`#river-${seat}`);
       const tiles = collect(`#river-${seat} .tile`), columns = seat % 2 ? 4 : 9;
@@ -100,6 +104,7 @@ async function measure(page, screen, scenario) {
       const edge = (q,a,b) => Math.hypot(q[a].x-q[b].x,q[a].y-q[b].y);
       return {
         seat, tiles, box: box(river), gap:getComputedStyle(river).gap, maxJointGap:Math.max(...contacts), sideAspects:seat%2?tiles.map(tile=>(edge(tile.quad,0,3)+edge(tile.quad,1,2))/(edge(tile.quad,0,1)+edge(tile.quad,2,3))):[], clientWidth: river.clientWidth, clientHeight: river.clientHeight,
+        modelAspects:seat%2?tiles.map(tile=>{const q=onTable(tile.quad);return edge(q,0,1)/edge(q,0,3);}):[],
         scrollWidth: river.scrollWidth, scrollHeight: river.scrollHeight, overflow: getComputedStyle(river).overflow,
       };
     });
@@ -148,7 +153,7 @@ async function measure(page, screen, scenario) {
   check(Math.abs(data.stage.width - screen.width) <= 1 && Math.abs(data.stage.height - Math.min(screen.height, screen.width * 9 / 16)) <= 1, 'canvas fills landscape viewport and centers in taller windows', { ...detail, stage: data.stage });
   check(data.rivers.every(river => river.tiles.length === capacity), 'all 36 physical river tiles render without truncation', { ...detail, counts: data.rivers.map(river => river.tiles.length) });
   check(data.rivers.every(river=>river.gap==='0px' && river.maxJointGap<.25), 'all river tiles touch adjacent cells without artificial gaps', {...detail,joints:data.rivers.map(river=>({seat:river.seat,gap:river.gap,max:river.maxJointGap}))});
-  check(data.rivers.filter(river=>river.seat%2).every(river=>river.sideAspects.every(ratio=>ratio>=1.2&&ratio<=1.7)), 'side faces retain a readable proportion instead of a flattened strip', {...detail,ratios:data.rivers.filter(river=>river.seat%2).map(river=>river.sideAspects)});
+  check(data.rivers.filter(river=>river.seat%2).every(river=>river.modelAspects.every(ratio=>Math.abs(ratio/(5/7)-1)<.02)), 'side tiles retain their original model proportions in the common table plane', {...detail,ratios:data.rivers.filter(river=>river.seat%2).map(river=>river.modelAspects)});
   check(data.rivers.every(river => river.tiles.every(tile => tile.width > 0 && tile.height > 0 && inside(tile, river.box) && inside(tile, data.table) && inside(tile, viewport))), 'every river tile remains fully in its container, on table and in viewport', detail);
   // Transformed decorative descendants may extend scrollHeight by a pixel or
   // two even with visible overflow. Test actual scrollbars and tile containment.
@@ -187,7 +192,8 @@ async function stability(page, screen, seat) {
     const focusAspect = focusRect.width / focusRect.height;
     const targetRect = document.querySelector(`#river-${seat}`).children[index].getBoundingClientRect();
     const targetAspect = targetRect.width / targetRect.height;
-    const flatFocus = new DOMMatrix(getComputedStyle(document.querySelector('#discard-focus')).transform).is2D;
+    const targetQuad=window.visualGeometry.quad(document.querySelector(`#river-${seat}`).children[index]);
+    const focusTargetError=Math.max(...focusQuad.map((p,i)=>Math.hypot(p.x-targetQuad[i].x,p.y-targetQuad[i].y)));
     const focusNeighborOverlaps = [...document.querySelectorAll('.river .tile')].filter(node => node !== document.querySelector(`#river-${seat}`).children[index]).flatMap(node => {
       if (!window.visualGeometry.intersects(focusQuad,window.visualGeometry.quad(node))) return [];
       const r = node.getBoundingClientRect();
@@ -198,12 +204,12 @@ async function stability(page, screen, seat) {
     await Promise.all([...document.querySelectorAll('.discard-flight')].flatMap(node => node.getAnimations()).map(animation => animation.finished.catch(() => {})));
     await new Promise(resolve => requestAnimationFrame(resolve));
     const after = rects();
-    return { before, after, unchangedNodes, expanded, focusAspect, targetAspect, flatFocus, focusNeighborOverlaps, focusHidden: document.querySelector('#discard-focus').hidden, flights: document.querySelectorAll('.discard-flight').length, lastCount: document.querySelector(`#river-${seat}`).querySelectorAll('.tile').length };
+    return { before, after, unchangedNodes, expanded, focusAspect, targetAspect, focusTargetError, focusNeighborOverlaps, focusHidden: document.querySelector('#discard-focus').hidden, flights: document.querySelectorAll('.discard-flight').length, lastCount: document.querySelector(`#river-${seat}`).querySelectorAll('.tile').length };
   }, { capacity, seat });
   check(result.unchangedNodes, 'unchanged render preserves river DOM nodes', { screen, seat });
   check(result.expanded && result.focusHidden && result.flights === 0, 'latest river tile enlarges then finishes shrinking', { screen, seat, expanded: result.expanded, hidden: result.focusHidden, flights: result.flights });
   check(result.focusNeighborOverlaps.length === 0, 'expanded latest tile does not cover neighboring river tiles', { screen, seat, overlaps: result.focusNeighborOverlaps });
-  check(result.flatFocus && Math.abs(result.focusAspect / result.targetAspect - 1) < .05, 'discard enlargement preserves the restored flat river pose', {screen,seat,aspect:result.focusAspect,targetAspect:result.targetAspect});
+  check(result.focusTargetError<.8 && Math.abs(result.focusAspect / result.targetAspect - 1) < .05, 'dense-river focus preserves all four real tile corners and their table perspective', {screen,seat,error:result.focusTargetError,aspect:result.focusAspect,targetAspect:result.targetAspect});
   check(result.lastCount === capacity, 'last tile remains after animation', { screen, seat, count: result.lastCount });
   const maxDelta = Math.max(...result.before.flatMap((rect, index) => rect.map((value, component) => Math.abs(value - (result.after[index]?.[component] ?? Infinity)))));
   check(maxDelta < .1, 'all river positions remain stable after render and animation', { screen, seat, maxDelta });

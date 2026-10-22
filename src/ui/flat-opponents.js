@@ -28,6 +28,16 @@ function projection(node,width,height,stageBox) {
     (p[1].y-p[0].y+g*p[1].y)/width,(p[3].y-p[0].y+h*p[3].y)/height,p[0].y,g/width,h/height,1];
 }
 
+// 动画与实牌共用浏览器实际测得的平面，避免把透视四边形拉伸成包围盒。
+export function tilePlane(node,stage) {
+  const style=getComputedStyle(node),width=parseFloat(style.width),height=parseFloat(style.height);
+  if(!(width>0&&height>0))return null;
+  const matrix=projection(node,width,height,stage.getBoundingClientRect());
+  return matrix?{width,height,matrix}:null;
+}
+
+export const planeCSS = n => `matrix3d(${[n[0],n[3],0,n[6],n[1],n[4],0,n[7],0,0,1,0,n[2],n[5],0,n[8]].join(',')})`;
+
 // 只变换现有公开 DOM，不复制牌面、不读取暗牌，不改变 136 个槽位、排序或游戏状态。
 export function createFlatOpponentView(stage) {
   const runs=new Map(),cache=new WeakMap();
@@ -43,26 +53,18 @@ export function createFlatOpponentView(stage) {
     const stageBox=stage.getBoundingClientRect();
     const table=stage.querySelector('.table'),tableStyle=getComputedStyle(table),surface=getComputedStyle(table,'::before');
     const tablePlane=projection(table,parseFloat(tableStyle.width),parseFloat(tableStyle.height),stageBox);
-    if(!tablePlane)return;
+    const tableUndo=tablePlane&&inverse(tablePlane);
+    if(!tableUndo)return;
     const left=parseFloat(surface.left),top=parseFloat(surface.top),frameWidth=parseFloat(surface.width),frameHeight=parseFloat(surface.height);
-    const corners=[[left,top],[left+frameWidth,top],[left+frameWidth,top+frameHeight],[left,top+frameHeight]].map(([x,y])=>project(tablePlane,x,y));
-    const edges={top:[corners[0],corners[1]],left:[corners[0],corners[3]],right:[corners[1],corners[2]]};
-    // 用桌框投影的视觉中心排四家座位；牌数和副露变化不再移动其他牌区。
-    // 只平移整组落点，沿用既有旋转、等比尺寸及牌体建模。
-    const anchor={x:corners.reduce((sum,p)=>sum+p.x,0)/4,y:corners.reduce((sum,p)=>sum+p.y,0)/4};
-    const guides={};
-    for(const [side,[start,end]] of Object.entries(edges)) {
-      const length=Math.hypot(end.x-start.x,end.y-start.y),tangent={x:(end.x-start.x)/length,y:(end.y-start.y)/length};
-      guides[side]={tangent,anchor,angle:Math.atan2(tangent.y,tangent.x)-(side==='top'?0:Math.PI/2)};
-    }
+    // 牌区回到桌面的同一平面，只保留原有等比尺寸；牌体样式和模型不变。
+    const anchor={x:left+frameWidth/2,y:top+frameHeight/2};
     const groups=[...stage.querySelectorAll('.opponent-rack,#river-1,#river-2,#river-3'),...runs.values()];
     for(const node of groups) {
       if(!node.isConnected||!node.getClientRects().length)continue;
       const style=getComputedStyle(node),width=parseFloat(style.width),height=parseFloat(style.height);
       if(!(width>0&&height>0))continue;
       const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
-      const {tangent,anchor,angle}=guides[side];
-      const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${anchor.x}:${anchor.y}:${angle}`;
+      const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${anchor.x}:${anchor.y}`;
       if(cache.get(node)===key)continue;
       node.style.setProperty('--opponent-view','none');
       const source=projection(node,width,height,stageBox),undo=source&&inverse(source);
@@ -73,19 +75,13 @@ export function createFlatOpponentView(stage) {
         x=(Math.min(...bounds.map(b=>b.x))+Math.max(...bounds.map(b=>b.x+b.w)))/2;
         y=(Math.min(...bounds.map(b=>b.y))+Math.max(...bounds.map(b=>b.y+b.h)))/2;
       }
-      const centre=project(source,x,y),unit=project(source,x+1,y);
+      const centre=project(multiply(tableUndo,source),x,y);
       const size=node.id==='river-2' ? .70 : ['river-1','river-3'].includes(node.id) ? .90 : .72;
-      const scale=Math.hypot(unit.x-centre.x,unit.y-centre.y)*size;
-      const along=(centre.x-anchor.x)*tangent.x+(centre.y-anchor.y)*tangent.y;
-      const aligned={x:centre.x-along*tangent.x,y:centre.y-along*tangent.y};
-      const a=scale*Math.cos(angle),b=scale*Math.sin(angle);
-      // 以真实桌边为方向，同家各区沿桌边法线排齐；只平面旋转和等比缩放，不改变牌面比例。
-      const m=multiply(undo,[a,-b,aligned.x-a*x+b*y,b,a,aligned.y-b*x-a*y,0,0,1]);
+      const aligned={x:side==='top'?anchor.x:centre.x,y:side==='top'?centre.y:anchor.y};
+      const m=multiply(undo,multiply(tablePlane,[size,0,aligned.x-size*x,0,size,aligned.y-size*y,0,0,1]));
       if(Math.abs(m[8])<1e-10)continue;
       const n=m.map(value=>value/m[8]);
-      node.style.setProperty('--opponent-view',`matrix3d(${[n[0],n[3],0,n[6],n[1],n[4],0,n[7],0,0,1,0,n[2],n[5],0,1].join(',')})`);
-      node.dataset.edgeAngle=String(angle*180/Math.PI);
-      node.dataset.edgeScale=String(scale);
+      node.style.setProperty('--opponent-view',planeCSS(n));
       cache.set(node,key);
     }
   };

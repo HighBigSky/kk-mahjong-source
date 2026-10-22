@@ -1,3 +1,5 @@
+import { tilePlane, planeCSS } from './flat-opponents.js';
+
 // 开局发牌只重放公开的数量与牌背；真实手牌、牌墙、顺序和回合始终以服务端为准。
 export const DEAL_TEXT = Object.freeze({progress:'正在发牌…', layer:'开局发牌动画'});
 const STORAGE_KEY = 'kk-opening-deal-seen';
@@ -106,18 +108,18 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
     const destinations = targets.map(nodes=>nodes.map(node=>{
       const box=rect(node),rack=node.closest('.opponent-rack');
       if(!rack)return{node,box,angle:0};
-      // 他家牌列沿桌沿旋转：落点使用真实牌身尺寸，不能将牌拉伸到旋转后的包围盒。
-      const style=getComputedStyle(node),scale=Number(rack.dataset.edgeScale||1);
-      const width=parseFloat(style.width)*scale,height=parseFloat(style.height)*scale;
-      return{node,angle:Number(rack.dataset.edgeAngle||0),box:{left:box.left+(box.width-width)/2,top:box.top+(box.height-height)/2,width,height}};
+      const plane=tilePlane(node,stage);
+      if(!plane)throw new Error('Missing deal destination plane');
+      return{node,plane,box:{left:0,top:0,width:plane.width,height:plane.height}};
     }));
     const sourceBoxes = sources.map(rect);
+    const sourcePlanes = sources.map(node=>tilePlane(node,stage));
     if (sourceBoxes.some(box=>box.width <= 0 || box.height <= 0) || destinations.flat().some(({box})=>box.width <= 0 || box.height <= 0)) { finish(); return; }
     phase = 'running'; layer.dataset.phase = phase; layer.hidden = false;
     const flights = [], fragment = document.createDocumentFragment();
     let offset = 0;
     for (const [batchIndex, batch] of batches.entries()) for (const [inBatch, index] of batch.indexes.entries()) {
-      const {node, box, angle} = destinations[batch.player][index], source = sourceBoxes[offset++];
+      const {node, box, plane} = destinations[batch.player][index], sourcePlane=sourcePlanes[offset],source = sourceBoxes[offset++];
       const delay = batchIndex*BATCH_INTERVAL+inBatch*12;
       const wallBack = document.createElement('span');
       wallBack.className = 'deal-source back';
@@ -126,7 +128,6 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
       flight.className = 'deal-flight'; flight.dataset.player = String(batch.player); flight.dataset.batch = String(batchIndex); flight.dataset.count = String(batch.indexes.length); flight.dataset.source = String(state.slots[offset-1]);
       flight.dataset.handIndex=String(index);
       Object.assign(flight.style,{left:`${box.left}px`,top:`${box.top}px`,width:`${box.width}px`,height:`${box.height}px`});
-      if(batch.player!==0)flight.style.transformOrigin='50% 50%';
       const face = node.cloneNode(true);
       face.classList.add('deal-face'); face.classList.remove('selected','hinted','drawn');
       for (const child of [face,...face.querySelectorAll('[id]')]) child.removeAttribute('id');
@@ -141,13 +142,21 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
       const dy = source.top-box.top+(batch.player===0?0:(source.height-box.height)/2);
       const sx = source.width/box.width, sy = source.height/box.height;
       const lift = Math.min(stageBox.height*.035,16);
-      const facing=progress=>batch.player===0?'':` rotate(${angle*progress}deg)`;
-      const animation = animate(flight,[
-        {transform:`translate(${dx}px,${dy}px)${facing(0)} scale(${sx},${sy})`,opacity:0,offset:0},
-        {transform:`translate(${dx}px,${dy}px)${facing(0)} scale(${sx},${sy})`,opacity:1,offset:.04},
-        {transform:`translate(${dx*.45}px,${dy*.45-lift}px)${facing(.6)} scale(${sx+(1-sx)*.6},${sy+(1-sy)*.6})`,opacity:1,offset:.55},
-        {transform:`translate(0,0)${facing(1)} scale(1)`,opacity:1,offset:1},
-      ],{duration:FLIGHT_DURATION,delay,easing:'cubic-bezier(.2,.65,.3,1)',fill:'both'});
+      let frames=[
+        {transform:`translate(${dx}px,${dy}px) scale(${sx},${sy})`,opacity:0,offset:0},
+        {transform:`translate(${dx}px,${dy}px) scale(${sx},${sy})`,opacity:1,offset:.04},
+        {transform:`translate(${dx*.45}px,${dy*.45-lift}px) scale(${sx+(1-sx)*.6},${sy+(1-sy)*.6})`,opacity:1,offset:.55},
+        {transform:'translate(0,0) scale(1)',opacity:1,offset:1},
+      ];
+      if(plane&&sourcePlane) {
+        // 其他三家共用桌面透视；飞牌两端按实牌四角落位，不拉伸牌体到包围盒。
+        const start=sourcePlane.matrix.map((value,i)=>value*(i%3===0?sourcePlane.width/box.width:i%3===1?sourcePlane.height/box.height:1));
+        const middle=start.map((value,i)=>value*.4+plane.matrix[i]*.6);
+        const lifted=new DOMMatrix().translate(0,-lift).multiply(new DOMMatrix(planeCSS(middle))).toString();
+        frames=[{transform:planeCSS(start),opacity:0,offset:0},{transform:planeCSS(start),opacity:1,offset:.04},
+          {transform:lifted,opacity:1,offset:.55},{transform:planeCSS(plane.matrix),opacity:1,offset:1}];
+      }
+      const animation = animate(flight,frames,{duration:FLIGHT_DURATION,delay,easing:'cubic-bezier(.2,.65,.3,1)',fill:'both'});
       flights.push(animation.finished);
       animate(wallBack,[{opacity:1},{opacity:0}],{duration:1,delay,fill:'forwards'});
       fragment.append(wallBack,flight);

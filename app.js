@@ -11,7 +11,7 @@ import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
 import { createHintCalculator, hintText, specialGangKind, PLAY_TEXT } from './src/ui/play-assist.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
 import { createOpeningDeal, DEAL_TEXT } from './src/ui/opening-deal.js';
-import { createFlatOpponentView } from './src/ui/flat-opponents.js';
+import { createFlatOpponentView, tilePlane, planeCSS } from './src/ui/flat-opponents.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
@@ -598,61 +598,35 @@ function discardRiverTile(discard) {
   return $(`#river-${discard.from}`).children[discard.index] || null;
 }
 
-// Undo the table's camera projection for a point measured in logical stage
-// coordinates. The focus then shares the real tile's plane and perspective.
-function tablePoint(x, y) {
-  const style = getComputedStyle($('.table'));
-  const matrix = new DOMMatrix(style.transform);
-  const [ox, oy] = style.transformOrigin.split(' ').map(parseFloat);
-  const px = x - parseFloat(style.left) - ox;
-  const py = y - parseFloat(style.top) - oy;
-  const a = matrix.m11 - px * matrix.m14, b = matrix.m21 - px * matrix.m24;
-  const c = matrix.m12 - py * matrix.m14, d = matrix.m22 - py * matrix.m24;
-  const u = px * matrix.m44 - matrix.m41, v = py * matrix.m44 - matrix.m42;
-  const determinant = a * d - b * c;
-  return {x:ox + (u * d - b * v) / determinant, y:oy + (a * v - u * c) / determinant};
-}
-
 function positionDiscardFocus() {
   if (!focusedDiscard) return;
   const target = discardRiverTile(focusedDiscard);
   if (!target) return;
   const rect = stageRect(target);
-  const style = getComputedStyle(target);
-  const width = parseFloat(style.width), height = parseFloat(style.height);
-  const edgeAngle = Number(target.parentElement.dataset.edgeAngle || 0);
-  const edgeScale = Number(target.parentElement.dataset.edgeScale || 1);
-  const sourceRect = JSON.stringify([rect.left, rect.top, rect.width, rect.height, width, height, edgeAngle, edgeScale]);
+  const plane = tilePlane(target, $('#game'));
+  if (!plane) return;
+  const {width,height,matrix} = plane;
+  const sourceRect = JSON.stringify([width,height,matrix]);
   if (discardFocusGeometry?.sourceRect === sourceRect) return;
   const centre = {x:rect.left + rect.width / 2, y:rect.top + rect.height / 2};
-  const angle = [0, -90, 180, 90][focusedDiscard.from] + edgeAngle;
   const holder = $('#discard-focus');
-  const flat = focusedDiscard.from !== 0;
-  const parent = flat ? $('#game') : $('.table');
-  if (holder.parentElement !== parent) parent.append(holder);
+  if (holder.parentElement !== $('#game')) $('#game').append(holder);
   const face = holder.querySelector('.tile');
   for (const animation of face.getAnimations()) animation.cancel();
   // Enlarging in perspective shifts the projected bounding-box centre slightly.
   // Correct that screen-space shift while keeping the card on the same plane.
   const place = scale => {
-    const anchor = {...centre};
+    let transform = planeCSS(matrix);
     let preview;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const point = flat ? anchor : tablePoint(anchor.x, anchor.y);
-      let faceWidth = width, faceHeight = height;
-      if (flat) {
-        // 他家的放大牌使用屏幕平面，直接匹配实牌尺寸；自己的放大牌仍保留桌面投影。
-        faceWidth = width * edgeScale;
-        faceHeight = height * edgeScale;
-      }
-      discardFocusGeometry = {...point, width:faceWidth, height:faceHeight, angle, scale, sourceRect};
-      holder.style.cssText = `left:${point.x}px;top:${point.y}px;width:${faceWidth}px;height:${faceHeight}px;--discard-turn:${angle}deg;--discard-focus-scale:${scale}`;
+      // 直接复用实牌四角的投影，放大与缩回始终贴合桌面，不能用外接矩形代替牌身。
+      discardFocusGeometry = {width,height,transform,scale,sourceRect};
+      holder.style.cssText = `left:0;top:0;width:${width}px;height:${height}px;transform-origin:0 0;transform:${transform};--discard-focus-scale:${scale}`;
       preview = stageRect(face);
       const dx = centre.x - preview.left - preview.width / 2;
       const dy = centre.y - preview.top - preview.height / 2;
       if (Math.hypot(dx, dy) < .1) break;
-      anchor.x += dx;
-      anchor.y += dy;
+      transform = new DOMMatrix().translate(dx,dy).multiply(new DOMMatrix(transform)).toString();
     }
     return preview;
   };
@@ -684,17 +658,19 @@ function settleDiscardFocus() {
   // that empty slot or into the next tile which happened to occupy its index.
   const target = discardRiverTile(previous);
   if (target && face && discardFocusGeometry && !holder.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const {x, y, width, height, angle, scale} = discardFocusGeometry;
+    const {width,height,transform,scale} = discardFocusGeometry;
+    const destination = tilePlane(target,$('#game'));
+    if (!destination) { holder.hidden=true; discardFocusGeometry=null; return; }
     const flight = face.cloneNode(true);
     flight.classList.add('discard-flight');
     flight.setAttribute('aria-hidden', 'true');
-    flight.style.cssText = `left:${x - width / 2}px;top:${y - height / 2}px;width:${width}px;height:${height}px`;
-    (previous.from === 0 ? $('.table') : $('#game')).append(flight);
+    flight.style.cssText = `left:0;top:0;width:${width}px;height:${height}px;transform-origin:0 0`;
+    $('#game').append(flight);
     discardFlights.add(flight);
-    // 他家的放大与缩回共用正视平面，本家继续沿用原桌面视角。
+    // 首帧沿用放大牌投影，末帧回到真实牌河四角，不改变底下实牌的槽位。
     const animation = flight.animate([
-      {transform:`rotate(${angle}deg) scale(${scale})`, opacity:1},
-      {transform:`rotate(${angle}deg) scale(1)`, opacity:0},
+      {transform:`${transform} translate(${width/2}px,${height/2}px) scale(${scale}) translate(${-width/2}px,${-height/2}px)`, opacity:1},
+      {transform:planeCSS(destination.matrix), opacity:0},
     ], {duration:260, easing:'cubic-bezier(.22,.65,.25,1)', fill:'forwards'});
     const remove = () => { flight.remove(); discardFlights.delete(flight); };
     animation.finished.then(remove, remove);
