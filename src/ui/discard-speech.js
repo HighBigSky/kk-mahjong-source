@@ -1,57 +1,44 @@
 // 只消费公开出牌日志，不读取他人暗牌，也不改变对局状态。
 const SPEECH_NAMES = Object.freeze({ 中:'红中', 发:'发财', 白:'白板' });
 
-export function createDiscardSpeech({isEnabled, synthesis = globalThis.speechSynthesis, Utterance = globalThis.SpeechSynthesisUtterance}) {
+export function createDiscardSpeech({isEnabled, voicePlayer}) {
   let previous = null;
-  const pending = new Set();
+  let noticeId = 0;
   const stop = () => {
-    if (pending.size) {
-      try { synthesis?.cancel(); } catch { /* 浏览器语音服务不可用时仍可继续对局。 */ }
-      pending.clear();
-    }
+    voicePlayer?.stop();
   };
   const resume = () => {
-    if (!isEnabled() || !synthesis) return;
-    try {
-      synthesis.getVoices(); // 在用户交互时预取系统语音列表，列表尚未就绪时仍使用默认中文。
-      if (synthesis.paused) synthesis.resume();
-    } catch { /* 不支持语音合成的设备保留原提示音。 */ }
+    if (isEnabled()) voicePlayer?.unlock();
   };
   const speak = name => {
-    if (!isEnabled() || !synthesis || !Utterance) return;
-    let utterance;
-    try {
-      utterance = new Utterance(SPEECH_NAMES[name] || name);
-      utterance.lang = 'zh-CN';
-      utterance.rate = 1.15;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-      const voices = synthesis.getVoices();
-      const chinese = voices.filter(voice => /^zh(?:[-_]|$)/i.test(voice.lang));
-      const voice = chinese.find(voice => /^zh[-_]CN$/i.test(voice.lang) && voice.localService)
-        || chinese.find(voice => /^zh[-_]CN$/i.test(voice.lang)) || chinese[0];
-      if (voice) utterance.voice = voice;
-      // 保留尚未播放完的对象；批量快照按原顺序排队，不能每次出牌都 cancel。
-      pending.add(utterance);
-      utterance.onend = utterance.onerror = () => pending.delete(utterance);
-      if (synthesis.paused) synthesis.resume();
-      synthesis.speak(utterance);
-    } catch { pending.delete(utterance); }
+    if (isEnabled() && name) voicePlayer?.say(SPEECH_NAMES[name] || name);
   };
   return {
-    resume, stop,
-    update(events, {reset = false} = {}) {
+    resume, stop, say:speak,
+    update(events, {reset = false, notice = null} = {}) {
       const before = previous;
       previous = [...events];
-      if (reset || before === null) { stop(); return; }
+      if (reset || before === null) { noticeId=notice?.id||0; stop(); return; }
       // 引擎日志最多 80 条，满后会移除头部。按前后快照的重叠段找新增日志，不能按长度计数。
       let overlap = Math.min(before.length, events.length);
       while (overlap > 0 && !before.slice(-overlap).every((entry, index) => entry === events[index])) overlap--;
       // 断线太久或历史整体替换时只重设基线，避免重播整段过期出牌。
-      if (!overlap && before.length) return;
-      for (const event of events.slice(overlap)) {
+      const announced=new Set();
+      for (const event of !overlap && before.length ? [] : events.slice(overlap)) {
         const discarded = /打出(.+?)。$/.exec(event);
-        if (discarded) speak(discarded[1]);
+        if (discarded) { speak(discarded[1]); continue; }
+        if (/自摸胡牌！/.test(event)) { speak('自摸'); announced.add('hu'); }
+        else if (/胡牌！/.test(event)) { speak('胡'); announced.add('hu'); }
+        else if (/(?:红中|[皮痞]子|癞子)杠.*，补摸一张牌。$/.test(event) || /(?:明杠|暗杠|补杠).+。$/.test(event)) { speak('杠'); announced.add('gang'); }
+        else {
+          const claim=/(吃|碰)([一二三四五六七八九][万筒条]|[东南西北中发白])。$/.exec(event);
+          if(claim){speak(claim[1]);announced.add(claim[1]==='吃'?'chi':'peng');}
+        }
+      }
+      // 只兜底服务端已生效的公共动作；重复快照、过期提示与刷新均不能重复播报。
+      if(notice?.id>noticeId){
+        if(!announced.has(notice.kind))speak({chi:'吃',peng:'碰',gang:'杠',hu:'胡'}[notice.kind]);
+        noticeId=notice.id;
       }
     },
   };

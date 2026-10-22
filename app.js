@@ -13,6 +13,7 @@ import { createDiscardFocusState } from './src/ui/discard-focus.js';
 import { createOpeningDeal, DEAL_TEXT } from './src/ui/opening-deal.js';
 import { createFlatOpponentView, tilePlane, planeCSS } from './src/ui/flat-opponents.js';
 import { createDiscardSpeech } from './src/ui/discard-speech.js';
+import { createRecordedVoice } from './src/ui/recorded-voice.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
@@ -50,7 +51,8 @@ let resultShown = 0;
 let audio = null;
 let lastSoundEvent = '';
 const preferences = { sound: false };
-const discardSpeech = createDiscardSpeech({isEnabled:() => preferences.sound});
+const recordedVoice = createRecordedVoice({isEnabled:() => preferences.sound,onError:message=>toast(message)});
+const discardSpeech = createDiscardSpeech({isEnabled:() => preferences.sound,voicePlayer:recordedVoice});
 let previousRoomCode = null;
 let previousRound = 0;
 let previousVersion = -1;
@@ -302,7 +304,7 @@ function roomChanged() {
   if (!changedRound && lastEvent && lastSoundEvent !== lastEvent) playSound();
   lastSoundEvent = lastEvent || '';
   // 换房或换局后重新对齐朗读基线，避免把上一局/进房前的日志读出来。
-  discardSpeech.update(game.events || [], {reset:changedRoom || changedRound});
+  discardSpeech.update(game.events || [], {reset:changedRoom || changedRound,notice:game.actionNotice});
   previousRoomCode = room?.code || null;
   previousVersion = room?.version ?? -1;
   previousRound = game.round;
@@ -1048,7 +1050,10 @@ function performAction(action) {
   if (openingDeal.active) return;
   if (!network.canAct() || specialGangPending) return;
   const actions = game.getActions(0);
-  if (action === 'pass') return moveDone(game.pass(0));
+  if (action === 'pass') {
+    const passedTile=game.pendingDiscard?.tile;
+    return moveDone(game.pass(0).then(done=>{if(done&&passedTile!=null)discardSpeech.say(tileName(passedTile));return done;}));
+  }
   if (action === 'chi') {
     if (actions.chi.length === 1) return moveDone(game.claim(0, 'chi', actions.chi[0]));
     return selectOptions('选择吃牌组合', actions.chi.map(sequence => ({ tiles: sequence, label: '吃这组', action: 'chi', value: sequence })));
@@ -1145,6 +1150,7 @@ $('#hand').addEventListener('click', event => {
   if (sameTap || (!kind && selected === index)) { void confirmHand(index); return; }
   handTap = {node:button, version:network.room.version, time:now};
   selected = index; hinted = -1;
+  discardSpeech.say(tileName(game.players[0].hand[index]));
   playSound('select'); renderSelection();
   if (kind) button.title = PLAY_TEXT.single;
   button.focus({preventScroll:true});
@@ -1158,6 +1164,7 @@ function selectHint() {
   const candidate = hintState.candidates[hintChoice];
   if (!candidate || hintState.mode !== 'discard' || !humanTurn()) return;
   selected = candidate.index; hinted = candidate.index; handTap = null;
+  discardSpeech.say(tileName(game.players[0].hand[selected]));
   renderSelection();
 }
 $('#hint-btn').addEventListener('click', () => {
@@ -1290,6 +1297,7 @@ document.addEventListener('keydown', event => {
     if (!order.length) return;
     const position = order.indexOf(selected);
     selected = order[(position + (event.key === 'ArrowRight' ? 1 : -1) + order.length) % order.length];
+    discardSpeech.say(tileName(game.players[0].hand[selected]));
     hinted = -1; renderSelection();
     $(`#hand [data-index="${selected}"]`)?.focus({ preventScroll: true });
   }
@@ -1298,6 +1306,7 @@ document.addEventListener('keydown', event => {
 window.mahjongGame = game;
 window.mahjongRoom = network;
 window.mahjongVoice = voice;
+window.mahjongGameAudio = recordedVoice;
 window.renderMahjong = () => { openingDeal.cancel(); selected = -1; hinted = -1; render(); };
 const invitedRoom = new URL(location.href).searchParams.get('room');
 if (/^\d{6}$/.test(invitedRoom || '')) $('#room-code').value = invitedRoom;

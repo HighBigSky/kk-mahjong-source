@@ -25,7 +25,11 @@ async function waitFor(test,label,timeout=8000){const end=Date.now()+timeout;whi
 async function sync(room){for(const page of pages)await waitFor(()=>page.evaluate(version=>window.mahjongRoom.room?.version>=version&&!window.mahjongRoom.busy,room.version),'four SSE renders');}
 async function player(name){
   const context=await browser.newContext({viewport:{width:390,height:844}});contexts.push(context);
-  await context.addInitScript(()=>localStorage.setItem('queqi-settings',JSON.stringify({sound:false,laizi:true,names:false})));
+  await context.addInitScript(()=>{
+    localStorage.setItem('queqi-settings',JSON.stringify({sound:true,laizi:true,names:false}));
+    const Native=window.AudioContext||window.webkitAudioContext;
+    window.AudioContext=class extends Native {createBufferSource(){const source=super.createBufferSource();source.playbackRate.value=12;return source;}};
+  });
   const page=await context.newPage();
   page.on('pageerror',error=>report.errors.push(redact(error.message)));
   page.on('console',message=>{if(message.type()==='error'&&!(expected409.has(message.location().url)&&/\b409\b/.test(message.text())))report.errors.push(redact(message.text()));});
@@ -46,18 +50,25 @@ async function notice(room,kind,actor,label){
     assert.equal(state.actionNotice.kind,kind);assert.equal(state.actionNotice.player,(actor-viewer+4)%4);
     assert.ok(Number.isInteger(state.actionNotice.id));
     assert.ok(kind==='hu'?state.actionNotice.remainingMs===null:state.actionNotice.remainingMs>0&&state.actionNotice.remainingMs<=2400);
+    const spoken=kind==='hu'&&state.result?.selfDraw?'自摸':text;
+    if(label==='settlement reload retains Hu notice'&&viewer===0)assert.equal(await pages[viewer].evaluate(()=>window.mahjongGameAudio.getState().played.length),0,'刷新保留胡字但不能重播旧胡牌声音');
+    else await waitFor(()=>pages[viewer].evaluate(spoken=>{
+      const audio=window.mahjongGameAudio.getState();return audio.played.slice(window.__beforeVoices||0).includes(spoken)&&!audio.error;
+    },spoken),'server-confirmed action starts a decoded voice clip at every viewer');
     report.views.push({label,viewer,actor,relative:(actor-viewer+4)%4,kind,text,HTTPAndSSE:true});
   }
 }
 async function click(room,actor,action){
+  for(const page of pages)await page.evaluate(()=>{window.__beforeVoices=window.mahjongGameAudio.getState().played.length;});
   const page=pages[actor],version=room.version;
   if(['gang','redGang','piziGang'].includes(action.kind)){
     await page.locator('#action-gang:visible:enabled').click();
     await waitFor(async()=>room.version>version||await page.locator('#choice-dialog').evaluate(dialog=>dialog.open),'kong accepted or choice visible');
     if(await page.locator('#choice-dialog').evaluate(dialog=>dialog.open)){
-      const label=action.kind==='redGang'?'红中杠':action.kind==='piziGang'?'痞子杠':action.mode==='concealed'?'暗杠':'补杠';
+      const label=['redGang','piziGang'].includes(action.kind)?'杠':action.mode==='concealed'?'暗杠':'补杠';
       let option=page.locator('#choice-options button').filter({hasText:label});
-      if(action.kind==='gang')option=option.filter({has:page.locator(`use[href="assets/tiles.svg#tile-${action.tile}"]`)});
+      const code=action.kind==='redGang'?31:action.kind==='piziGang'?room.game.indicatorTile:action.tile;
+      option=option.filter({has:page.locator(`use[href$="#tile-${code}"]`)});
       await option.first().click();
     }
   }else if(action.kind==='chi'){

@@ -4,14 +4,12 @@ import { MahjongGame } from '../engine.js';
 import { createDiscardSpeech } from '../src/ui/discard-speech.js';
 
 function harness() {
-  const calls = [], voices = [];
+  const calls = [];
   let enabled = true, cancels = 0, resumes = 0;
-  const synthesis = {paused:false, getVoices:() => voices,
-    speak:utterance => calls.push(utterance), cancel:() => cancels++,
-    resume:() => { resumes++; synthesis.paused = false; }};
-  class Utterance { constructor(text) { this.text = text; } }
-  const speech = createDiscardSpeech({isEnabled:() => enabled, synthesis, Utterance});
-  return {speech, calls, voices, synthesis, setEnabled:value => {enabled = value;},
+  let active = false;
+  const voicePlayer = {say:text => {active=true;calls.push({text});},stop:()=>{if(active)cancels++;active=false;},unlock:()=>resumes++};
+  const speech = createDiscardSpeech({isEnabled:() => enabled, voicePlayer});
+  return {speech, calls, voicePlayer, setEnabled:value => {enabled = value;},
     get cancels() { return cancels; }, get resumes() { return resumes; }};
 }
 
@@ -55,24 +53,20 @@ test('mute clears pending speech and consumes muted events without replaying on 
   assert.deepEqual(h.calls.map(call => call.text), ['一万', '三万']);
 });
 
-test('paused speech resumes and delayed Chinese voices are selected without losing early discards', () => {
+test('effective chi peng kong and Hu use authoritative notices without duplicates or hidden draw names', () => {
   const h = harness(), events = ['开局。']; h.speech.update(events);
-  events.push('甲打出中。'); h.speech.update(events);
-  assert.equal(h.calls[0].text, '红中'); assert.equal(h.calls[0].lang, 'zh-CN');
-  const chinese = {lang:'zh-CN', localService:true};
-  h.voices.push({lang:'en-US'}, chinese); h.synthesis.paused = true;
-  events.push('乙打出白。', '丙打出发。'); h.speech.update(events);
-  assert.equal(h.resumes, 1);
-  assert.deepEqual(h.calls.map(call => call.text), ['红中', '白板', '发财']);
-  assert.equal(h.calls[1].voice, chinese);
-  for (const call of h.calls) call.onend();
-  h.speech.stop(); assert.equal(h.cancels, 0, '已播放完成的对象已清理');
+  events.push('甲打出中。','乙吃一万。','丙碰白。','丁红中杠，补摸一张牌。','甲摸牌。');
+  h.speech.update(events,{notice:{id:1,kind:'gang'}});
+  h.speech.update(events,{notice:{id:1,kind:'gang'}});
+  assert.deepEqual(h.calls.map(call=>call.text),['红中','吃','碰','杠']);
+  h.speech.update(events,{notice:{id:2,kind:'hu'}}); // 日志断档也能根据真实公共动作兜底。
+  assert.equal(h.calls.at(-1).text,'胡');
+  events.push('乙自摸胡牌！基础胡牌，获得30分。');h.speech.update(events,{notice:{id:3,kind:'hu'}});
+  assert.equal(h.calls.at(-1).text,'自摸');assert.equal(h.calls.length,6);
+  h.speech.say('白');h.speech.resume();assert.equal(h.calls.at(-1).text,'白板');assert.equal(h.resumes,1);
 });
 
 test('unsupported speech or a failed platform call cannot break room updates', () => {
-  const speech = createDiscardSpeech({isEnabled:() => true, synthesis:null, Utterance:null});
+  const speech = createDiscardSpeech({isEnabled:() => true, voicePlayer:null});
   speech.update([]); speech.update(['甲打出一万。']); speech.resume(); speech.stop();
-  const h = harness(); h.synthesis.speak = () => { throw Error('unavailable'); };
-  h.speech.update([]); assert.doesNotThrow(() => h.speech.update(['甲打出一万。']));
-  h.speech.stop(); assert.equal(h.cancels, 0);
 });
