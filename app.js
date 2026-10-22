@@ -782,89 +782,28 @@ function interactionChanged() {
   renderTing();
 }
 
-// Keep the word on the actual concealed hand's centreline, facing the felt.
-// Public combinations can move that hand within its rack, so table percentages
-// cannot describe its position. Notices live on the flat stage HUD, so projected
-// card bounds are measured once without applying the table perspective again.
-// Layout reads happen only on renders/resizes.
+// 提示固定在本家手牌朝向桌心的一侧，不再随牌河拥挤、手牌数量或副露变化而游走。
+// 桌面锚点只投影一次，文字仍在平直 HUD 上显示，不改变牌体模型与热区。
 function positionActionNotice() {
   const element = document.querySelector('.seat-action-notice:not([hidden])');
   if (!element) return;
   const stage = $('#game');
-  const stageBounds = stage.getBoundingClientRect();
-  const rect = item => {
-    const area = item.getBoundingClientRect();
-    return {left:area.left - stageBounds.left, right:area.right - stageBounds.left,
-      top:area.top - stageBounds.top, bottom:area.bottom - stageBounds.top};
-  };
   const player = Number(element.dataset.player);
-  const hand = $(player === 0 ? '#hand' : `#backs-${player}`);
-  const cards = [...hand.children].map(rect);
-  if (!cards.length) return;
-  const horizontal = player === 0 || player === 2;
-  const forward = player === 2 || player === 3 ? 1 : -1;
-  const axisStart = horizontal ? 'top' : 'left';
-  const axisEnd = horizontal ? 'bottom' : 'right';
-  const crossStart = horizontal ? 'left' : 'top';
-  const crossEnd = horizontal ? 'right' : 'bottom';
-  const centre = (Math.min(...cards.map(card => card[crossStart])) + Math.max(...cards.map(card => card[crossEnd]))) / 2;
-  // The local heading and public row also belong behind its action word.
-  const edge = player === 0 ? rect($('.hand-zone')).top
-    : forward > 0 ? Math.max(...cards.map(card => card[axisEnd])) : Math.min(...cards.map(card => card[axisStart]));
-  const board = {left:0, top:0, right:stage.clientWidth, bottom:stage.clientHeight};
-  element.style.removeProperty('width');
-  element.style.removeProperty('height');
-  element.style.removeProperty('font-size');
-  const preferredSize = parseFloat(getComputedStyle(element).width);
-  const unit = preferredSize / 6;
-  const gap = .1 * unit;
-  const obstacles = [...document.querySelectorAll('#hand button,.opponent-rack .tile,.opponent-rack .back,.my-melds .tile,.river .tile,#wall-tail .wall-piece:not(.is-empty),.player-seat,.action-zone:not([hidden]),.hand-heading,.turn-message,.last-event,.table-center,.wall-tail-meta')]
-    .filter(item => item.getClientRects().length)
-    .map(rect);
-  // River counts are generated content, so their bounds are not DOM children.
-  for (const river of document.querySelectorAll('.river')) {
-    const area = rect(river);
-    const style = getComputedStyle(river, '::before');
-    const top = area.top + parseFloat(style.top);
-    const height = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
-    obstacles.push({left:area.left, right:area.right, top, bottom:top + height});
-  }
-  let placement;
-  // A crowded river can leave only a narrow lane in front of its wall. Prefer
-  // the large word, then reduce it within that same centreline rather than
-  // drifting to a different player's corner or covering physical tiles.
-  const availableDistance = forward > 0 ? board[axisEnd] - edge : edge - board[axisStart];
-  // Full public racks can put the local hand behind a side rack and an action
-  // button. Keep the nearby lane first, then continue along the same centreline
-  // instead of leaving a previous viewport's coordinates when that lane fills.
-  for (const distanceLimit of [(player === 0 ? 16 : 23) * unit, availableDistance]) {
-    for (let size = preferredSize; size >= 2 * unit - .01 && !placement; size -= .25 * unit) {
-      let distance = gap;
-      const crossLow = centre - size / 2;
-      const crossHigh = centre + size / 2;
-      for (let attempts = 0; attempts <= obstacles.length; attempts++) {
-        const low = forward > 0 ? edge + distance : edge - distance - size;
-        const high = low + size;
-        if (distance + size > distanceLimit) break;
-        const collision = obstacles.find(area => area[crossEnd] > crossLow + .1 && area[crossStart] < crossHigh - .1
-          && area[axisEnd] + gap > low && area[axisStart] - gap < high);
-        if (collision) {
-          distance = forward > 0 ? collision[axisEnd] + gap - edge : edge - collision[axisStart] + gap;
-          continue;
-        }
-        const left = horizontal ? crossLow : low;
-        const top = horizontal ? low : crossLow;
-        if (left >= board.left && top >= board.top && left + size <= board.right && top + size <= board.bottom) placement = {left, top, size};
-        break;
-      }
-    }
-    if (placement) break;
-  }
-  if (!placement) return;
-  element.style.left = `${placement.left - stage.clientLeft}px`;
-  element.style.top = `${placement.top - stage.clientTop}px`;
-  element.style.width = element.style.height = `${placement.size}px`;
-  element.style.fontSize = `${placement.size * .93}px`;
+  if (player === 0) return; // 自家提示由固定的最大手牌占位定位，牌数减少时也不下移。
+  const size = parseFloat(getComputedStyle(element).width);
+  const table = $('.table');
+  const plane = tilePlane(table, stage);
+  if (!plane) return;
+  const surface = getComputedStyle(table, '::before');
+  const direction = {1:[1,0],2:[0,-1],3:[-1,0]}[player];
+  // 暗手位于桌心半径 .39、牌墙约 .29；固定提示放在两者之间的 .34 圈。
+  const px = parseFloat(surface.left) + parseFloat(surface.width) * (.5 + direction[0] * .34);
+  const py = parseFloat(surface.top) + parseFloat(surface.height) * (.5 + direction[1] * .34);
+  const m = plane.matrix, w = m[6] * px + m[7] * py + m[8];
+  const x = (m[0] * px + m[1] * py + m[2]) / w;
+  const y = (m[3] * px + m[4] * py + m[5]) / w;
+  element.style.left = `${x - size / 2 - stage.clientLeft}px`;
+  element.style.top = `${y - size / 2 - stage.clientTop}px`;
 }
 
 // The server announces only completed public actions. Repeated snapshots of

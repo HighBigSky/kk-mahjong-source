@@ -269,7 +269,8 @@ html.in-game #game.is-landscape {
 /* 骰子已经在牌桌正中央，「第 N 墩翻皮」改由牌墙上那墩的「皮·N」标记表达。 */
 .is-landscape .wall-tail-heading { display:none; }
 .is-landscape .wall-indicator-position { font-size:max(6px,calc(var(--table-unit) * 1.55)); }
-.is-landscape .seat-action-notice { width:calc(var(--table-unit) * 6); height:calc(var(--table-unit) * 6); font-size:calc(var(--table-unit) * 5.6); }
+.is-landscape .seat-action-notice { width:calc(var(--table-unit) * 3); height:calc(var(--table-unit) * 3); font-size:calc(var(--table-unit) * 2.8); }
+.is-landscape .seat-action-notice[data-player="0"] { left:calc(50% - var(--table-unit) * 1.5); bottom:calc(1.5% + var(--ui-unit) * 6.2 + var(--base-hand-width) * 1.4 + var(--table-unit) * .45); }
 
 /* 手牌行贴到最底部：标题行在横屏隐藏，出牌提示并入右侧操作区。 */
 .is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { top:auto; }

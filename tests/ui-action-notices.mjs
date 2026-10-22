@@ -114,6 +114,7 @@ async function expiredReplay(room){
   report.checks.push({realTimerExpiry:true,sameSnapshotDoesNotExtend:true,expiredSnapshotDoesNotReplay:true,elapsedMs:elapsed});
 }
 const geometryViewports=[{width:640,height:360},{width:844,height:390},{width:1280,height:720},{width:1440,height:900},{width:1920,height:1080}];
+const fixedPositions=new Map();
 async function geometry(room,actor,{label='hu',viewports=geometryViewports,screenshots=true}={}){
   for(const viewport of viewports)for(let viewer=0;viewer<4;viewer++){
     const page=pages[viewer];await page.setViewportSize(viewport);
@@ -153,8 +154,13 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
     assert.ok(data.screenNote.left>=0&&data.screenNote.right<=viewport.width+1&&data.screenNote.top>=0&&data.screenNote.bottom<=viewport.height+1,`notice remains inside the physical screen: ${context}`);
     const horizontal=data.player===0||data.player===2;
     const centreError=Math.abs(horizontal?(data.note.left+data.note.right-data.anchor.left-data.anchor.right)/2:(data.note.top+data.note.bottom-data.anchor.top-data.anchor.bottom)/2);
-    assert.ok(centreError<=1,`notice is centred on the actual concealed hand, not the rack or table: ${context}`);
-    const facesFelt=data.player===0?data.note.bottom<=data.anchor.top:data.player===2?data.note.top>=data.anchor.bottom:data.player===3?data.note.left>=data.anchor.right:data.note.right<=data.anchor.left;
+    // 固定座位锚点不跟随暗手因吃碰缩短而改变，也不为避让满牌河游走。
+    const positionKey=`${viewport.width}:${viewport.height}:${data.player}`;
+    const previous=fixedPositions.get(positionKey);
+    if(previous)for(const edge of ['left','right','top','bottom'])assert.ok(Math.abs(data.note[edge]-previous[edge])<=1,`notice stays at its seat anchor across different hand/meld/river counts: ${context}`);
+    else fixedPositions.set(positionKey,data.note);
+    // 透视斜牌列的整体包围盒会跨过提示，逐张牌的无重叠仍由下方 collisions 验证。
+    const facesFelt=data.player===0?data.note.bottom<=data.anchor.top:data.player===2?data.note.top>=(data.anchor.top+data.anchor.bottom)/2:data.player===3?data.note.left>=(data.anchor.left+data.anchor.right)/2:data.note.right<=(data.anchor.left+data.anchor.right)/2;
     assert.ok(facesFelt,`notice sits in front of its own hand toward the table centre: ${context}`);
     assert.deepEqual(data.collisions,[],`notice avoids cards, wall, portraits, controls and text: ${context}`);
     assert.equal(data.pointerEvents,'none','decorative notice must not block game hit targets');
