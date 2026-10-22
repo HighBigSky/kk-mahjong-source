@@ -170,6 +170,9 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .opponent-rack { gap:calc(var(--table-unit) * .7); }
 #game.is-landscape .table .opponent-rack-top { top:calc(var(--table-depth-unit) * 5.6); left:calc(var(--table-unit) * 4.5); right:calc(var(--table-unit) * 4.5); }
 #game.is-landscape .table .opponent-rack-left,#game.is-landscape .table .opponent-rack-right { top:calc(var(--table-unit) * 6); bottom:calc(var(--table-unit) * 3.8); }
+/* 牌面朝向所属座位：本家 0°、右家 -90°、对家 180°、左家 90°；只转牌面，不动牌体。 */
+#game.is-landscape .table .opponent-rack-top .tile svg { transform:rotate(180deg); }
+#game.is-landscape .table .opponent-rack-right .tile svg { transform:translate(-50%,-50%) rotate(-90deg); }
 .is-landscape .opponent-rack .meld-label { font-size:max(6px,calc(var(--table-unit) * 1.4)); }
 .is-landscape .opponent-rack-top .meld-label { bottom:calc(100% + var(--table-unit) * .45); }
 .is-landscape .opponent-rack-left .meld-label,.is-landscape .opponent-rack-right .meld-label { width:calc(var(--table-unit) * 1.7); letter-spacing:0; }

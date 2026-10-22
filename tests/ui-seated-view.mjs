@@ -22,7 +22,7 @@ const screens = [
 const output = path.resolve('output');
 mkdirSync(output, { recursive: true });
 const report = {
-  passed: false, browser: '', screens, geometry: [], hands: [], input: [], failures: [], errors: [], screenshots: [],
+  passed: false, browser: '', screens, geometry: [], hands: [], input: [], facing: [], failures: [], errors: [], screenshots: [],
   fixtureNote: 'Live rooms are created through HTTP/SSE. Physical fixtures are invariant-checked for input tests. Thirty-six discards per seat are an intentionally impossible, presentation-only stress fixture. Touch is browser emulation, not a physical phone.',
 };
 const service = new RoomService({ botDelayMs: 600000, disconnectGraceMs: 100 });
@@ -126,6 +126,20 @@ async function geometry(page) {
     // 本家为屏幕平面中的兄弟节点，也必须由桌内绒布完整承托，不能漏验。
     const allSeatTiles = list('#hand button,.my-melds .tile,.table .river .tile,.opponent-rack .tile,.opponent-rack .back,#wall-tail .wall-piece:not(.is-empty)');
     const onTable=window.visualGeometry.tablePlane(corners);
+    const facing=[];
+    for(const seat of [0,1,2,3])for(const zone of ['hand','river','meld']) {
+      const selector=zone==='river'?`#river-${seat} .tile svg`:zone==='meld'?`#melds-${seat} .tile svg`:seat?`#backs-${seat} .tile svg`:'#hand button svg';
+      for(const svg of document.querySelectorAll(selector)) {
+        // getScreenCTM 会把祖先的 CSS 3D 近似成仿射变换；SVG 探针测真正投影后的字头/字底。
+        const probe=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        probe.setAttribute('width','.001');probe.setAttribute('height','.001');probe.setAttribute('fill','transparent');svg.append(probe);
+        const points=[[30,0],[30,84]].map(([x,y])=>{probe.setAttribute('x',String(x));probe.setAttribute('y',String(y));const p=probe.getBoundingClientRect();return{x:p.left,y:p.top};});
+        probe.remove();
+        const [top,bottom]=seat===0&&zone!=='river'?points:onTable(points);
+        const dx=bottom.x-top.x,dy=bottom.y-top.y,expected=[[0,1],[1,0],[0,-1],[-1,0]][seat];
+        facing.push({seat,zone,dot:(dx*expected[0]+dy*expected[1])/Math.hypot(dx,dy)});
+      }
+    }
     const opponentFlat = [...document.querySelectorAll('.opponent-rack .tile,.opponent-rack .back,#river-1 .tile,#river-2 .tile,#river-3 .tile,.flat-wall-run .wall-piece:not(.is-empty)')].filter(visible).map(node=>{
       const box=rect(node),s=getComputedStyle(node),q=onTable(box.quad);
       const u={x:q[1].x-q[0].x,y:q[1].y-q[0].y},v={x:q[3].x-q[0].x,y:q[3].y-q[0].y};
@@ -202,7 +216,7 @@ async function geometry(page) {
       hand, handZone: rect(document.querySelector('.hand-zone')), riverOverlaps, rivers, actions, hud, outsideFrame, feltCorners, outsideFelt, outsideAllSeatFelt, outsideViewport, tableHudOverlaps, rackWallOverlaps, allSeatGeometry:allSeatTiles, opponentFlat,
       ownGeometry:list('#hand button,.my-melds .tile,#river-0 .tile,.wall-stack[data-side="bottom"] .wall-piece:not(.is-empty)'),
       wallSlotOrder:[...document.querySelectorAll('.wall-piece')].map(node=>Number(node.dataset.position)),
-      edgeAlignment,ownEdgeAlignment,ownWallCenterError,
+      edgeAlignment,ownEdgeAlignment,ownWallCenterError,facing,
       farTile: back ? rect(back) : null, hint: visible(panel) ? rect(panel) : null,
       scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
       canvasScroll: [stage.scrollLeft, stage.scrollTop],
@@ -265,6 +279,7 @@ try {
       }, count);
       await frames(page);
       const data = await geometry(page);
+      check(data.facing.filter(item=>item.seat!==0||item.zone!=='meld').every(item=>item.dot>.995), 'every hand face points toward its owning seat as local hand count changes', {size,count,bad:data.facing.filter(item=>(item.seat!==0||item.zone!=='meld')&&item.dot<=.995)});
       const center = (Math.min(...data.hand.map(tile => tile.left)) + Math.max(...data.hand.map(tile => tile.right))) / 2;
       const centerError = Math.abs(center - (data.stage.left + data.stage.right) / 2);
       check(centerError <= 1, 'hand visual bounds remain centered for every count', { size, count, centerError });
@@ -294,6 +309,7 @@ try {
       await frames(page);
       const data = await geometry(page);
       check(data.rivers.every(river => river.tiles.length === 36 && river.tiles.every(tile => inside(tile, size))), 'all four full 36-tile rivers remain visible', { size, scenario, rivers: data.rivers });
+      check(data.facing.filter(item=>item.seat!==0||item.zone!=='meld').every(item=>item.dot>.995), 'all four river and public rack faces point toward their owning seat', {size,scenario,bad:data.facing.filter(item=>(item.seat!==0||item.zone!=='meld')&&item.dot<=.995)});
       const order = await page.evaluate(() => [...document.querySelectorAll('.river')].every(river => {
         const columns=river.id==='river-0'||river.id==='river-2'?9:4;
         return [...river.children].every((tile,index)=>tile.style.gridArea==='' && (index===0 || tile.offsetTop>=river.children[index-1].offsetTop) && (index%columns!==0 || index===0 || tile.offsetTop>river.children[index-1].offsetTop) && new DOMMatrix(getComputedStyle(tile).transform).is2D);
@@ -320,6 +336,18 @@ try {
       report.geometry.push({ size, scenario, ...data });
       await screenshot(page, size, scenario);
     }
+
+    // 使用已经公开的牌面构造结算亮牌 DOM，仅验四家朝向，不读取或展示服务端暗牌。
+    await page.evaluate(()=>{
+      for(const seat of [1,2,3]) {
+        const face=document.querySelector(`#river-${seat} .tile`);
+        for(const back of document.querySelectorAll(`#backs-${seat} .back`))back.replaceWith(face.cloneNode(true));
+      }
+    });
+    const revealed=await geometry(page);
+    check([0,1,2,3].every(seat=>revealed.facing.some(item=>item.seat===seat&&item.zone==='hand'))&&revealed.facing.filter(item=>item.zone!=='meld'||item.seat!==0).every(item=>item.dot>.995), 'all four revealed hands and rivers face their owner in the shared table perspective', {size,bad:revealed.facing.filter(item=>(item.zone!=='meld'||item.seat!==0)&&item.dot<=.995)});
+    report.facing.push({size,faces:revealed.facing});
+    await screenshot(page,size,'owner-facing-revealed');
 
     await publish(actionFixture({ names, hand: [...scattered, 24] }));
     await page.evaluate(() => {
