@@ -34,7 +34,13 @@ try{
    // 补牌特意取普通牌，避免把两张同脸牌的合法连续杠误当成重复触发。
    const tail=game.wall.findIndex(tile=>![indicator,game.wildTile,31].includes(tile));[game.wall[0],game.wall[tail]]=[game.wall[tail],game.wall[0]];
    const before=game.wall.length;await publish(game);
+   assert.equal(await page.locator('#indicator-tile .pizi-marker').textContent(),'痞');
+   assert.match(await page.locator('.wall-stack.has-indicator .wall-stack-number').textContent(),/^痞·\d+$/);
+   assert.equal(await page.locator('#rules-dialog').textContent().then(text=>text.includes('皮')),false);
+   const oldLabels=await page.evaluate(()=>[...document.querySelectorAll('[aria-label],[title]')].flatMap(node=>['aria-label','title'].map(name=>node.getAttribute(name)||'')).filter(text=>text.includes('皮')));
+   assert.deepEqual(oldLabels,[],'visible and assistive game labels use the same spelling');
    const tile=page.locator('#hand button[data-index="13"]');await tap(tile);
+   if(kind!=='wildGang')assert.equal(await tile.locator('.red-kong-marker,.pizi-marker').textContent(),'痞');
    assert.equal(sent.length,0);assert.equal(await tile.getAttribute('aria-pressed'),'true');
    await tap(tile);await page.evaluate(()=>{for(let index=0;index<8;index++)document.querySelector('#hand button')?.click();});await sync();
    await page.waitForTimeout(450);
@@ -42,6 +48,15 @@ try{
    const multiple=kind==='wildGang'?2:1;assert.deepEqual(game.players.map(player=>player.score),[1000+30*multiple,1000-10*multiple,1000-10*multiple,1000-10*multiple]);
    assert.equal(game.players[0].hand.includes(type),false);assert.equal(game.lastDraw.replacement,true);
    assert.match(await page.locator('#melds-0').textContent(),new RegExp(label));assert.equal(await page.locator('#hand .selected').count(),0);assertInvariants(game);
+   if(kind==='piziGang'){
+    assert.match(game.events.at(-2),/皮子杠/,'server log remains unchanged');
+    const legacyDisplay=await page.evaluate(()=>{
+     const game=window.mahjongGame;game.events.push(game.events.at(-2));window.renderMahjong();
+     const text=document.querySelector('#last-event').textContent;game.events.pop();window.renderMahjong();return text;
+    });
+    assert.match(legacyDisplay,/痞子杠/,'legacy room text is normalized only for display');
+    assert.equal(legacyDisplay.includes('皮'),false);
+   }
    const horizontal=await page.locator('#melds-0 .special-gang .tile').boundingBox();assert.ok(horizontal.width>horizontal.height);
    const replay=service.action(room.code,room.seats[0].token,sent[0]);assert.equal(replay.duplicate,true);assert.equal(game.wallInfo.tailDraws,1);
    assert.deepEqual(game.players.map(player=>player.score),[1000+30*multiple,1000-10*multiple,1000-10*multiple,1000-10*multiple]);

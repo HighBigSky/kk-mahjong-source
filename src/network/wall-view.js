@@ -33,7 +33,7 @@ function createView(element) {
   title.append(counter);
   const metadata = document.createElement('div');
   metadata.className = 'wall-tail-meta';
-  // 骰子已经搬到牌桌正中央，这里只留「第 N 墩翻皮」的说明文字。
+  // 骰子已经搬到牌桌正中央，这里只留「第 N 墩翻痞」的说明文字。
   const position = document.createElement('span');
   position.className = 'wall-indicator-position';
   metadata.append(position);
@@ -121,14 +121,14 @@ export function renderWall(element, game) {
   const indicatorStack = indicator < 0 ? -1 : Math.floor(indicator / TILES_PER_STACK);
 
   view.count.textContent = String(remaining);
-  view.position.textContent = indicator >= 0 ? `第 ${indicatorStack + 1} 墩翻皮` : '未翻皮';
+  view.position.textContent = indicator >= 0 ? `第 ${indicatorStack + 1} 墩翻痞` : '未翻痞';
   view.title.title = remaining > 0 ? '青色标记处普通摸牌，金色标记处杠后补牌；牌背数量与余牌数同步' : '牌墙已空，无牌可补';
 
   for (const [stackId, stack] of view.stacks.entries()) {
     stack.element.classList.toggle('is-next', stackId === nextStack);
     stack.element.classList.toggle('is-head', stackId === headStack);
     stack.element.classList.toggle('has-indicator', stackId === indicatorStack);
-    stack.label.textContent = stackId === indicatorStack ? `皮·${stackId + 1}` : '';
+    stack.label.textContent = stackId === indicatorStack ? `痞·${stackId + 1}` : '';
     for (const [level, piece] of stack.pieces.entries()) {
       const slot = stackId * TILES_PER_STACK + level;
       const isIndicator = slot === indicator;
@@ -157,7 +157,7 @@ export function renderWall(element, game) {
     }
   }
   const diceText = `骰子 ${info.dice[0]} 点和 ${info.dice[1]} 点，取较小点数 ${Math.min(...info.dice)}`;
-  const indicatorText = indicator >= 0 ? `，皮子${tileName(/** @type {number} */ (game.indicatorTile))}在末端第 ${indicatorStack + 1} 墩上面一张` : '，未启用翻皮子';
+  const indicatorText = indicator >= 0 ? `，痞子${tileName(/** @type {number} */ (game.indicatorTile))}在末端第 ${indicatorStack + 1} 墩上面一张` : '，未启用翻痞子';
   const nextText = next >= 0 ? `，下一张杠后补牌在第 ${nextStack + 1} 墩${next % TILES_PER_STACK === 0 ? '上面' : '下面'}一张，金色标记所指处` : '，牌墙已空，不能补牌';
   const headText = head >= 0 ? `，下一张普通摸牌在第 ${headStack + 1} 墩${head % TILES_PER_STACK === 0 ? '上面' : '下面'}一张，青色标记所指处` : '';
   element.setAttribute('aria-label', `四方牌墙，剩余 ${remaining} 张。${diceText}${indicatorText}${nextText}${headText}`);

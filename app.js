@@ -346,9 +346,9 @@ function wildMarker(type) {
   return type === game.wildTile ? '<span class="wild-marker" aria-hidden="true">癞</span>' : '';
 }
 
-// 顶栏皮子/癞子小结里的牌：牌面 + 皮/癞角标，替掉原来「皮子」「癞子」两段文字。
+// 顶栏痞子/癞子小结里的牌：牌面 + 痞/癞角标，替掉原来「痞子」「癞子」两段文字。
 function laiziTile(type, badge) {
-  const name = tileName(type) + (badge === '癞' ? '，癞子' : '，皮子');
+  const name = tileName(type) + (badge === '癞' ? '，癞子' : '，痞子');
   const marker = badge === '癞' ? 'wild-marker' : 'pizi-marker';
   return `<span class="tile ${badge === '癞' ? 'is-wild' : ''}" title="${name}" aria-label="${name}">${face(type)}<span class="${marker}" aria-hidden="true">${badge}</span></span>`;
 }
@@ -386,22 +386,25 @@ function specialTile(type) {
   return isSpecialGangTile(type, game.indicatorTile);
 }
 
-// 手牌角标：红中与皮子都显示「皮」，癞子显示「癞」；杠型名称与实际判定保持独立。
+// 手牌角标：红中与痞子都显示「痞」，癞子显示「癞」；杠型名称与实际判定保持独立。
 // 「只能单张杠出」的提示留给 title 与提示文字。
 function specialMarker(type) {
   if (!specialTile(type)) return wildMarker(type);
   return type === RED_DRAGON && type !== game.indicatorTile
-    ? '<span class="red-kong-marker" aria-hidden="true">皮</span>'
-    : '<span class="pizi-marker" aria-hidden="true">皮</span>';
+    ? '<span class="red-kong-marker" aria-hidden="true">痞</span>'
+    : '<span class="pizi-marker" aria-hidden="true">痞</span>';
 }
 
 function heldSpecialName() {
   const hand = game.players[0].hand;
-  return [hand.includes(RED_DRAGON) ? '红中' : '', game.indicatorTile !== null && hand.includes(game.indicatorTile) ? '皮子' : ''].filter(Boolean).join('、');
+  return [hand.includes(RED_DRAGON) ? '红中' : '', game.indicatorTile !== null && hand.includes(game.indicatorTile) ? '痞子' : ''].filter(Boolean).join('、');
 }
 
+// 进行中的房间可能仍带旧日志，仅在显示时统一用字，不改服务端状态。
+function displayGameText(text) { return String(text ?? '').replaceAll('\u76ae', '痞'); }
+
 function toast(message) {
-  $('#toast').textContent = message;
+  $('#toast').textContent = displayGameText(message);
   $('#toast').classList.add('visible');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $('#toast').classList.remove('visible'), 2500);
@@ -501,7 +504,7 @@ function renderDiceIntro() {
   // A restored game already in progress does not replay its opening overlay.
   if ((game.events || []).some(event => /打出.+?。$/.test(event))) return;
   setHTMLIfChanged($('#dice-intro-dice'), diceHTML(values));
-  $('#dice-intro-note').textContent = `${values[0]} 点 · ${values[1]} 点，取 ${Math.min(...values)} 点翻皮`;
+  $('#dice-intro-note').textContent = `${values[0]} 点 · ${values[1]} 点，取 ${Math.min(...values)} 点翻痞`;
   $('#dice-intro').hidden = false;
   diceIntroTimer = setTimeout(finishDiceIntro, 1500);
 }
@@ -956,14 +959,14 @@ function render() {
   setHTMLIfChanged($('#table-dice'), diceHTML(dice));
   renderDiceIntro();
   $('.table-center').setAttribute('aria-label', dice.length === 2
-    ? `牌桌中央，骰子 ${dice[0]} 点和 ${dice[1]} 点，取较小点数 ${Math.min(...dice)} 翻皮；牌墙剩余 ${game.wall.length} 张`
+    ? `牌桌中央，骰子 ${dice[0]} 点和 ${dice[1]} 点，取较小点数 ${Math.min(...dice)} 翻痞；牌墙剩余 ${game.wall.length} 张`
     : '牌桌中央');
   $('#round-label').textContent = active ? `第 ${game.round} 局 · ${game.dealer === 0 ? '你' : displayNames[game.dealer]}坐庄` : '四人准备后开局';
   $('#laizi-summary').hidden = !game.laiziEnabled;
-  // 皮子/癞子用牌面 + 角标表示，省掉「皮子」「癞子」两段文字，窄屏顶栏才放得下。
-  setHTMLIfChanged($('#indicator-tile'), game.laiziEnabled ? laiziTile(game.indicatorTile, '皮') : '');
+  // 痞子/癞子用牌面 + 角标表示，省掉「痞子」「癞子」两段文字，窄屏顶栏才放得下。
+  setHTMLIfChanged($('#indicator-tile'), game.laiziEnabled ? laiziTile(game.indicatorTile, '痞') : '');
   setHTMLIfChanged($('#wild-tile'), game.laiziEnabled ? laiziTile(game.wildTile, '癞') : '');
-  $('#laizi-summary').setAttribute('aria-label', game.laiziEnabled ? `皮子${tileName(game.indicatorTile)}，癞子${tileName(game.wildTile)}` : '未启用翻皮子定癞子');
+  $('#laizi-summary').setAttribute('aria-label', game.laiziEnabled ? `痞子${tileName(game.indicatorTile)}，癞子${tileName(game.wildTile)}` : '未启用翻痞子定癞子');
   $('#hand-count').textContent = `${hand.length} 张`;
   $('.hand-zone').classList.toggle('has-melds', game.players[0].melds.length + game.players[0].redGangs.length + (game.players[0].piziGangs?.length || 0) > 0);
 
@@ -981,7 +984,7 @@ function render() {
     handKeySeen.set(type, occurrence + 1);
     const special = specialTile(type);
     const wild = type === game.wildTile;
-    // 角标随本局皮子/癞子变化，缓存键必须带上这两个标记，否则换局后会留着上一局的角标。
+    // 角标随本局痞子/癞子变化，缓存键必须带上这两个标记，否则换局后会留着上一局的角标。
     const key = `${type}:${occurrence}:${special ? 'p' : ''}${wild ? 'w' : ''}`;
     let node = handNodes.get(key);
     if (!node) {
@@ -1013,7 +1016,7 @@ function render() {
     const seat = game.players[player];
     const river = $(`#river-${player}`);
     // 每家固定预留 36 格，展示全部弃牌，既不截断也不随张数改变行列。
-    // 136 张减翻皮与起手后最多 83 次摸牌；每家最多 4 组普通副露，
+    // 136 张减翻痞与起手后最多 83 次摸牌；每家最多 4 组普通副露，
     // 计入吃碰跳家与已被取走的牌，单家留河上界 27 张。补牌只消耗牌墙。
     const recent = game.lastDiscard || (game.pendingDiscard && {...game.pendingDiscard,index:seat.discards.length - 1});
     setHTMLIfChanged(river, seat.discards.map((type, index) => tile(type, recent?.from === player && recent.index === index && recent.tile === type ? 'last-discard' : '')).join(''));
@@ -1028,7 +1031,7 @@ function render() {
     const publicGroups = [...seat.redGangs.map(type => specialGangHTML(type, specialGangKind(type, game.indicatorTile, game.wildTile))), ...piziGangs.map(type => specialGangHTML(type, specialGangKind(type, game.indicatorTile, game.wildTile))), ...seat.melds.map(meldHTML)];
     setHTMLIfChanged(melds, publicGroups.join(''));
     melds.hidden = publicGroups.length === 0;
-    melds.setAttribute('aria-label', `${displayNames[player]}已公开的吃碰杠牌，红中杠${seat.redGangs.length}张，皮子杠${piziOnly.length}张，癞子杠${wildOnly.length}张，普通副露${seat.melds.length}组`);
+    melds.setAttribute('aria-label', `${displayNames[player]}已公开的吃碰杠牌，红中杠${seat.redGangs.length}张，痞子杠${piziOnly.length}张，癞子杠${wildOnly.length}张，普通副露${seat.melds.length}组`);
     const rack = $(`#rack-${player}`);
     rack.classList.toggle('has-melds', publicGroups.length > 0);
     rack.style.setProperty('--concealed-count', seat.hand.length);
@@ -1038,8 +1041,8 @@ function render() {
     $(`#dealer-${player}`).hidden = !active || game.dealer !== player;
     const redBadge = $(`#red-gangs-${player}`);
     redBadge.hidden = seat.redGangs.length + piziGangs.length === 0;
-    redBadge.textContent = [seat.redGangs.length ? `中×${seat.redGangs.length}` : '', piziOnly.length ? `皮×${piziOnly.length}` : '', wildOnly.length ? `癞×${wildOnly.length}` : ''].filter(Boolean).join(' ');
-    redBadge.title = `${displayNames[player]}已杠出红中 ${seat.redGangs.length} 张、皮子 ${piziOnly.length} 张、癞子 ${wildOnly.length} 张，实牌公开摆在手牌旁`;
+    redBadge.textContent = [seat.redGangs.length ? `中×${seat.redGangs.length}` : '', piziOnly.length ? `痞×${piziOnly.length}` : '', wildOnly.length ? `癞×${wildOnly.length}` : ''].filter(Boolean).join(' ');
+    redBadge.title = `${displayNames[player]}已杠出红中 ${seat.redGangs.length} 张、痞子 ${piziOnly.length} 张、癞子 ${wildOnly.length} 张，实牌公开摆在手牌旁`;
     redBadge.setAttribute('aria-label', redBadge.title);
     $(`#opponent-${player}`).classList.toggle('is-active', active && game.current === player && game.phase.kind !== PHASE.ENDED);
     $(`#opponent-${player}`).classList.toggle('is-claiming', player === 0 && actions.pass);
@@ -1084,10 +1087,10 @@ function updateActionControls() {
   $('#action-next').hidden = !canNextRound;
   $('#action-next').disabled = !nextRoundReady || network.busy;
   $('.action-zone').hidden = !(Object.values(enabled).some(Boolean) || canNextRound);
-  $('#action-gang').title = actions.redGang || actions.piziGang || actions.wildGang ? '可单张杠出红中、皮子或癞子，从墙尾补摸一张牌' : '杠牌';
+  $('#action-gang').title = actions.redGang || actions.piziGang || actions.wildGang ? '可单张杠出红中、痞子或癞子，从墙尾补摸一张牌' : '杠牌';
 
   updateTurnMessage(actions);
-  $('#last-event').textContent = game.events.at(-1) || '好友同桌，支持添加人机';
+  $('#last-event').textContent = displayGameText(game.events.at(-1) || '好友同桌，支持添加人机');
   $('#action-caption').textContent = game.phase.kind === PHASE.ENDED ? '本局结束' : actions.pass ? '响应出牌' : '对局操作';
   $('#action-context').textContent = game.phase.kind === PHASE.ENDED ? (nextRoundReady ? '可以开始下一局' : '等待好友重连') : actions.hu ? '胡牌可用' : specialName ? `先杠出${specialName}，才能胡牌` : actions.concealedGangs.length ? '可暗杠' : actions.addedGangs.length ? '可补杠' : actions.pass ? '胡 > 碰杠 > 吃' : '好牌，慢慢打';
   $('#hand-instruction').textContent = !active ? '加入房间后由服务端发牌' : game.phase.kind === PHASE.ENDED ? '等待房主开始下一局' : !myTurn ? '等待轮到你时出牌' : PLAY_TEXT.handInstruction;
@@ -1165,7 +1168,7 @@ function showResult() {
   ].filter(Boolean) : [];
   if (classification?.ordinary && !winTypes.length) winTypes.push('屁胡');
   const resultLabels = [...new Set([...winTypes, ...result.patterns])];
-  $('#result-detail').textContent = result.kind === 'draw' ? PLAY_TEXT.drawResult : `${result.reason} · ${resultLabels.join(' · ')} · ${result.points} 基础分`;
+  $('#result-detail').textContent = displayGameText(result.kind === 'draw' ? PLAY_TEXT.drawResult : `${result.reason} · ${resultLabels.join(' · ')} · ${result.points} 基础分`);
   $('#result-hand').innerHTML = result.kind === 'win' ? [...game.players[game.winner].melds.flatMap(meld => meld.tiles), ...result.hand].map(value => tile(value)).join('') : '';
   $('#result-scores').replaceChildren(...displayNames.map((name, index) => {
     const row = document.createElement('div'); row.className = 'result-score-row';

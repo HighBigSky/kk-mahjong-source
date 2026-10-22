@@ -12,7 +12,7 @@ export const PLAY_TEXT = Object.freeze({
   note: '剩余为未见张数估计，包含他人暗手，不代表牌墙实际余量。',
   redGang: SCORING_TEXT.redGang, piziGang: SCORING_TEXT.piziGang, wildGang: SCORING_TEXT.wildGang,
   noSupplement: '当前没有余牌可补杠', single: '单击选中，300ms 内再次点击开杠',
-  handInstruction:'点选再点出牌；红中、皮子、癞子双击开杠', drawResult:'本局荒庄，已结算的杠分保留。',
+  handInstruction:'点选再点出牌；红中、痞子、癞子双击开杠', drawResult:'本局荒庄，已结算的杠分保留。',
 });
 
 /** 按同一张牌的实际身份取唯一入口，不把三种单张杠合并进普通杠。
