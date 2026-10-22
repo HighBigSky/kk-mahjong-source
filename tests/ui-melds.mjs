@@ -89,9 +89,10 @@ async function clickCommand(room, seat, action) {
     await page.locator('#action-gang:visible:enabled').click();
     await waitFor(async () => room.version > version || await page.locator('#choice-dialog').evaluate(dialog => dialog.open), 'gang accepted or disambiguated');
     if (await page.locator('#choice-dialog').evaluate(dialog => dialog.open)) {
-      const label = action.kind === 'redGang' ? '红中杠' : action.kind === 'piziGang' ? '皮子杠' : action.mode === 'concealed' ? '暗杠' : '补杠';
+      const label = ['redGang','piziGang'].includes(action.kind) ? '杠' : action.mode === 'concealed' ? '暗杠' : '补杠';
       let option = page.locator('#choice-options button').filter({hasText:label});
-      if (action.kind === 'gang') option = option.filter({has:page.locator(`use[href="assets/tiles.svg#tile-${action.tile}"]`)});
+      const code = action.kind === 'redGang' ? RED_DRAGON : action.kind === 'piziGang' ? room.game.indicatorTile : action.tile;
+      option = option.filter({has:page.locator(`use[href$="#tile-${code}"]`)});
       await option.first().click();
     }
   } else await page.locator(`#action-${action.kind}:visible:enabled`).click();

@@ -17,7 +17,7 @@ import { createFlatOpponentView, tilePlane, planeCSS } from './src/ui/flat-oppon
 await loadTilesSprite();
 
 const $ = selector => document.querySelector(selector);
-$('#scoring-rules').textContent = SCORING_TEXT.note;
+$('#scoring-rules').textContent = SCORING_TEXT.note.replace('红中杠、痞子杠', '红中、痞子开杠时').replace('赖子杠', '癞子开杠时');
 const renderedHTML = new WeakMap();
 // 手牌按「牌面 + 第几张同牌」复用节点：重建 innerHTML 会让每张牌的 SVG 重新解析，
 // 出牌/接牌时会闪一下白。复用后只有真正增减的牌才新建节点。
@@ -401,7 +401,10 @@ function heldSpecialName() {
 }
 
 // 进行中的房间可能仍带旧日志，仅在显示时统一用字，不改服务端状态。
-function displayGameText(text) { return String(text ?? '').replaceAll('\u76ae', '痞'); }
+function displayGameText(text) {
+  // 仅统一界面名称；服务端仍保留实际杠型与对应计分。
+  return String(text ?? '').replaceAll('\u76ae', '痞').replace(/(?:红中|痞子|赖子|癞子)杠/g, '杠');
+}
 
 function toast(message) {
   $('#toast').textContent = displayGameText(message);
@@ -964,13 +967,11 @@ function render() {
     river.setAttribute('role', 'button');
     river.tabIndex = 0;
     const piziGangs = seat.piziGangs || [];
-    const piziOnly = piziGangs.filter(tile => tile !== game.wildTile);
-    const wildOnly = piziGangs.filter(tile => tile === game.wildTile);
     const melds = $(`#melds-${player}`);
     const publicGroups = [...seat.redGangs.map(type => specialGangHTML(type, specialGangKind(type, game.indicatorTile, game.wildTile))), ...piziGangs.map(type => specialGangHTML(type, specialGangKind(type, game.indicatorTile, game.wildTile))), ...seat.melds.map(meldHTML)];
     setHTMLIfChanged(melds, publicGroups.join(''));
     melds.hidden = publicGroups.length === 0;
-    melds.setAttribute('aria-label', `${displayNames[player]}已公开的吃碰杠牌，红中杠${seat.redGangs.length}张，痞子杠${piziOnly.length}张，癞子杠${wildOnly.length}张，普通副露${seat.melds.length}组`);
+    melds.setAttribute('aria-label', `${displayNames[player]}已公开的吃碰杠牌，单张杠${seat.redGangs.length + piziGangs.length}张，普通副露${seat.melds.length}组`);
     const rack = $(`#rack-${player}`);
     rack.classList.toggle('has-melds', publicGroups.length > 0);
     rack.style.setProperty('--concealed-count', seat.hand.length);
@@ -980,8 +981,8 @@ function render() {
     $(`#dealer-${player}`).hidden = !active || game.dealer !== player;
     const redBadge = $(`#red-gangs-${player}`);
     redBadge.hidden = seat.redGangs.length + piziGangs.length === 0;
-    redBadge.textContent = [seat.redGangs.length ? `中×${seat.redGangs.length}` : '', piziOnly.length ? `痞×${piziOnly.length}` : '', wildOnly.length ? `癞×${wildOnly.length}` : ''].filter(Boolean).join(' ');
-    redBadge.title = `${displayNames[player]}已杠出红中 ${seat.redGangs.length} 张、痞子 ${piziOnly.length} 张、癞子 ${wildOnly.length} 张，实牌公开摆在手牌旁`;
+    redBadge.textContent = `杠×${seat.redGangs.length + piziGangs.length}`;
+    redBadge.title = `${displayNames[player]}已杠出 ${seat.redGangs.length + piziGangs.length} 张，实牌公开摆在手牌旁`;
     redBadge.setAttribute('aria-label', redBadge.title);
     $(`#opponent-${player}`).classList.toggle('is-active', active && game.current === player && game.phase.kind !== PHASE.ENDED);
     $(`#opponent-${player}`).classList.toggle('is-claiming', player === 0 && actions.pass);
