@@ -1036,10 +1036,7 @@ function performAction(action) {
   if (openingDeal.active) return;
   if (!network.canAct() || specialGangPending) return;
   const actions = game.getActions(0);
-  if (action === 'pass') {
-    const passedTile=game.pendingDiscard?.tile;
-    return moveDone(game.pass(0).then(done=>{if(done&&passedTile!=null)discardSpeech.say(tileName(passedTile));return done;}));
-  }
+  if (action === 'pass') return moveDone(game.pass(0));
   if (action === 'chi') {
     if (actions.chi.length === 1) return moveDone(game.claim(0, 'chi', actions.chi[0]));
     return selectOptions('选择吃牌组合', actions.chi.map(sequence => ({ tiles: sequence, label: '吃这组', action: 'chi', value: sequence })));
