@@ -380,6 +380,9 @@ html.in-game #game.is-landscape {
   /* 牌区沿用原方桌坐标；桌框只扩展取景，不能带动手牌或改变各家布局。 */
   --table-frame-size:calc(var(--board-height) * 1.05);
   --table-frame-zoom:1.7;
+  /* 只内收左右装饰木沿，沿用原纹理尺寸；牌区与上下取景均不缩放。 */
+  --table-frame-horizontal-zoom:1.12;
+  --table-frame-side-inset:calc(var(--table-frame-size) * (1 - var(--table-frame-horizontal-zoom) / var(--table-frame-zoom)) / 2);
   --table-public-scale:1.12;
   --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
@@ -442,7 +445,8 @@ html.in-game #game.is-landscape {
   border:1px solid #c69c6370;
   border-radius:calc(var(--ui-unit) * 5);
   background:
-    url("assets/table-square-frame.svg") center / contain no-repeat,
+    url("assets/table-square-frame.svg") var(--table-frame-side-inset) 0 / 100% 100% no-repeat,
+    url("assets/table-square-frame.svg") calc(-1 * var(--table-frame-side-inset)) 0 / 100% 100% no-repeat,
     repeating-linear-gradient(28deg,#d9ebcd04 0 1px,transparent 1px 3px),
     repeating-linear-gradient(118deg,#002c2509 0 1px,transparent 1px 4px),
     radial-gradient(ellipse at 50% 42%,#38775d,#1b5543 48%,#0a3027);
@@ -452,6 +456,7 @@ html.in-game #game.is-landscape {
     0 calc(var(--ui-unit) * 3.3) 0 #241910,
     0 calc(var(--ui-unit) * 6) calc(var(--ui-unit) * 5) #010b09c9;
   pointer-events:none;
+  clip-path:inset(0 var(--table-frame-side-inset));
   transform:translateZ(-1px) scale(var(--table-frame-zoom));
 }
 #game.is-landscape .table::after { content:none; }
@@ -463,6 +468,7 @@ html.in-game #game.is-landscape {
   box-shadow:inset 0 calc(var(--ui-unit) * .6) calc(var(--ui-unit) * 2.4) #031e1759;
   transform:scale(var(--table-frame-zoom));
   transform-origin:50% calc(var(--table-frame-size) * .43);
+  clip-path:inset(0 max(0px,calc(var(--table-frame-side-inset) - var(--table-frame-size) * .04)));
 }
 #game.is-landscape .table-border::after {
   content:"";
