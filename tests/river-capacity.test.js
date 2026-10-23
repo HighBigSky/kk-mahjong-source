@@ -35,9 +35,9 @@ for(const indicatorCount of [1,0]) test(`single-seat river capacity covers every
   assert.equal(RIVER_LAYOUT.columns*RIVER_LAYOUT.rows,RIVER_LAYOUT.capacity);
 });
 
-test('all four rivers have 27 unique cells and grow from their owner toward the centre',()=>{
-  const first={bottom:{column:1,row:3},right:{column:3,row:9},top:{column:9,row:1},left:{column:1,row:1}};
-  const last={bottom:{column:9,row:1},right:{column:1,row:1},top:{column:1,row:3},left:{column:3,row:9}};
+test('all four rivers have 27 unique cells and grow from the centre toward their owner',()=>{
+  const first={bottom:{column:1,row:1},right:{column:1,row:9},top:{column:9,row:3},left:{column:3,row:1}};
+  const last={bottom:{column:9,row:3},right:{column:3,row:1},top:{column:1,row:1},left:{column:1,row:9}};
   for(const side of Object.keys(first)) {
     const cells=Array.from({length:RIVER_LAYOUT.capacity},(_,index)=>riverCell(index,side));
     assert.equal(new Set(cells.map(cell=>`${cell.column}:${cell.row}`)).size,27);
