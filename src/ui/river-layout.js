@@ -7,7 +7,10 @@ export const RIVER_LAYOUT = Object.freeze({
   tileWidth:.0315,
   radius:.215,
   nearRadius:.2115,
+  // 对家牌河稍向桌心收，牌墙向远端挪，单独拉开上方三层牌区的间距。
+  farRadius:.2085,
   wallRadius:.3024,
+  farWallRadius:.326,
   sideWallRadius:.315,
   handRadius:.39,
 });

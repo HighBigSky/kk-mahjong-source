@@ -92,8 +92,8 @@ export function createFlatOpponentView(stage) {
         if(tile.style.gridRow!==row)tile.style.gridRow=row;
       }
       // 固定方桌内分三圈：暗手在外、牌墙居中、27 格牌河在内；近侧为双层墙留出厚度。
-      const radius=kind==='river'?(side==='bottom'?RIVER_LAYOUT.nearRadius:RIVER_LAYOUT.radius)
-        :kind==='wall'?(['top','bottom'].includes(side)?RIVER_LAYOUT.wallRadius:RIVER_LAYOUT.sideWallRadius):RIVER_LAYOUT.handRadius;
+      const radius=kind==='river'?(side==='top'?RIVER_LAYOUT.farRadius:side==='bottom'?RIVER_LAYOUT.nearRadius:RIVER_LAYOUT.radius)
+        :kind==='wall'?(side==='top'?RIVER_LAYOUT.farWallRadius:side==='bottom'?RIVER_LAYOUT.wallRadius:RIVER_LAYOUT.sideWallRadius):RIVER_LAYOUT.handRadius;
       const direction={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]}[side];
       const aligned={x:anchor.x+direction[0]*frameWidth*radius,y:anchor.y+direction[1]*frameHeight*radius};
       // 牌河按容量独立定尺寸；牌墙与暗手沿用原牌体大小，四家的牌面朝向不变。
