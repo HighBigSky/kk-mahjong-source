@@ -7,13 +7,13 @@ export const RIVER_LAYOUT = Object.freeze({
   tileWidth:.0315,
   radius:.215,
   nearRadius:.2115,
-  // 对家牌河稍向桌心收，牌墙向远端挪，单独拉开上方三层牌区的间距。
+  // 对家牌河位置固定；手牌与牌墙单独内收，三层牌区仍留出间隔。
   farRadius:.2085,
   wallRadius:.3024,
-  farWallRadius:.338,
+  farWallRadius:.316,
   sideWallRadius:.315,
   handRadius:.39,
-  farHandRadius:.402,
+  farHandRadius:.382,
 });
 
 // 从靠桌心一行、出牌者左手边起排，每行九张，再向玩家方向续排；不重排实牌 DOM。

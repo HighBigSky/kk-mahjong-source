@@ -109,8 +109,10 @@ export function createFlatOpponentView(stage) {
       // 牌河按容量独立定尺寸；牌墙与暗手沿用原牌体大小，四家的牌面朝向不变。
       const face=kind==='river'?node.querySelector('.tile'):null;
       // 空牌河也先对齐中心；第一张牌出现时再按原牌体宽度求等比缩放。
+      // 仅放大对家手牌与牌墙；牌河继续独立定尺寸，本家与左右两家沿用原缩放。
+      const seatScale=side==='top'?.80:.72;
       const size=kind==='river'?(face?frameWidth*RIVER_LAYOUT.tileWidth/parseFloat(getComputedStyle(face).width):1)
-        :(kind==='wall'&&side==='bottom'?1:.72)*(kind==='hand'?1:publicScale);
+        :(kind==='wall'&&side==='bottom'?1:seatScale)*(kind==='hand'?1:publicScale);
       const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${aligned.x}:${aligned.y}:${size}`;
       if(cache.get(node)===key)continue;
       node.style.setProperty('--opponent-view','none');
