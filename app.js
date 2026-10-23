@@ -70,7 +70,6 @@ const discardFocusState = createDiscardFocusState({storage:(() => {
 })()});
 let focusedDiscard = null;
 let discardFocusGeometry = null;
-const DISCARD_FOCUS_SCALE = 2;
 const discardFlights = new Set();
 const calculateHints = createHintCalculator();
 let hintState = {mode:'none', candidates:[]};
@@ -568,50 +567,19 @@ function positionDiscardFocus() {
   if (!focusedDiscard) return;
   const target = discardRiverTile(focusedDiscard);
   if (!target) return;
-  const rect = stageRect(target);
   const plane = tilePlane(target, $('#game'));
   if (!plane) return;
   const {width,height,matrix} = plane;
   const sourceRect = JSON.stringify([width,height,matrix]);
   if (discardFocusGeometry?.sourceRect === sourceRect) return;
-  const centre = {x:rect.left + rect.width / 2, y:rect.top + rect.height / 2};
   const holder = $('#discard-focus');
   if (holder.parentElement !== $('#game')) $('#game').append(holder);
   const face = holder.querySelector('.tile');
   for (const animation of face.getAnimations()) animation.cancel();
-  // Enlarging in perspective shifts the projected bounding-box centre slightly.
-  // Correct that screen-space shift while keeping the card on the same plane.
-  const place = scale => {
-    let transform = planeCSS(matrix);
-    let preview;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      // 直接复用实牌四角的投影，放大与缩回始终贴合桌面，不能用外接矩形代替牌身。
-      discardFocusGeometry = {width,height,transform,scale,sourceRect};
-      holder.style.cssText = `left:0;top:0;width:${width}px;height:${height}px;transform-origin:0 0;transform:${transform};--discard-focus-scale:${scale}`;
-      preview = stageRect(face);
-      const dx = centre.x - preview.left - preview.width / 2;
-      const dy = centre.y - preview.top - preview.height / 2;
-      if (Math.hypot(dx, dy) < .1) break;
-      transform = new DOMMatrix().translate(dx,dy).multiply(new DOMMatrix(transform)).toString();
-    }
-    return preview;
-  };
-  const obstacles = [...document.querySelectorAll('.river .tile,.opponent-rack .tile,.opponent-rack .back,.my-melds .tile,#wall-tail .wall-piece:not(.is-empty),.table-center,.player-seat,.action-zone:not([hidden])')]
-    .filter(element => element !== target && element.getClientRects().length).map(stageRect);
-  const stage = $('#game');
-  const fits = box => box.left >= 0 && box.top >= 0 && box.left + box.width <= stage.clientWidth && box.top + box.height <= stage.clientHeight
-    && obstacles.every(other => Math.min(box.left + box.width, other.left + other.width) <= Math.max(box.left, other.left)
-      || Math.min(box.top + box.height, other.top + other.height) <= Math.max(box.top, other.top));
-  // Keep the original enlargement when space permits. A dense river caps it
-  // at the available gap instead of covering an earlier discard or a control.
-  if (!fits(place(DISCARD_FOCUS_SCALE))) {
-    let lower = 1, upper = DISCARD_FOCUS_SCALE;
-    for (let step = 0; step < 6; step++) {
-      const middle = (lower + upper) / 2;
-      if (fits(place(middle))) lower = middle; else upper = middle;
-    }
-    place(lower);
-  }
+  // 聚焦只高亮，不再因牌河疏密改变大小；动画复用实牌四角和统一牌宽。
+  const transform = planeCSS(matrix);
+  discardFocusGeometry = {width,height,transform,scale:1,sourceRect};
+  holder.style.cssText = `left:0;top:0;width:${width}px;height:${height}px;transform-origin:0 0;transform:${transform}`;
 }
 
 function settleDiscardFocus() {
@@ -936,7 +904,6 @@ function render() {
     melds.setAttribute('aria-label', `${displayNames[player]}已公开的吃碰杠牌，单张杠${gangCount}张，${PLAY_TEXT.wildGang}${wildCount}张，普通副露${seat.melds.length}组`);
     const rack = $(`#rack-${player}`);
     rack.classList.toggle('has-melds', publicGroups.length > 0);
-    rack.style.setProperty('--concealed-count', seat.hand.length);
     rack.style.setProperty('--meld-count', seat.melds.length);
     rack.style.setProperty('--special-count', seat.redGangs.length + piziGangs.length);
     $(`#score-${player}`).textContent = seat.score.toLocaleString('zh-CN');

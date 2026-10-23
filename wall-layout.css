@@ -1,8 +1,8 @@
 /* The physical wall is four runs of 17 double-height stacks. Its dimensions
    scale with the table. Only the public indicator has a tile face. */
 :root {
-  --wall-piece-width:2.7cqw;
-  --wall-piece-height:3.78cqw;
+  --wall-piece-width:var(--tile-face-width);
+  --wall-piece-height:var(--tile-face-height);
   --wall-stack-step:2.9cqw;
   --wall-stack-depth:.43cqw;
   --wall-piece-radius:.3cqw;

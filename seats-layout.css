@@ -306,12 +306,14 @@
 /* Public combinations share a rack with that seat's concealed hand. The wall
    keeps its own fixed slots; declaring a combination never reflows the wall. */
 :root {
-  --public-tile-width:2.05cqw;
-  --public-tile-height:2.87cqw;
+  --tile-face-width:2.7cqw;
+  --tile-face-height:calc(var(--tile-face-width) * 7 / 5);
+  --public-tile-width:var(--tile-face-width);
+  --public-tile-height:var(--tile-face-height);
   --public-tile-gap:.1cqw;
   --public-group-gap:.35cqw;
-  --self-public-tile-width:3cqw;
-  --self-public-tile-height:4.2cqw;
+  --self-public-tile-width:var(--tile-face-width);
+  --self-public-tile-height:var(--tile-face-height);
 }
 
 .table .opponent-rack {

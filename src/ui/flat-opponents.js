@@ -59,7 +59,6 @@ export function createFlatOpponentView(stage) {
     const tablePlane=projection(table,parseFloat(tableStyle.width),parseFloat(tableStyle.height),stageBox);
     if(!tablePlane)return;
     const left=parseFloat(surface.left),top=parseFloat(surface.top),frameWidth=parseFloat(surface.width),frameHeight=parseFloat(surface.height);
-    const publicScale=parseFloat(tableStyle.getPropertyValue('--table-public-scale'))||1;
     const localPublic=stage.querySelector('.my-melds');
     if(localPublic&&!localPublic.hidden) {
       // 正视副露随手牌上移后，按真实绒布左边界内收，不能贴到木框或影响手牌中心。
@@ -100,20 +99,14 @@ export function createFlatOpponentView(stage) {
         if(tile.style.gridColumn!==column)tile.style.gridColumn=column;
         if(tile.style.gridRow!==row)tile.style.gridRow=row;
       }
-      // 固定方桌内分三圈：暗手在外、牌墙居中、27 格牌河在内；近侧为双层墙留出厚度。
+      // 固定方桌内分三圈：暗手与换行副露在外、牌墙居中、36 格牌河在内。
       const radius=kind==='river'?(side==='top'?RIVER_LAYOUT.farRadius:side==='bottom'?RIVER_LAYOUT.nearRadius:RIVER_LAYOUT.radius)
         :kind==='wall'?(side==='top'?RIVER_LAYOUT.farWallRadius:side==='bottom'?RIVER_LAYOUT.wallRadius:RIVER_LAYOUT.sideWallRadius)
         :side==='top'?RIVER_LAYOUT.farHandRadius:RIVER_LAYOUT.handRadius;
       const direction={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]}[side];
       const aligned={x:anchor.x+direction[0]*frameWidth*radius,y:anchor.y+direction[1]*frameHeight*radius};
-      // 牌河按容量独立定尺寸；牌墙与暗手沿用原牌体大小，四家的牌面朝向不变。
-      const face=kind==='river'?node.querySelector('.tile'):null;
-      // 空牌河也先对齐中心；第一张牌出现时再按原牌体宽度求等比缩放。
-      // 仅放大对家手牌与牌墙；牌河继续独立定尺寸，本家与左右两家沿用原缩放。
-      const seatScale=side==='top'?.80:.72;
-      const size=kind==='river'?(face?frameWidth*RIVER_LAYOUT.tileWidth/parseFloat(getComputedStyle(face).width):1)
-        :(kind==='wall'&&side==='bottom'?1:seatScale)*(kind==='hand'?1:publicScale);
-      const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${aligned.x}:${aligned.y}:${size}`;
+      // CSS 已统一真实牌宽；此处只平移到桌面锚点，不按牌区或座位再次缩放。
+      const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${aligned.x}:${aligned.y}`;
       if(cache.get(node)===key)continue;
       node.style.setProperty('--opponent-view','none');
       const source=projection(node,width,height,stageBox),undo=source&&inverse(source);
@@ -124,7 +117,7 @@ export function createFlatOpponentView(stage) {
         x=(Math.min(...bounds.map(b=>b.x))+Math.max(...bounds.map(b=>b.x+b.w)))/2;
         y=(Math.min(...bounds.map(b=>b.y))+Math.max(...bounds.map(b=>b.y+b.h)))/2;
       }
-      const m=multiply(undo,multiply(tablePlane,[size,0,aligned.x-size*x,0,size,aligned.y-size*y,0,0,1]));
+      const m=multiply(undo,multiply(tablePlane,[1,0,aligned.x-x,0,1,aligned.y-y,0,0,1]));
       if(Math.abs(m[8])<1e-10)continue;
       const n=m.map(value=>value/m[8]);
       node.style.setProperty('--opponent-view',planeCSS(n));

@@ -1,19 +1,17 @@
-// 136 张牌、最多四组普通副露：将吃碰跳家与被领取牌移出牌河一并计入，
-// 单家留河保守上界为 27 张；推导和穷举验证见设计规格及 river-capacity.test.js。
+// 规则推导的单家留河上界仍为 27 张；展示预留 36 格，余量不改变规则或牌序。
 const columns = 9;
-const rows = 3;
+const rows = 4;
 export const RIVER_LAYOUT = Object.freeze({
   columns, rows, capacity:columns * rows,
-  tileWidth:.0315,
-  radius:.215,
-  nearRadius:.2115,
-  // 对家牌河位置固定；手牌与牌墙单独内收，三层牌区仍留出间隔。
-  farRadius:.2085,
-  wallRadius:.3024,
-  farWallRadius:.316,
-  sideWallRadius:.315,
-  handRadius:.39,
-  farHandRadius:.382,
+  // 牌宽只由 CSS 的 --tile-face-width 决定；这里仅定义格位与同心区域。
+  radius:.24,
+  nearRadius:.24,
+  farRadius:.23,
+  wallRadius:.355,
+  farWallRadius:.343,
+  sideWallRadius:.355,
+  handRadius:.435,
+  farHandRadius:.415,
 });
 
 // 从靠桌心一行、出牌者左手边起排，每行九张，再向玩家方向续排；不重排实牌 DOM。

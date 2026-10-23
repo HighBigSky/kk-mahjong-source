@@ -205,7 +205,7 @@ try {
         const overlaps = publicTiles.flatMap((tile, index) => protectedAreas.flatMap((area, target) => {
           const width = Math.min(tile.right, area.right) - Math.max(tile.left, area.left);
           const height = Math.min(tile.bottom, area.bottom) - Math.max(tile.top, area.top);
-          return width > .5 && height > .5 ? [{tile:index, target, width, height}] : [];
+          return window.visualGeometry.intersects(tile.quad,area.quad) ? [{tile:index, target, width, height}] : [];
         }));
         const hand = [...document.querySelectorAll('#hand button')].map(rect);
         return {publicTiles, overlaps, hand, pageWidth:document.body.scrollWidth};

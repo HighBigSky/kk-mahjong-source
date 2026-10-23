@@ -25,7 +25,7 @@ const screens = [
 const output = path.resolve('output'); mkdirSync(output, { recursive: true });
 const report = {
   passed: false, browser: '', capacity, screens, measurements: [], stability: [], screenshots: [], errors: [], failures: [],
-  fixtureNote: 'Rooms are created and started by real HTTP/SSE browser interaction. Each seat is assigned its safe bound of 27 visual discards. Four simultaneous maximum rivers and maximum racks are intentionally impossible combined tile allocations used only to stress presentation capacity; no rules or protocol are changed.',
+  fixtureNote: 'Rooms are created and started by real HTTP/SSE browser interaction. Each seat is assigned 36 visual discards. Four simultaneous maximum rivers and maximum racks are intentionally impossible combined tile allocations used only to stress presentation capacity; no rules or protocol are changed.',
 };
 const service = new RoomService({ botDelayMs: 60000, disconnectGraceMs: 100 });
 const server = createServer({ roomService: service });
@@ -155,7 +155,7 @@ async function measure(page, screen, scenario) {
   const viewport = { left: 0, top: 0, right: screen.width, bottom: screen.height };
   check(data.stage.width + 1 >= data.stage.height * 16 / 9, 'single landscape canvas stays at least 16:9', detail);
   check(Math.abs(data.stage.width - screen.width) <= 1 && Math.abs(data.stage.height - Math.min(screen.height, screen.width * 9 / 16)) <= 1, 'canvas fills landscape viewport and centers in taller windows', { ...detail, stage: data.stage });
-  check(data.rivers.every(river => river.tiles.length === capacity), 'all 27 physical river tiles render without truncation', { ...detail, counts: data.rivers.map(river => river.tiles.length) });
+  check(data.rivers.every(river => river.tiles.length === capacity), 'all 36 display river tiles render without truncation', { ...detail, counts: data.rivers.map(river => river.tiles.length) });
   check(data.rivers.every(river=>river.gap==='0px' && river.maxJointGap<.25), 'all river tiles touch adjacent cells without artificial gaps', {...detail,joints:data.rivers.map(river=>({seat:river.seat,gap:river.gap,max:river.maxJointGap}))});
   check(data.rivers.filter(river=>river.seat%2).every(river=>river.modelAspects.every(ratio=>Math.abs(ratio/(5/7)-1)<.02)), 'side tiles retain their original model proportions in the common table plane', {...detail,ratios:data.rivers.filter(river=>river.seat%2).map(river=>river.modelAspects)});
   const widths=data.rivers.flatMap(river=>river.tableWidths),heights=data.rivers.flatMap(river=>river.tableHeights);

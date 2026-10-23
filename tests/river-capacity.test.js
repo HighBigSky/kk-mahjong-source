@@ -31,18 +31,19 @@ function retainedRiverBound(budget) {
 for(const indicatorCount of [1,0]) test(`single-seat river capacity covers every relaxed turn/claim path, indicator count ${indicatorCount}`,()=>{
   const budget=136-indicatorCount-4*13;
   assert.equal(retainedRiverBound(budget),27);
-  assert.equal(RIVER_LAYOUT.capacity,27);
+  assert.ok(RIVER_LAYOUT.capacity>=retainedRiverBound(budget));
+  assert.equal(RIVER_LAYOUT.capacity,36);
   assert.equal(RIVER_LAYOUT.columns*RIVER_LAYOUT.rows,RIVER_LAYOUT.capacity);
 });
 
-test('all four rivers have 27 unique cells and grow from the centre toward their owner',()=>{
-  const first={bottom:{column:1,row:1},right:{column:1,row:9},top:{column:9,row:3},left:{column:3,row:1}};
-  const last={bottom:{column:9,row:3},right:{column:3,row:1},top:{column:1,row:1},left:{column:1,row:9}};
+test('all four rivers reserve 36 unique cells and grow from the centre toward their owner',()=>{
+  const first={bottom:{column:1,row:1},right:{column:1,row:9},top:{column:9,row:4},left:{column:4,row:1}};
+  const last={bottom:{column:9,row:4},right:{column:4,row:1},top:{column:1,row:1},left:{column:1,row:9}};
   for(const side of Object.keys(first)) {
     const cells=Array.from({length:RIVER_LAYOUT.capacity},(_,index)=>riverCell(index,side));
-    assert.equal(new Set(cells.map(cell=>`${cell.column}:${cell.row}`)).size,27);
+    assert.equal(new Set(cells.map(cell=>`${cell.column}:${cell.row}`)).size,36);
     const horizontal=side==='bottom'||side==='top';
-    assert.ok(cells.every(cell=>cell.column>=1&&cell.column<=(horizontal?9:3)&&cell.row>=1&&cell.row<=(horizontal?3:9)));
+    assert.ok(cells.every(cell=>cell.column>=1&&cell.column<=(horizontal?9:4)&&cell.row>=1&&cell.row<=(horizontal?4:9)));
     assert.deepEqual(cells[0],first[side]);assert.deepEqual(cells.at(-1),last[side]);
   }
 });
