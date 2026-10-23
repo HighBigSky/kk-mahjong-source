@@ -21,10 +21,11 @@ function rotate(items, viewer) { return Array.from({length:4}, (_, index) => ite
 
 /** Authoritative in-memory rooms. Human and computer turns use the same rules. */
 export class RoomService {
-  constructor({ disconnectGraceMs = 5000, roomTtlMs = 6 * 60 * 60 * 1000, maxRooms = 200, botDelayMs = 650, now = Date.now,
+  constructor({ disconnectGraceMs = 5000, reconnectTimeoutMs = 10 * 60 * 1000, roomTtlMs = 6 * 60 * 60 * 1000, maxRooms = 200, botDelayMs = 650, now = Date.now,
     iceServers = () => [] } = {}) {
     this.rooms = new Map();
     this.disconnectGraceMs = disconnectGraceMs;
+    this.reconnectTimeoutMs = reconnectTimeoutMs;
     this.roomTtlMs = roomTtlMs;
     this.maxRooms = maxRooms;
     this.botDelayMs = botDelayMs;
@@ -84,7 +85,7 @@ export class RoomService {
     // 房主可移除任何离线玩家；房主自己离线时，允许其他真人移除他，避免整房卡死。
     if (room.owner !== player && target !== room.owner) fail(403, 'OWNER_ONLY', '仅房主可以移除离线玩家。');
     if (room.game && room.game.phase.kind !== 'ended') fail(409, 'PLAYING', '对局进行中不能移除玩家。');
-    clearTimeout(targetSeat.disconnectTimer);
+    this._clearDisconnect(targetSeat);
     for (const stream of targetSeat.streams) stream.end();
     room.seats[target] = null;
     if (!room.seats.some(member => member && !member.bot)) { this._dispose(room); return { removed:true }; }
@@ -220,7 +221,7 @@ export class RoomService {
 
   leave(code, token) {
     const {room, player, seat} = this.authenticate(code, token);
-    clearTimeout(seat.disconnectTimer);
+    this._clearDisconnect(seat);
     room.seats[player] = null;
     for (const stream of seat.streams) stream.end();
     if (!room.seats.some(member => member && !member.bot)) { this._dispose(room); return { left:true }; }
@@ -237,7 +238,7 @@ export class RoomService {
   /** Each SSE stream receives its viewer's snapshot, revealing all hands after a win. */
   connect(code, token, response) {
     const {room, player, seat} = this.authenticate(code, token);
-    clearTimeout(seat.disconnectTimer);
+    this._clearDisconnect(seat);
     while (seat.streams.size >= 2) {
       const previous = seat.streams.values().next().value;
       seat.streams.delete(previous);
@@ -259,8 +260,14 @@ export class RoomService {
       clearInterval(heartbeat);
       seat.streams.delete(response);
       if (this.rooms.get(code) !== room || room.seats[player] !== seat || seat.streams.size) return;
+      // 从最后一条连接关闭时计满十分钟；其他玩家的心跳、请求不得延长重连期限。
+      seat.reconnectDeadline = this.now() + this.reconnectTimeoutMs;
+      seat.reconnectTimer = setTimeout(() => {
+        if (this.rooms.get(code) === room && room.seats[player] === seat && this._disconnectExpired(room)) this._dispose(room);
+      }, this.reconnectTimeoutMs);
+      seat.reconnectTimer.unref();
       seat.disconnectTimer = setTimeout(() => {
-        if (!seat.streams.size && room.seats[player] === seat) { seat.connected = false; seat.voice = false; this._changed(room); }
+        if (this.rooms.get(code) === room && !seat.streams.size && room.seats[player] === seat) { seat.connected = false; seat.voice = false; this._changed(room); }
       }, this.disconnectGraceMs);
       seat.disconnectTimer.unref();
     });
@@ -312,7 +319,7 @@ export class RoomService {
 
   cleanup() {
     const cutoff = this.now() - this.roomTtlMs;
-    for (const room of this.rooms.values()) if (room.touched < cutoff) this._dispose(room);
+    for (const room of this.rooms.values()) if (room.touched < cutoff || this._disconnectExpired(room)) this._dispose(room);
   }
 
   close() {
@@ -320,19 +327,30 @@ export class RoomService {
     for (const room of this.rooms.values()) this._dispose(room);
   }
 
-  _newSeat(name) { return {name, token:randomBytes(24).toString('hex'), bot:false, ready:false, connected:false, voice:false, streams:new Set(), requests:new Map(), disconnectTimer:null}; }
+  _newSeat(name) { return {name, token:randomBytes(24).toString('hex'), bot:false, ready:false, connected:false, voice:false, streams:new Set(), requests:new Map(), disconnectTimer:null, reconnectTimer:null, reconnectDeadline:null}; }
+  _clearDisconnect(seat) {
+    clearTimeout(seat.disconnectTimer);
+    clearTimeout(seat.reconnectTimer);
+    seat.disconnectTimer = seat.reconnectTimer = seat.reconnectDeadline = null;
+  }
+  _disconnectExpired(room) {
+    const now = this.now();
+    return room.seats.some(seat => seat && !seat.bot && !seat.streams.size && seat.reconnectDeadline !== null && now >= seat.reconnectDeadline);
+  }
   _room(code) {
     const room = CODE_PATTERN.test(code) ? this.rooms.get(code) : null;
     // Do not let a request revive an expired room between minute cleanup ticks.
-    if (room && room.touched < this.now() - this.roomTtlMs) this._dispose(room);
+    // 即使定时器被事件循环延迟，超时请求也不能复活房间。
+    if (room && (room.touched < this.now() - this.roomTtlMs || this._disconnectExpired(room))) this._dispose(room);
     if (!room || !this.rooms.has(code)) fail(404, 'ROOM_NOT_FOUND', '房间不存在或已过期，请检查房间码。');
     return room;
   }
   _dispose(room) {
+    if (this.rooms.get(room.code) !== room) return;
     this.rooms.delete(room.code);
     this._cancelBot(room);
     for (const seat of room.seats) if (seat) {
-      clearTimeout(seat.disconnectTimer);
+      this._clearDisconnect(seat);
       seat.connected = false;
       seat.voice = false;
       for (const stream of seat.streams) stream.end();

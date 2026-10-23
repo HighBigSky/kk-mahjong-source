@@ -247,10 +247,10 @@ function updateRoom() {
       button.setAttribute('aria-label', `${operation === 'kick' ? '移除离线玩家' : label}，${seats[index]}家座位`);
     }
   }
-  $('#room-status').textContent = !connected ? '连接中断，正在恢复原座位，请勿重复加入。'
-    : room.paused ? '有好友离线，对局暂停等待重连。'
+  $('#room-status').textContent = !connected ? '连接中断，正在恢复原座位；10分钟未重连将自动解散房间。'
+    : room.paused ? '有好友离线，对局暂停；10分钟未重连将自动解散房间。'
     : room.status === 'playing' ? '对局进行中，关闭此面板返回牌桌。'
-    : room.seats.some(member => member.occupied && !member.bot && !member.connected) ? '有好友离线，等待重连；离线座位可由房主移除。'
+    : room.seats.some(member => member.occupied && !member.bot && !member.connected) ? '等待好友连接；掉线后保留10分钟，超时自动解散房间。'
     : room.status === 'ended' ? '本局结束，房主可以开始下一局。'
     : canStart ? room.owner === 0 ? '全员准备好了，可以开始对局。' : '全员准备好了，等待房主开局。'
     : room.seats.every(seat => seat.occupied) ? '人机已自动准备，等待真人玩家准备。'
@@ -842,7 +842,7 @@ function updateTurnMessage(actions = network.availableActions()) {
   let message;
   if (!active) message = room ? '邀请好友或添加人机，准备后由房主开局' : '创建房间，邀请好友一起打牌';
   else if (network.status !== 'connected') message = '连接中断，正在重新连接房间…';
-  else if (room.paused) message = '有好友离线，对局暂停等待重连';
+  else if (room.paused) message = '有好友离线，10分钟未重连将解散房间';
   else if (game.phase.kind === PHASE.ENDED) message = game.winner === null ? '牌墙已空，本局流局' : game.winner === 0 ? '好牌，胡了！' : `${displayNames[game.winner]}${game.result.selfDraw ? '自摸' : '胡牌'}，下局再来`;
   else if (openingDeal.active) message = DEAL_TEXT.progress;
   else if (actions.pass) message = specialName ? `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}；手中有${specialName}，不能胡牌` : `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}，请选择操作`;
