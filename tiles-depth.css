@@ -1,7 +1,11 @@
 /* All thickness stays inside existing tile bounds; layout and hit areas are unchanged. */
 :root {
   --tile-ivory: #f6efdd;
-  --tile-face: linear-gradient(135deg, #fffef6 0%, var(--tile-ivory) 48%, #e4dbc5 100%);
+  --tile-face: linear-gradient(145deg, #fffef6 0%, var(--tile-ivory) 54%, #e8dfc9 100%);
+  --tile-gloss: linear-gradient(115deg, #ffffff9c 0%, #ffffff38 18%, #ffffff00 43%, #ffffff00 75%, #ffffff24 100%);
+  --tile-border: #c7c9b3;
+  --tile-border-side: #446448;
+  --tile-border-bottom: #153d2a;
   --tile-face-hover: linear-gradient(135deg, #ffffff 0%, #fff8e9 48%, #eee2c9 100%);
   --tile-face-selected: linear-gradient(135deg, #fffef0 0%, #fff2cf 55%, #e8d49e 100%);
   --tile-resin-light: #638e70;
@@ -38,13 +42,13 @@
   --tile-depth: var(--tile-default-depth);
   --tile-side: var(--tile-default-side);
   --tile-body:
-    linear-gradient(180deg, #7d9d7a, var(--tile-resin) 38%, var(--tile-resin-dark)) bottom / 100% var(--tile-depth) no-repeat,
-    linear-gradient(90deg, #5a8260, #2b593f) right / var(--tile-side) 100% no-repeat,
+    linear-gradient(180deg, var(--tile-resin-light), var(--tile-resin) 42%, var(--tile-resin-dark)) bottom / 100% var(--tile-depth) no-repeat,
+    linear-gradient(90deg, var(--tile-resin), var(--tile-resin-dark)) right / var(--tile-side) 100% no-repeat,
     linear-gradient(135deg, var(--tile-resin-light), var(--tile-resin-dark));
   background: var(--tile-body);
-  border: 1px solid #c7c9b3;
-  border-right-color: #446448;
-  border-bottom: 1px solid #153d2a;
+  border: 1px solid var(--tile-border);
+  border-right-color: var(--tile-border-side);
+  border-bottom: 1px solid var(--tile-border-bottom);
   border-radius: var(--tile-radius);
   box-shadow:
     inset -.1cqw -.12cqw .12cqw #102d1f66,
@@ -62,11 +66,12 @@
   border-right-color: #c8bda4;
   border-bottom-color: #b6aa8d;
   border-radius: inherit;
-  background: var(--tile-face);
+  /* 所有正面共用象牙色树脂与静态反光，光泽在图案下方，不冲淡牌字。 */
+  background: var(--tile-gloss), var(--tile-face);
   box-shadow:
     inset var(--tile-bevel) var(--tile-bevel) var(--tile-bevel) #ffffffd9,
-    inset -.16cqw -.2cqw .2cqw #a1906e30,
-    0 .1cqw .05cqw #fff7dc80;
+    inset calc(var(--tile-bevel) * -.9) calc(var(--tile-bevel) * -1.4) calc(var(--tile-bevel) * 1.6) #82765033,
+    0 calc(var(--tile-bevel) * .5) 0 #fff7dca6;
   pointer-events: none;
   z-index: 0;
 }
