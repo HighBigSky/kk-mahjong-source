@@ -1033,8 +1033,10 @@ function showResult() {
   $('#result-title').textContent = winner === null ? PLAY_TEXT.resultDraw : `${PLAY_TEXT.resultWinner}${winnerName}${winner === 0 ? PLAY_TEXT.resultYou : ''}`;
   $('#result-avatar').src = avatars[((network.room?.seat || 0) + (winner ?? 0)) % 4];
   $('#result-avatar').alt = winner === null ? PLAY_TEXT.resultDraw : PLAY_TEXT.resultWinner + winnerName;
+  // 他家快照不公开摸牌记录；结算牌型展示复用服务端已确认的杠开计分项。
+  const replacement = result.selfDraw && result.breakdown.some(item => item.name === SCORING_TEXT.replacementWin);
   const classification = result.kind === 'win'
-    ? classifyWin(result.hand, game.players[winner].melds, game.wildTile, game.indicatorTile) : null;
+    ? classifyWin(result.hand, game.players[winner].melds, game.wildTile, game.indicatorTile, replacement) : null;
   const winTypes = classification ? [
     classification.sevenPairs ? '七对' : '', classification.allTriplets ? '碰碰胡' : '',
     classification.allJiang ? '将一色' : '', classification.allHonors ? '风一色' : '',

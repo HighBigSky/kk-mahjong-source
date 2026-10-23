@@ -132,6 +132,46 @@ test('two wildcards may form a closed ordinary Jiang pair but cannot form an ope
     'a concealed kong does not trigger the ordinary opening limit');
 });
 
+test('only a matching replacement self draw permits multiple wildcards in an opened ordinary hand', () => {
+  for (let seat = 0; seat < 4; seat++) {
+    for (const group of [chi([0, 1, 2]), peng(TILE.NORTH), gang(TILE.NORTH), gang(TILE.NORTH, false, true)]) {
+      const melds = [{...group, from:(seat + 3) % 4}];
+      const win = classifyWin(twoWildPlain, melds, WILD, INDICATOR, true);
+      assert.equal(win.ordinary, true);
+      assert.equal(win.wildCount, 2);
+      assert.equal(win.sevenPairs || win.allTriplets || win.allJiang || win.allHonors, false);
+      for (const [replacement, drawPlayer, allowed] of [[true,seat,true],[false,seat,false],[true,(seat+1)%4,false]]) {
+        const game = fixture({hand:twoWildPlain, melds, seat, wildTile:WILD, indicatorTile:INDICATOR});
+        game.lastDraw = {...game.lastDraw, player:drawPlayer, replacement};
+        verifyHu(game, seat, allowed);
+        if (allowed) {
+          assert.equal(game.result.breakdown.find(item=>item.name==='杠上开花')?.points, 10);
+          assert.equal(game.result.selfDraw, true);
+        }
+      }
+      const hand = [...twoWildPlain], discard = hand.splice(hand.indexOf(26), 1)[0];
+      const claim = fixture({hand, melds, seat, discard, wildTile:WILD, indicatorTile:INDICATOR});
+      // 残留的补牌标记不能让接炮路径套用杠开豁免。
+      claim.lastDraw = {player:seat, tile:hand.at(-1), index:hand.length-1, replacement:true};
+      verifyHu(claim, seat, false, false);
+    }
+  }
+  const closed = fixture({hand:[0,1,2,...twoWildPlain], wildTile:WILD, indicatorTile:INDICATOR});
+  verifyHu(closed, 0, true);
+});
+
+test('replacement exception has no wildcard cap but still requires a grouped shape and Jiang pair', () => {
+  const melds = [chi([0,1,2])];
+  for (const wilds of [2,3,4]) {
+    const hand = [9,10,11,18,19,20,24,25,26,4,WILD];
+    for (let index=0;index<wilds-1;index++)hand[index]=WILD;
+    assert.equal(classifyWin(hand,melds,WILD,INDICATOR,true).ordinary,true);
+    assert.equal(classifyWin(hand,melds,WILD,INDICATOR).ordinary,false);
+  }
+  assert.equal(classifyWin([9,10,11,18,19,20,24,25,26,8,8],melds,WILD,INDICATOR,true).ordinary,false);
+  assert.equal(classifyWin([9,10,15,18,21,24,26,26,4,WILD,WILD],melds,WILD,INDICATOR,true).ordinary,false);
+});
+
 test('all four seats enforce the ordinary opened wildcard limit for self-draw and winning discards', () => {
   for (let seat = 0; seat < 4; seat++) {
     for (const group of [chi([0, 1, 2]), peng(TILE.NORTH), gang(TILE.NORTH), gang(TILE.NORTH, false, true)]) {

@@ -157,10 +157,10 @@ function groupedShape(initialCounts, wilds, meldCount, jiangPair, tripletsOnly =
  * Special-kong records are intentionally absent from melds. Exposed wildcards keep
  * their printed identity; only concealed wildcards substitute for another tile.
  * @param {readonly TileCode[]} hand @param {readonly MeldLike[]|number} [melds]
- * @param {TileCode|null} [wildTile] @param {TileCode|null} [indicatorTile]
+ * @param {TileCode|null} [wildTile] @param {TileCode|null} [indicatorTile] @param {boolean} [replacement]
  * @returns {WinClassification}
  */
-export function classifyWin(hand, melds = 0, wildTile = null, indicatorTile = null) {
+export function classifyWin(hand, melds = 0, wildTile = null, indicatorTile = null, replacement = false) {
   /** @type {WinClassification} */
   const result = { winning: false, ordinary: false, sevenPairs: false, allTriplets: false,
     allJiang: false, allHonors: false, opened: false, wildCount: 0 };
@@ -185,7 +185,8 @@ export function classifyWin(hand, melds = 0, wildTile = null, indicatorTile = nu
   result.sevenPairs = meldCount === 0 && counts.reduce((odd, count) => odd + count % 2, 0) <= result.wildCount;
   result.allTriplets = knownMelds !== null && knownMelds.every(meld => meld.kind !== 'chi') &&
     groupedShape(counts, result.wildCount, meldCount, false, true);
-  result.ordinary = (!result.opened || result.wildCount <= 1) &&
+  // 仅杠后墙尾补牌自摸可豁免开口癞子上限；牌形和二五八将仍须成立。
+  result.ordinary = (!result.opened || result.wildCount <= 1 || replacement) &&
     groupedShape(counts, result.wildCount, meldCount, true);
   result.winning = result.ordinary || result.sevenPairs || result.allTriplets || result.allJiang || result.allHonors;
   return result;
@@ -205,10 +206,11 @@ export function isWinning(hand, melds = 0, wildTile = null, indicatorTile = null
 // Closed ordinary hands may only self-draw; confirmed big hands may also claim.
 /** @param {readonly TileCode[]} hand @param {readonly MeldLike[]} melds
  * @param {TileCode|null} wildTile @param {TileCode|null} indicatorTile
- * @param {boolean} [selfDraw] @returns {boolean} */
-function canWin(hand, melds, wildTile, indicatorTile, selfDraw = true) {
+ * @param {boolean} [selfDraw] @param {boolean} [replacement] @returns {boolean} */
+function canWin(hand, melds, wildTile, indicatorTile, selfDraw = true, replacement = false) {
   if (hand.some(tile => isSpecialGangTile(tile, indicatorTile))) return false;
-  const win = classifyWin(hand, melds, wildTile, indicatorTile);
+  // 即使调用方传入补牌标记，接炮也绝不能套用杠开例外。
+  const win = classifyWin(hand, melds, wildTile, indicatorTile, selfDraw && replacement);
   return win.winning && (selfDraw || win.opened || win.sevenPairs || win.allTriplets || win.allJiang || win.allHonors);
 }
 
@@ -581,7 +583,7 @@ export class MahjongGame {
     if (isSpecialGangTile(tile, this.indicatorTile)) return actions;
     const counts = countsOf(seat.hand);
     if (!counts) return actions;
-    actions.hu = canWin([...seat.hand, tile], seat.melds, this.wildTile, this.indicatorTile, false);
+    actions.hu = canWin([...seat.hand, tile], seat.melds, this.wildTile, this.indicatorTile, false, false);
     if (seat.melds.length < 4) {
       // 癞子不能按原牌面吃碰，也不能作为手中搭子参与吃；杠和胡沿用各自规则。
       actions.peng = tile !== this.wildTile && counts[tile] >= 2;
@@ -610,7 +612,8 @@ export class MahjongGame {
     const seat = this.players[player];
     const counts = countsOf(seat.hand);
     if (!counts) return actions;
-    actions.hu = this.lastDraw?.player === player && canWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile);
+    const replacement = this.lastDraw?.player === player && this.lastDraw.replacement === true;
+    actions.hu = this.lastDraw?.player === player && canWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile, true, replacement);
     if (this.wall.length > 0) {
       // 同牌多重身份只开放最高优先级入口：皮子 > 红中 > 癞子。
       actions.redGang = this.indicatorTile !== RED_DRAGON && counts[RED_DRAGON] > 0;
@@ -940,11 +943,11 @@ export class MahjongGame {
   /** @param {PlayerId} winner @param {PlayerId|null} from @param {boolean} selfDraw @returns {void} */
   _finishWin(winner, from, selfDraw) {
     const seat = this.players[winner];
-    const replacement = Boolean(selfDraw && this.lastDraw?.player === winner && this.lastDraw.replacement);
+    const replacement = selfDraw && this.lastDraw?.player === winner && this.lastDraw.replacement === true;
     const breakdown = getWinBreakdown(seat.hand, seat.melds, selfDraw, replacement);
     const points = breakdown.reduce((total, item) => total + item.points, 0);
     const scoreDelta = Array(4).fill(0);
-    const classification = classifyWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile);
+    const classification = classifyWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile, replacement);
     const bigWin = classification.sevenPairs || classification.allTriplets || classification.allJiang || classification.allHonors;
     if (selfDraw || bigWin) {
       for (let player = 0; player < 4; player++) if (player !== winner) scoreDelta[player] = -points;

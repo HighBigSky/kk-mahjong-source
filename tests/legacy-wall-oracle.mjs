@@ -11,6 +11,7 @@ export const authorizedWallChanges = Object.freeze([
   'Ordinary four-group wins and their AI estimates require a same-code numbered 2/5/8 pair; seven pairs is exempt, and wildcards may supply one or both tiles of the required pair.',
   'Seven pairs, all triplets, all numbered 2/5/8 tiles, and all honors are big wins with unrestricted pair and wildcard count; all-258/all-honor wins need the valid hand size but no group decomposition.',
   'Only ordinary wins after chi, peng, exposed or added kong are limited to one concealed wildcard; concealed and single-tile special kongs do not open the hand.',
+  '2026-10-23 authorized exception: only a matching wall-tail replacement self draw waives the opened ordinary wildcard cap; ordinary draw and claim restrictions, shape and scoring remain unchanged.',
   'An ordinary hand without chi, peng, exposed or added kong may win only by self draw; seven pairs, all triplets, all numbered 2/5/8 tiles, and all honors may still claim a winning discard while closed.',
   'AI and hints evaluate actual public groups, all four big-win distances, and legal ready draws; held red/indicator tiles are never ready, and opened hands may discard surplus wildcards. The frozen natural-shape scoring gate and all scoring values stay unchanged.',
   '2026-10-20 authorized scoring: single red/indicator gangs charge each other player 10 immediately; replacement self-draw adds 10; ordinary discard wins charge one player one share, big wins charge all three; drawn rounds retain gang deltas.',
@@ -202,7 +203,7 @@ function oracleMeldContext(melds) {
     opened: melds.some(meld => meld.kind !== 'gang' || meld.concealed !== true), groups: melds };
 }
 
-function oracleClassifyWin(hand, melds = 0, wildTile = null, indicatorTile = null) {
+function oracleClassifyWin(hand, melds = 0, wildTile = null, indicatorTile = null, replacement = false) {
   const ctx = oracleMeldContext(melds);
   const no = { winning: false, ordinary: false, sevenPairs: false, allTriplets: false,
     allJiang: false, allHonors: false, opened: Boolean(ctx.opened), wildCount: 0 };
@@ -221,7 +222,7 @@ function oracleClassifyWin(hand, melds = 0, wildTile = null, indicatorTile = nul
     oracleGroupShape(hand, ctx.count, wildTile, false, true);
   const allJiang = ctx.known && exposed.every(jiang) && natural.every(jiang);
   const allHonors = ctx.known && exposed.every(tile => tile >= 27) && natural.every(tile => tile >= 27);
-  const ordinary = (!ctx.opened || wildCount <= 1) && oracleGroupShape(hand, ctx.count, wildTile, true, false);
+  const ordinary = (!ctx.opened || wildCount <= 1 || replacement) && oracleGroupShape(hand, ctx.count, wildTile, true, false);
   return { winning: sevenPairs || allTriplets || allJiang || allHonors || ordinary,
     ordinary, sevenPairs, allTriplets, allJiang, allHonors, opened: ctx.opened, wildCount };
 }
@@ -236,6 +237,11 @@ function oracleCanClaimWin(hand, melds, wildTile, indicatorTile) {
   if (hand.includes(31) || hand.includes(indicatorTile)) return false;
   const win = oracleClassifyWin(hand, melds, wildTile, indicatorTile);
   return win.winning && (win.opened || win.sevenPairs || win.allTriplets || win.allJiang || win.allHonors);
+}
+
+function oracleCanSelfDrawWin(hand, melds, wildTile, indicatorTile, replacement) {
+  if (hand.includes(31) || hand.includes(indicatorTile)) return false;
+  return oracleClassifyWin(hand, melds, wildTile, indicatorTile, replacement).winning;
 }
 
 const frozenVisit = frozenDistance.slice(frozenDistance.indexOf('  let best = 8;'),
@@ -284,6 +290,7 @@ source = source.slice(0, adaptedWinningStart) + [legacyScoringShape, groupedShap
   oracleMeldContext.toString(), oracleClassifyWin.toString(),
   oracleLegalWinning.toString().replace('function oracleLegalWinning(', 'export function isWinning('),
   oracleCanClaimWin.toString(),
+  oracleCanSelfDrawWin.toString(),
 ].join('\n\n') + '\n' + source.slice(adaptedWinningEnd);
 const adaptedDistanceStart = source.indexOf('export function calculateShanten(');
 const adaptedDistanceEnd = source.indexOf('\nfunction handShape(', adaptedDistanceStart);
@@ -297,7 +304,7 @@ replaceChecked('canWin([...seat.hand, tile], seat.melds.length, this.wildTile, t
   'oracleCanClaimWin([...seat.hand, tile], seat.melds, this.wildTile, this.indicatorTile)', 1,
   'claim evaluates actual meld context and closed ordinary hands cannot claim a discard');
 replaceChecked('canWin(seat.hand, seat.melds.length, this.wildTile, this.indicatorTile)',
-  'canWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile)', 1, 'self draw evaluates actual meld context');
+  'oracleCanSelfDrawWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile, this.lastDraw?.player === player && this.lastDraw.replacement === true)', 1, 'self draw evaluates actual meld and matching replacement context');
 replaceOnce('  const meldCount = Number.isInteger(melds) ? melds : melds.length;\n', '', 'discard estimator retains full declared meld context');
 replaceOnce('calculateShanten(remaining, meldCount, wildTile, indicatorTile);',
   'calculateShanten(remaining, melds, wildTile, indicatorTile);', 'discard distance includes actual melds');
