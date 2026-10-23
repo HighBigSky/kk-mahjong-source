@@ -44,7 +44,7 @@ export function createFlatOpponentView(stage) {
   return function layout() {
     if(!stage.classList.contains('is-landscape'))return;
     const wall=stage.querySelector('#wall-tail'),stacks=wall?.querySelector('.wall-tail-stacks');
-    if(stacks&&!wall.hidden)for(const side of ['top','left','right']) {
+    if(stacks&&!wall.hidden)for(const side of ['top','left','right','bottom']) {
       if(runs.get(side)?.isConnected)continue;
       const run=document.createElement('div');run.className='flat-wall-run';run.dataset.side=side;
       const members=[...stacks.querySelectorAll(`.wall-stack[data-side="${side}"]`)];
@@ -55,6 +55,7 @@ export function createFlatOpponentView(stage) {
     const tablePlane=projection(table,parseFloat(tableStyle.width),parseFloat(tableStyle.height),stageBox);
     if(!tablePlane)return;
     const left=parseFloat(surface.left),top=parseFloat(surface.top),frameWidth=parseFloat(surface.width),frameHeight=parseFloat(surface.height);
+    const publicScale=parseFloat(tableStyle.getPropertyValue('--table-public-scale'))||1;
     const localPublic=stage.querySelector('.my-melds');
     if(localPublic&&!localPublic.hidden) {
       // 正视副露随手牌上移后，按真实绒布左边界内收，不能贴到木框或影响手牌中心。
@@ -71,7 +72,7 @@ export function createFlatOpponentView(stage) {
       }
       localPublic.style.transform=`translateX(${inset}px)`;
     }
-    // 牌区回到桌面的同一平面，只保留原有等比尺寸；牌体样式和模型不变。
+    // 原方桌仍作布局坐标；桌框装饰的放大不能改变牌区中心或手牌位置。
     const anchor={x:left+frameWidth/2,y:top+frameHeight/2};
     const groups=[...stage.querySelectorAll('.opponent-rack,.river'),...runs.values()];
     for(const node of groups) {
@@ -81,13 +82,13 @@ export function createFlatOpponentView(stage) {
       const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-0':'bottom','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
       const kind=node.classList.contains('flat-wall-run')?'wall':node.classList.contains('river')?'river':'hand';
       // 各家共用同心分区：外圈手牌、中圈牌墙、内圈牌河，不再沿用零散的旧坐标。
-      const radius=kind==='river'?.18:kind==='wall'?(side==='top'?.27:.29):.39;
+      const radius=(kind==='river'?.18:kind==='wall'?(['top','bottom'].includes(side)?.27:.29):.39)*(kind==='hand'?1:publicScale);
       const direction={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]}[side];
       const aligned={x:anchor.x+direction[0]*frameWidth*radius,y:anchor.y+direction[1]*frameHeight*radius};
-      // 四家牌河只在整个区域上等比缩放：共用实物牌宽与桌心半径，不改牌体、朝向或原始格位。
+      // 牌河与牌墙围绕原桌心同比放大，保留同心布局、排序和间距关系；暗手不缩放。
       const face=kind==='river'?node.querySelector('.tile'):null;
       // 空牌河也先对齐中心；第一张牌出现时再按原牌体宽度求等比缩放。
-      const size=kind==='river'?(face?frameWidth*.023/parseFloat(getComputedStyle(face).width):1):.72;
+      const size=(kind==='river'?(face?frameWidth*.023/parseFloat(getComputedStyle(face).width):1):kind==='wall'&&side==='bottom'?1:.72)*(kind==='hand'?1:publicScale);
       const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${aligned.x}:${aligned.y}:${size}`;
       if(cache.get(node)===key)continue;
       node.style.setProperty('--opponent-view','none');

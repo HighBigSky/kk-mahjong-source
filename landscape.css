@@ -377,15 +377,18 @@ html.in-game #game.is-landscape {
   --table-depth-unit:calc(var(--board-height) / 70);
   /* 实物桌框为正方形；重排桌内区域，不横向压缩牌或整个场景。 */
   --table-surface-width:var(--board-height);
-  /* 方框等比收拢，露出近侧木沿；牌体尺寸仍取原内容坐标，不随桌框压缩。 */
+  /* 牌区沿用原方桌坐标；桌框只扩展取景，不能带动手牌或改变各家布局。 */
   --table-frame-size:calc(var(--board-height) * 1.05);
+  --table-frame-zoom:1.7;
+  --table-public-scale:1.12;
   --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
   --rack-width:calc(var(--stage-width) * .66);
   --base-hand-width:min(calc(var(--ui-unit) * 10.5),calc((var(--rack-width) - var(--ui-unit) * 8) / 14));
   --hand-width:var(--base-hand-width);
   --hand-height:calc(var(--hand-width) * 1.4);
-  --public-tile-width:calc(var(--table-unit) * 3);
+  --concealed-tile-width:calc(var(--table-unit) * 3);
+  --public-tile-width:var(--concealed-tile-width);
   --public-tile-height:calc(var(--table-unit) * 4.2);
   --tile-resin-light:#a5ce56;
   --tile-resin:#659b22;
@@ -394,7 +397,7 @@ html.in-game #game.is-landscape {
     radial-gradient(ellipse at 50% 2%,#b08e4933,transparent 47%),
     linear-gradient(180deg,#202921,#0e1b17 60%,#070f0d);
   box-shadow:inset 0 0 calc(var(--ui-unit) * 12) #020e0b99;
-  /* 桌沿厚度允许少量出画，近侧木面保持可见；聚焦手牌不能滚动画布。 */
+  /* 上下木沿裁到画面外；聚焦手牌不能滚动画布。 */
   overflow:clip;
 }
 
@@ -412,7 +415,7 @@ html.in-game #game.is-landscape {
 #game.is-landscape::after { content:none; }
 
 #game.is-landscape .table {
-  /* 相机参数保持不变，桌面整体上移 .03H，让近侧木沿进入视口。 */
+  /* 保留原相机、内容位置与手牌热区，仅扩大下方独立绘制的桌框。 */
   top:calc(var(--stage-height) * .98 - var(--board-height) * .9236 - var(--ui-unit) * 3);
   left:calc(50% - var(--board-size) / 2);
   width:var(--board-size);
@@ -427,7 +430,7 @@ html.in-game #game.is-landscape {
   transform-style:preserve-3d;
   isolation:auto;
 }
-/* 方形桌框继续共用原相机，不拉伸；近侧木沿在手牌下方露出。 */
+/* 桌框整体等比扩大，裁去上下桌沿；逻辑方桌尺寸不变，牌区不会跟着位移。 */
 #game.is-landscape .table::before {
   content:"";
   position:absolute;
@@ -449,7 +452,7 @@ html.in-game #game.is-landscape {
     0 calc(var(--ui-unit) * 3.3) 0 #241910,
     0 calc(var(--ui-unit) * 6) calc(var(--ui-unit) * 5) #010b09c9;
   pointer-events:none;
-  transform:translateZ(-1px);
+  transform:translateZ(-1px) scale(var(--table-frame-zoom));
 }
 #game.is-landscape .table::after { content:none; }
 #game.is-landscape .table-border {
@@ -458,6 +461,8 @@ html.in-game #game.is-landscape {
   border-radius:calc(var(--ui-unit) * 2);
   background:none;
   box-shadow:inset 0 calc(var(--ui-unit) * .6) calc(var(--ui-unit) * 2.4) #031e1759;
+  transform:scale(var(--table-frame-zoom));
+  transform-origin:50% calc(var(--table-frame-size) * .43);
 }
 #game.is-landscape .table-border::after {
   content:"";
@@ -476,7 +481,12 @@ html.in-game #game.is-landscape {
   bottom:calc(var(--table-depth-unit) * 12.6);
 }
 #game.is-landscape .table .opponent-rack.has-melds {
-  --public-tile-width:min(calc(var(--table-unit) * 3),calc(var(--table-unit) * 39 / max(14,calc(var(--concealed-count) + var(--special-count) + var(--meld-count) * 4))));
+  --concealed-tile-width:min(calc(var(--table-unit) * 3),calc(var(--table-unit) * 39 / max(14,calc(var(--concealed-count) + var(--special-count) + var(--meld-count) * 4))));
+  --public-tile-width:var(--concealed-tile-width);
+  --public-tile-height:calc(var(--public-tile-width) * 1.4);
+}
+#game.is-landscape .table .opponent-rack .bot-melds {
+  --public-tile-width:calc(var(--concealed-tile-width) * var(--table-public-scale));
   --public-tile-height:calc(var(--public-tile-width) * 1.4);
 }
 #game.is-landscape .table .opponent-rack-left { left:calc(50% - var(--table-surface-width) * .425); }
@@ -625,7 +635,7 @@ html.in-game #game.is-landscape {
 .is-landscape .hand::before { display:none; }
 .is-landscape .hand .tile { flex-shrink:0; }
 .is-landscape .hand .tile.drawn:first-child { margin-left:0; }
-.is-landscape .hand-zone .player-rack .my-melds { position:absolute; left:0; bottom:0; width:var(--public-reserve); max-width:none; height:auto; min-height:0; --self-public-tile-width:calc(var(--ui-unit) * 3.5); --self-public-tile-height:calc(var(--ui-unit) * 4.9); }
+.is-landscape .hand-zone .player-rack .my-melds { position:absolute; left:0; bottom:0; width:var(--public-reserve); max-width:none; height:auto; min-height:0; --self-public-tile-width:calc(var(--ui-unit) * 3.5 * var(--table-public-scale)); --self-public-tile-height:calc(var(--self-public-tile-width) * 1.4); }
 .is-landscape .hand-zone.has-melds .player-rack {
   display:grid;
   flex-direction:row;
