@@ -842,8 +842,8 @@ function render() {
 
   const drawnIndex = game.phase.kind === PHASE.DISCARD && game.current === 0 && game.lastDraw?.player === 0 ? game.lastDraw.index : -1;
   const tilePriority = type => specialTile(type) ? 0 : type === game.wildTile ? 1 : 2;
-  // 新摸或补入的痞子（含标「痞」的红中）留在右侧待定区；癞子仍沿用原分组。
-  const separatedDrawnIndex = drawnIndex >= 0 && tilePriority(hand[drawnIndex]) !== 1 ? drawnIndex : -1;
+  // 所有新摸或补入的牌（含癞子、痞子和红中）先留在右侧；旧牌仍按原优先组排序。
+  const separatedDrawnIndex = drawnIndex;
   const order = hand.map((type, index) => ({ type, index }))
     .filter(entry => entry.index !== separatedDrawnIndex)
     .sort((left, right) => tilePriority(left.type) - tilePriority(right.type) || left.type - right.type);
