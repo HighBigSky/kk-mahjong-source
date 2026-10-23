@@ -104,42 +104,6 @@
   border-color:var(--wall-head-jade);
   box-shadow:.08cqw .18cqw .12cqw #031b129c,0 0 0 .13cqw #b4dbc499;
 }
-.wall-stack.is-next::before,.wall-stack.is-head::before {
-  position:absolute;
-  z-index:4;
-  top:.12cqw;
-  left:.1cqw;
-  display:grid;
-  place-items:center;
-  min-width:1.75cqw;
-  min-height:1.75cqw;
-  padding:.03cqw .1cqw;
-  border-radius:.25cqw;
-  color:#173b2a;
-  font-size:max(6px,1.5cqw);
-  font-weight:700;
-  line-height:1.05;
-  text-shadow:none;
-}
-.wall-stack.is-next::before { content:"补"; background:#e4c57f; }
-.wall-stack.is-head::before { content:"摸"; background:var(--wall-head-jade); }
-.wall-stack.is-next.is-head::before {
-  content:"摸补";
-  writing-mode:vertical-rl;
-  text-orientation:upright;
-  padding:.05cqw .1cqw;
-  background:linear-gradient(180deg,var(--wall-head-jade),#e4c57f);
-  font-size:max(6px,1.5cqw);
-  line-height:1;
-}
-.wall-stack[data-side="left"].is-next.is-head::before,
-.wall-stack[data-side="right"].is-next.is-head::before {
-  writing-mode:horizontal-tb;
-  left:0;
-  right:0;
-  padding:.03cqw 0;
-  background:linear-gradient(90deg,var(--wall-head-jade),#e4c57f);
-}
 .wall-stack.is-next::after,.wall-stack.is-head::after {
   content:"";
   position:absolute;
@@ -153,22 +117,6 @@
   border-top:.6cqw solid var(--wall-tail-gold);
 }
 .wall-stack.is-head::after { border-top-color:var(--wall-head-jade); }
-.wall-stack-number {
-  position:absolute;
-  z-index:4;
-  left:-.6cqw;
-  right:-.6cqw;
-  top:calc(100% + .3cqw);
-  text-align:center;
-  color:#ead29a;
-  font-size:1.35cqw;
-  line-height:1;
-  white-space:nowrap;
-  font-variant-numeric:tabular-nums;
-  text-shadow:0 .1cqw .1cqw #092c1f;
-}
-.wall-stack:not(.has-indicator) .wall-stack-number { display:none; }
-.wall-stack[data-side="bottom"] .wall-stack-number { top:-1.5cqw; }
 
 .wall-tail-heading {
   position:absolute;
@@ -187,19 +135,6 @@
   overflow:hidden;
   white-space:nowrap;
   clip-path:inset(50%);
-}
-.wall-tail-meta {
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:.55cqw;
-  min-height:2.3cqw;
-}
-.wall-indicator-position {
-  color:#c6d0b6;
-  font-size:1.55cqw;
-  line-height:1.2;
-  white-space:nowrap;
 }
 
 /* Compact the table interior only once the full public wall is present. */

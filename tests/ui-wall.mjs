@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {installVisualGeometry} from './browser-geometry.mjs';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -48,12 +49,15 @@ async function createPlayingRoom(name, laizi) {
     catch { /* about:blank has no local storage origin. */ }
   }, laizi);
   const page = await context.newPage();
+  await page.addInitScript(installVisualGeometry);
   page.on('pageerror', error => report.errors.push(redact(error.message)));
   page.on('console', message => { if (message.type() === 'error') report.errors.push(redact(message.text())); });
   await page.goto(baseURL, {waitUntil:'domcontentloaded'});
   await page.locator('#room-dialog[open]').waitFor();
   await page.locator('#room-name').fill(name);
-  await page.locator('#room-create').click();
+  // 建房 UI 固定开启翻痞；关闭模式仅通过现有客户端接口建立测试房。
+  if (laizi) await page.locator('#room-create').click();
+  else await page.evaluate(name => window.mahjongRoom.create(name, false), name);
   await page.locator('#room-waiting:not([hidden])').waitFor();
   const code = (await page.locator('#room-current-code').textContent()).trim();
   const room = service.rooms.get(code);
@@ -90,6 +94,9 @@ async function publish(page, room, game) {
   service._changed(room);
   await synchronize(page, room);
   await page.locator('#wall-tail:not([hidden])').waitFor();
+  if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();
+  await page.waitForFunction(()=>!document.querySelector('#game').classList.contains('is-opening-deal'));
+  await page.evaluate(()=>window.renderMahjong());
 }
 
 function nextSlot(game) {
@@ -149,7 +156,12 @@ async function wallState(page) {
     const wall = document.querySelector('#wall-tail');
     return {
       label:wall.getAttribute('aria-label'),
-      faces:[...wall.querySelectorAll('svg use')].map(use => use.getAttribute('href')),
+      removedLabels:document.querySelectorAll('.meld-label,.wall-stack-number,.wall-tail-meta,.wall-indicator-position,#table-labels .table-label-meld,#table-labels .table-label-wall,#table-labels .table-label-marker').length,
+      wallTitles:wall.querySelectorAll('[title]').length+(wall.hasAttribute('title')?1:0),
+      badges:[...wall.querySelectorAll('.is-next,.is-head')].map(stack=>getComputedStyle(stack,'::before').content),
+      directionLabels:document.querySelectorAll('#table-labels .table-label-direction').length,
+      arrows:[...wall.querySelectorAll('.is-next,.is-head')].map(stack=>getComputedStyle(stack,'::after').content),
+      faces:[...wall.querySelectorAll('svg use')].map(use => use.getAttribute('href').slice(use.getAttribute('href').indexOf('#'))),
       backs:wall.querySelectorAll('.wall-piece.back').length,
       empty:wall.querySelectorAll('.wall-piece.is-empty').length,
       next:[...wall.querySelectorAll('.is-next-piece')].map(piece => Number(piece.dataset.position)),
@@ -169,7 +181,12 @@ async function wallState(page) {
 }
 
 function assertPublicWall(state, game) {
-  assert.deepEqual(state.faces, game.indicatorTile === null ? [] : [`assets/tiles.svg#tile-${game.indicatorTile}`], 'Only the public indicator may have a visible SVG face.');
+  assert.equal(state.removedLabels,0);
+  assert.equal(state.wallTitles,0);
+  assert.ok(state.badges.every(value=>value==='none'));
+  assert.equal(state.directionLabels,4);
+  assert.ok(state.arrows.every(value=>value==='""'));
+  assert.deepEqual(state.faces, game.indicatorTile === null ? [] : [`#tile-${game.indicatorTile}`], 'Only the public indicator may have a visible SVG face.');
   assert.deepEqual(state.publicWallKeys, ['length'], 'The client must receive a count, never the concealed wall array.');
   assert.deepEqual(state.wallInfoKeys, ['dice', 'indicatorPosition', 'tailDraws']);
   assert.equal(state.ownHandVisible, true);
@@ -270,7 +287,7 @@ try {
   const version = room.version;
   await page.locator('#action-gang:visible:enabled').click();
   await waitFor(async () => room.version > version || await page.locator('#choice-dialog').evaluate(dialog => dialog.open), 'gang command or choice dialog');
-  if (await page.locator('#choice-dialog').evaluate(dialog => dialog.open)) await page.locator('#choice-options button').filter({hasText:'红中杠'}).click();
+  if (await page.locator('#choice-dialog').evaluate(dialog => dialog.open)) await page.locator('#choice-options button').filter({has:page.locator('use[href$="#tile-31"]')}).click();
   await waitFor(() => room.version > version, 'real gang accepted by server');
   await synchronize(page, room);
   assert.equal(room.game.wallInfo.tailDraws, before.tailDraws + 1);
@@ -335,14 +352,14 @@ try {
     const geometry = await page.evaluate(() => {
       const rect = element => {
         const r = element.getBoundingClientRect();
-        return {left:r.left, right:r.right, top:r.top, bottom:r.bottom, width:r.width, height:r.height};
+        return {left:r.left, right:r.right, top:r.top, bottom:r.bottom, width:r.width, height:r.height,quad:window.visualGeometry.quad(element)};
       };
       const melds = [...document.querySelectorAll('.bot-melds .tile')].map((tile, index) => ({...rect(tile), index}));
       const targets = [...document.querySelectorAll('.river .tile, #wall-tail .wall-piece:not(.is-empty), .opponent .portrait, .backs .back, #hand')].map((element, index) => ({...rect(element), name:element.closest('.river') ? `river ${index}` : element.closest('#wall-tail') ? `wall ${element.dataset.position}` : element.closest('.opponent') ? `portrait ${element.closest('.opponent').id}` : element.closest('.backs') ? `concealed ${element.closest('.backs').id}` : 'hand'}));
       const overlaps = melds.flatMap(meld => targets.flatMap(target => {
         const width = Math.min(meld.right, target.right) - Math.max(meld.left, target.left);
         const height = Math.min(meld.bottom, target.bottom) - Math.max(meld.top, target.top);
-        return width > .5 && height > .5 ? [{meld:meld.index, target:target.name, width, height}] : [];
+        return window.visualGeometry.intersects(meld.quad,target.quad) ? [{meld:meld.index, target:target.name, width, height}] : [];
       }));
       return {melds, overlaps, groups:[1, 2, 3].map(player => document.querySelector(`#melds-${player}`).children.length), opponentBacks:[1, 2, 3].map(player => document.querySelector(`#backs-${player}`).children.length), pageWidth:document.body.scrollWidth};
     });
@@ -380,15 +397,15 @@ try {
     const geometry = await page.evaluate(() => {
       const rect = target => {
         const r = (typeof target === 'string' ? document.querySelector(target) : target).getBoundingClientRect();
-        return {left:r.left, right:r.right, top:r.top, bottom:r.bottom, width:r.width, height:r.height};
+        return {left:r.left, right:r.right, top:r.top, bottom:r.bottom, width:r.width, height:r.height,quad:window.visualGeometry.quad(typeof target === 'string' ? document.querySelector(target) : target)};
       };
       const protectedAreas = [...document.querySelectorAll('.river .tile')].map((tile, index) => ({...rect(tile), name:`river tile ${index}`}));
-      protectedAreas.push({...rect('.table-center'), name:'compass'}, {...rect('#hand'), name:'hand'});
+      protectedAreas.push({...rect('.table-center'), name:'compass'}, ...[...document.querySelectorAll('#hand button')].map(node=>({...rect(node),name:'hand tile'})));
       const pieces = [...document.querySelectorAll('#wall-tail .wall-piece:not(.is-empty)')].map(piece => ({...rect(piece), slot:Number(piece.dataset.position)}));
       const overlaps = pieces.flatMap(piece => protectedAreas.flatMap(area => {
         const width = Math.min(piece.right, area.right) - Math.max(piece.left, area.left);
         const height = Math.min(piece.bottom, area.bottom) - Math.max(piece.top, area.top);
-        return width > .5 && height > .5 ? [{slot:piece.slot, target:area.name, width, height}] : [];
+        return window.visualGeometry.intersects(piece.quad,area.quad) ? [{slot:piece.slot, target:area.name, width, height}] : [];
       }));
       return {game:rect('.game'), table:rect('.table'), hand:rect('#hand'), stacks:[...document.querySelectorAll('.wall-stack')].map(rect), pieces, overlaps, pageWidth:document.body.scrollWidth};
     });
@@ -436,7 +453,7 @@ try {
   await publish(page, room, redReveal.game);
   const redState = await wallState(page);
   assertPublicWall(redState, redReveal.game);
-  assert.deepEqual(redState.faces, ['assets/tiles.svg#tile-33']);
+  assert.deepEqual(redState.faces, ['#tile-33']);
   report.fixtures.redReveal = {seed:redReveal.seed, actualOriginalReveal:RED_DRAGON, indicatorTile:redReveal.game.indicatorTile, wildTile:redReveal.game.wildTile, position:redReveal.game.wallInfo.indicatorPosition};
   report.checks.push('A seed whose actual original reveal is a red dragon shows a white indicator at that same physical slot and green dragon as wildcard.');
   await screenshot(page, 'ui-wall-white-exception-390x844.png');

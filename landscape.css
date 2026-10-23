@@ -173,11 +173,6 @@ html.in-game #game.is-landscape {
 /* 牌面朝向所属座位：本家 0°、右家 -90°、对家 180°、左家 90°；只转牌面，不动牌体。 */
 #game.is-landscape .table .opponent-rack-top .tile svg { transform:rotate(180deg); }
 #game.is-landscape .table .opponent-rack-right .tile svg { transform:translate(-50%,-50%) rotate(-90deg); }
-.is-landscape .opponent-rack .meld-label { font-size:max(6px,calc(var(--table-unit) * 1.4)); }
-.is-landscape .opponent-rack-top .meld-label { bottom:calc(100% + var(--table-unit) * .45); }
-.is-landscape .opponent-rack-left .meld-label,.is-landscape .opponent-rack-right .meld-label { width:calc(var(--table-unit) * 1.7); letter-spacing:0; }
-.is-landscape .opponent-rack-left .meld-label { right:calc(100% + var(--table-unit) * .25); }
-.is-landscape .opponent-rack-right .meld-label { left:calc(100% + var(--table-unit) * .25); }
 .is-landscape .opponent-rack .back::before { inset:calc(var(--table-unit) * .35) calc(var(--table-unit) * .3) calc(var(--table-unit) * .5); border-radius:calc(var(--table-unit) * .28); }
 .is-landscape .opponent-rack .wild-marker { display:none; }
 #game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); }
@@ -185,10 +180,7 @@ html.in-game #game.is-landscape {
 .is-landscape .wall-piece.back::before { inset:calc(var(--table-unit) * .25); border-width:calc(var(--table-unit) * .08); border-radius:calc(var(--table-unit) * .17); }
 .is-landscape .wall-piece.tile { --tile-depth:calc(var(--table-unit) * .25); --tile-side:calc(var(--table-unit) * .08); border-width:calc(var(--table-unit) * .08); }
 .is-landscape .wall-piece.is-indicator { outline-width:calc(var(--table-unit) * .15); outline-offset:calc(var(--table-unit) * .08); }
-.is-landscape .wall-stack.is-next::before,.is-landscape .wall-stack.is-head::before { min-width:calc(var(--table-unit) * 1.75); min-height:calc(var(--table-unit) * 1.75); padding:0; left:0; top:0; font-size:max(6px,calc(var(--table-unit) * 1.5)); border-radius:calc(var(--table-unit) * .25); }
 .is-landscape .wall-stack.is-next::after,.is-landscape .wall-stack.is-head::after { left:calc(50% - var(--table-unit) * .42); top:calc(var(--table-unit) * -.85); border-left-width:calc(var(--table-unit) * .42); border-right-width:calc(var(--table-unit) * .42); border-top-width:calc(var(--table-unit) * .6); }
-.is-landscape .wall-stack-number { top:calc(100% + var(--table-unit) * .3); font-size:max(6px,calc(var(--table-unit) * 1.35)); }
-.is-landscape .wall-stack[data-side="bottom"] .wall-stack-number { top:calc(var(--table-unit) * -2.2); }
 .is-landscape .wall-stack[data-side="left"] .wall-piece.tile svg,.is-landscape .wall-stack[data-side="right"] .wall-piece.tile svg { width:calc(var(--wall-piece-width) - var(--table-unit) * .25); height:calc(var(--wall-piece-height) - var(--table-unit) * .08); }
 
 #game.is-landscape .table .river {
@@ -265,10 +257,8 @@ html.in-game #game.is-landscape {
 .is-landscape .direction-w.active::after { left:calc(var(--table-unit) * -1); }
 .is-landscape .direction-e.active::after { right:calc(var(--table-unit) * -1); }
 .is-landscape .wall-tail-heading { left:calc(50% - var(--table-unit) * 11.5); top:calc(50% + var(--table-unit) * 11); width:calc(var(--table-unit) * 23); }
-.is-landscape .wall-tail-meta { gap:calc(var(--table-unit) * .55); min-height:calc(var(--table-unit) * 2.3); }
-/* 骰子已经在牌桌正中央，「第 N 墩翻皮」改由牌墙上那墩的「皮·N」标记表达。 */
+/* 骰子在牌桌中央，翻开的痞子牌面留在原墩；牌墙不再显示文字说明。 */
 .is-landscape .wall-tail-heading { display:none; }
-.is-landscape .wall-indicator-position { font-size:max(6px,calc(var(--table-unit) * 1.55)); }
 .is-landscape .seat-action-notice { width:calc(var(--table-unit) * 3); height:calc(var(--table-unit) * 3); font-size:calc(var(--table-unit) * 2.8); }
 .is-landscape .seat-action-notice[data-player="0"] { left:calc(50% - var(--table-unit) * 1.5); bottom:calc(1.5% + var(--ui-unit) * 6.2 + var(--base-hand-width) * 1.4 + var(--table-unit) * .45); }
 
@@ -287,7 +277,6 @@ html.in-game #game.is-landscape {
 .is-landscape .hand-instruction,.is-landscape .hand-zone.has-melds .hand-instruction { display:none; }
 .is-landscape .hand-zone .player-rack .my-melds { flex:none; padding:calc(var(--ui-unit) * 2.2) 0 calc(var(--ui-unit) * .15); gap:calc(var(--ui-unit) * 2.3) calc(var(--ui-unit) * .7); flex-wrap:wrap; align-content:flex-end; justify-content:flex-start; }
 .is-landscape .player-rack .my-melds .tile { --tile-depth:calc(var(--ui-unit) * .4); --tile-side:calc(var(--ui-unit) * .14); }
-.is-landscape .player-rack .meld-label { bottom:calc(100% + var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.8); }
 .is-landscape .wild-marker,.is-landscape .red-kong-marker,.is-landscape .pizi-marker { top:calc(var(--ui-unit) * -.25); left:calc(var(--ui-unit) * -.2); min-width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.4); padding:0 calc(var(--ui-unit) * .15); border-radius:calc(var(--ui-unit) * .4); font-size:calc(var(--ui-unit) * 1.7); }
 .is-landscape .turn-message { right:calc(50% + var(--board-size) / 2 + var(--ui-unit) * 2.5); justify-content:flex-start; gap:calc(var(--ui-unit) * 1); letter-spacing:0; }
 .is-landscape #turn-text { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -626,7 +615,6 @@ html.in-game #game.is-landscape {
 .hint-wait-meta small { font-size:max(8px,calc(var(--ui-unit) * 1.9)); }
 #hint-text { margin:calc(var(--ui-unit) * 1) 0 0; width:0; min-width:100%; max-height:2.6em; overflow:auto; overflow-wrap:anywhere; font-size:max(9px,calc(var(--ui-unit) * 2)); line-height:1.3; }
 .hint-details select { width:100%; min-width:0; margin-top:calc(var(--ui-unit) * .5); border:0; border-top:1px solid #b89d6155; background:#f3e7bf; color:#79522b; font-size:max(9px,calc(var(--ui-unit) * 1.9)); }
-.is-landscape .player-rack .special-gang .meld-label { left:50%; right:auto; transform:translateX(-50%); white-space:nowrap; font-size:max(6px,calc(var(--ui-unit) * 1.3)); }
 /* 单张杠沿用普通副露的牌体尺寸与朝向，不再交换宽高或单独横转牌面。 */
 .is-landscape .hand-zone .player-rack {
   --public-reserve:0px;
@@ -643,7 +631,7 @@ html.in-game #game.is-landscape {
 .is-landscape .hand::before { display:none; }
 .is-landscape .hand .tile { flex-shrink:0; }
 .is-landscape .hand .tile.drawn:first-child { margin-left:0; }
-.is-landscape .hand-zone .player-rack .my-melds { position:absolute; left:0; bottom:0; width:var(--public-reserve); max-width:none; height:auto; min-height:0; --self-public-tile-width:calc(var(--ui-unit) * 3.5 * var(--table-public-scale)); --self-public-tile-height:calc(var(--self-public-tile-width) * 1.4); }
+.is-landscape .hand-zone .player-rack .my-melds { position:absolute; left:0; bottom:0; width:var(--public-reserve); max-width:none; height:auto; min-height:0; row-gap:calc(var(--ui-unit) * .5); --self-public-tile-width:calc(var(--ui-unit) * 3.5 * var(--table-public-scale)); --self-public-tile-height:calc(var(--self-public-tile-width) * 1.4); }
 .is-landscape .hand-zone.has-melds .player-rack {
   display:grid;
   flex-direction:row;
@@ -758,12 +746,7 @@ html.in-game #game.is-landscape {
 .table-labels .table-label { position:absolute; display:block; margin:0; padding:0; white-space:nowrap; font-size:clamp(7px,calc(var(--stage-height) * .022),14px); font-weight:500; line-height:1.05; letter-spacing:0; text-shadow:0 1px 2px #001a15; }
 .table-labels .table-label-direction { font-family:"KaiTi","STKaiti",serif; font-size:clamp(8px,calc(var(--stage-height) * .025),18px); font-weight:700; }
 .table-labels .table-label-direction.is-active { text-shadow:0 0 4px #ffe8aa70,0 1px 2px #001a15; }
-.table-labels .table-label-marker { padding:1px 2px; border-radius:2px; font-weight:700; text-shadow:none; }
-#game.is-landscape.has-table-labels .table .direction,
-#game.is-landscape.has-table-labels .table .meld-label,
-#game.is-landscape.has-table-labels .table .wall-stack-number,
-#game.is-landscape.has-table-labels .table .wall-stack.is-next::before,
-#game.is-landscape.has-table-labels .table .wall-stack.is-head::before { opacity:0; }
+#game.is-landscape.has-table-labels .table .direction { opacity:0; }
 #game.is-landscape .hand .tile.selected { --tile-face:linear-gradient(135deg,#ffffef,#fff2ba 72%,#ead38c); outline:calc(var(--ui-unit) * .45) solid #fff2a8; outline-offset:calc(var(--ui-unit) * .15); box-shadow:0 0 0 calc(var(--ui-unit) * .9) #fbd96e35,0 0 calc(var(--ui-unit) * 3) #ffe58a9c,0 calc(var(--ui-unit) * .7) calc(var(--ui-unit) * 1.3) #002c2a88; }
 
 .rotate-guide {

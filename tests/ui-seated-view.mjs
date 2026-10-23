@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {RIVER_LAYOUT,riverCell} from '../src/ui/river-layout.js';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -23,7 +24,7 @@ const output = path.resolve('output');
 mkdirSync(output, { recursive: true });
 const report = {
   passed: false, browser: '', screens, geometry: [], hands: [], input: [], facing: [], failures: [], errors: [], screenshots: [],
-  fixtureNote: 'Live rooms are created through HTTP/SSE. Physical fixtures are invariant-checked for input tests. Thirty-six discards per seat are an intentionally impossible, presentation-only stress fixture. Touch is browser emulation, not a physical phone.',
+  fixtureNote: 'Live rooms are created through HTTP/SSE. Physical fixtures are invariant-checked for input tests. Twenty-seven discards per seat are an intentionally impossible, presentation-only stress fixture. Touch is browser emulation, not a physical phone.',
 };
 const service = new RoomService({ botDelayMs: 600000, disconnectGraceMs: 100 });
 const server = createServer({ roomService: service });
@@ -85,7 +86,7 @@ async function createPlayer(size) {
 }
 
 async function geometry(page) {
-  return page.evaluate(() => {
+  return page.evaluate(layout => {
     const boxes = new WeakMap();
     const rect = node => {
       if (boxes.has(node)) return boxes.get(node);
@@ -112,8 +113,11 @@ async function geometry(page) {
     const width = parseFloat(surface.width), height = parseFloat(surface.height);
     const corners = [point(left, top), point(left + width, top), point(left + width, top + height), point(left, top + height)];
     // 方框木边占 4.2%，额外留 1.3% 安全带；牌必须落在绒布内，不能只落在外框内。
-    const feltCorners = [[.055,.055],[.945,.055],[.945,.945],[.055,.945]].map(([x,y])=>point(left+width*x,top+height*y));
-    const nearRailTop=point(left+width/2,top+height*.96).y;
+    const zoom=Number(getComputedStyle(stage).getPropertyValue('--table-frame-zoom'));
+    const trim=parseFloat(surface.clipPath.replace('inset(','').split(' ')[1])/width;
+    const paintedPoint=(x,y)=>point(left+width/2+(x-.5)*width*zoom,top+height/2+(y-.5)*height*zoom);
+    const feltCorners = [[trim+.055,.055],[1-trim-.055,.055],[1-trim-.055,.945],[trim+.055,.945]].map(([x,y])=>paintedPoint(x,y));
+    const nearRailTop=paintedPoint(.5,.96).y;
     const tableContents = list('.table .river .tile,.opponent-rack .tile,.opponent-rack .back,#wall-tail .wall-piece:not(.is-empty)');
     const insideFrame = p => corners.every((a,index)=>{
       const b=corners[(index+1)%4];
@@ -153,26 +157,27 @@ async function geometry(page) {
     const centre=node=>{const q=onTable(rect(node).quad);return{x:q.reduce((sum,p)=>sum+p.x,0)/4,y:q.reduce((sum,p)=>sum+p.y,0)/4};};
     const edgeAlignment=[...document.querySelectorAll('.opponent-rack,#river-1,#river-2,#river-3,.flat-wall-run')].filter(visible).map(node=>{
       const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
-      const q=onTable(rect(node).quad),end=side==='top'?q[1]:q[3];
+      const horizontal=side==='top'||side==='bottom';
+      const q=onTable(rect(node).quad),end=horizontal?q[1]:q[3];
       let middle=centre(node);
       if(node.classList.contains('flat-wall-run')){const members=node.querySelectorAll('.wall-stack'),first=centre(members[0]),last=centre(members[members.length-1]);middle={x:(first.x+last.x)/2,y:(first.y+last.y)/2};}
-      const reference=centre(document.querySelector(`#rack-${{top:2,left:3,right:1}[side]}`));
-      const normalError=Math.abs(side==='top'?middle.x-reference.x:middle.y-reference.y)*width;
-      const centreError=Math.abs((side==='top'?middle.x:middle.y)-.5)*width;
-      const depth=side==='top'?middle.y-.5:side==='left'?middle.x-.5:.5-middle.x;
+      const reference=centre(document.querySelector(`#rack-${{top:2,left:3,right:1,bottom:0}[side]}`));
+      const normalError=Math.abs(horizontal?middle.x-reference.x:middle.y-reference.y)*width;
+      const centreError=Math.abs((horizontal?middle.x:middle.y)-.5)*width;
+      const depth=side==='bottom'?.5-middle.y:side==='top'?middle.y-.5:side==='left'?middle.x-.5:.5-middle.x;
       const kind=node.classList.contains('flat-wall-run')?'wall':node.classList.contains('river')?'river':'hand';
       const vx=end.x-q[0].x,vy=end.y-q[0].y;
-      return{side,kind,depth,centreError,parallelError:Math.abs(side==='top'?vy:vx)/Math.hypot(vx,vy),normalError};
+      return{side,kind,depth,centreError,parallelError:Math.abs(horizontal?vy:vx)/Math.hypot(vx,vy),normalError};
     });
     const ownEdgeAlignment=[...document.querySelectorAll('#hand button,.my-melds .tile,#river-0 .tile,.wall-stack[data-side="bottom"] .wall-piece:not(.is-empty)')].filter(visible).map(node=>{
       const q=rect(node).quad;return edgeError({x:q[1].x-q[0].x,y:q[1].y-q[0].y},'bottom');
     });
     const nearStacks=[...document.querySelectorAll('.wall-stack[data-side="bottom"]')],first=centre(nearStacks[0]),last=centre(nearStacks.at(-1));
     const ownWallCenterError=Math.abs((first.x+last.x)/2-.5)*width;
-    const ringErrors=edgeAlignment.map(group=>Math.abs(group.depth+(group.kind==='river'?.18:group.kind==='wall'?(group.side==='top'?.27:.29):.39))*width);
+    const ringErrors=edgeAlignment.map(g=>Math.abs(g.depth+(g.kind==='river'?(g.side==='top'?layout.farRadius:layout.radius):g.kind==='wall'?(g.side==='top'?layout.farWallRadius:g.side==='bottom'?layout.wallRadius:layout.sideWallRadius):g.side==='top'?layout.farHandRadius:layout.handRadius))*width);
     const compass=centre(document.querySelector('.table-center')),ownRiver=centre(document.querySelector('#river-0'));
     const tableCentreError=Math.hypot(compass.x-.5,compass.y-.5)*width;
-    const ownLaneErrors=[Math.hypot(ownRiver.x-.5,ownRiver.y-.68)*width,Math.hypot((first.x+last.x)/2-.5,(first.y+last.y)/2-.77)*width];
+    const ownLaneErrors=[Math.hypot(ownRiver.x-.5,ownRiver.y-(.5+layout.nearRadius))*width,Math.hypot((first.x+last.x)/2-.5,(first.y+last.y)/2-(.5+layout.wallRadius))*width];
     const outsideAllSeatFelt = allSeatTiles.filter(tile=>!tile.quad.every(p=>feltCorners.every((a,index)=>{
       const b=feltCorners[(index+1)%4];
       return ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))/Math.hypot(b.x-a.x,b.y-a.y)>=-.8;
@@ -230,7 +235,7 @@ async function geometry(page) {
       camera: Object.fromEntries(['--table-view-distance', '--table-view-tilt', '--table-surface-width', '--rack-width'].map(name => [name, getComputedStyle(stage).getPropertyValue(name).trim()])),
       sideHands: [...document.querySelectorAll('.backs-left .back,.backs-right .back')].map(node => ({...rect(node), transform:getComputedStyle(node).transform})),
     };
-  });
+  },RIVER_LAYOUT);
 }
 
 async function screenshot(page, size, scenario) {
@@ -262,7 +267,7 @@ try {
     check(initial.outsideViewport.length===0 && initial.tableHudOverlaps.length===0, 'enlarged table keeps every physical tile clear of viewport edges and flat HUD', {size,outside:initial.outsideViewport,overlaps:initial.tableHudOverlaps});
     check(initial.sideHands.length > 0 && initial.sideHands.every(tile => tile.width > 0 && tile.height > 0 && tile.transform === 'none'), 'side hand tile models stay unchanged and only their group receives the table projection', {size, sideHands:initial.sideHands});
     check(initial.farWidth < initial.nearWidth * .95, 'far rail visibly narrows through one table perspective', { size, nearWidth: initial.nearWidth, farWidth: initial.farWidth });
-    check(initial.nearRailTop<=size.height*.975&&initial.handZone.bottom<initial.nearRailTop-1&&initial.feltCorners[2].y>=initial.handZone.bottom-.8, 'front wooden rail is visible below the complete local hand, with all cards still supported by felt', {size,railTop:initial.nearRailTop,felt:initial.feltCorners,hand:initial.handZone});
+    check(initial.nearRailTop>size.height&&initial.feltCorners[0].y<0&&initial.feltCorners[2].y>=initial.handZone.bottom-.8, 'upper and lower rails stay outside the viewport while felt supports the local hand', {size,railTop:initial.nearRailTop,felt:initial.feltCorners,hand:initial.handZone});
     check(initial.farTile && initial.farTile.height < initial.hand[0].height * .7, 'far hand is clearly smaller than the local hand', { size, far: initial.farTile, near: initial.hand[0] });
     check(initial.hud.every(node => !node.inTableProjection), 'labels and operation HUD stay outside the table projection', { size, hud: initial.hud });
     await screenshot(page, size, 'normal');
@@ -306,7 +311,7 @@ try {
       await publish(fixture);
       await page.evaluate(() => {
         const game = window.mahjongGame;
-        for (const [seat, player] of game.players.entries()) player.discards = Array.from({ length: 36 }, (_, index) => (seat * 9 + index) % 34);
+        for (const [seat, player] of game.players.entries()) player.discards = Array.from({ length: 27 }, (_, index) => (seat * 9 + index) % 34);
         game.events = ['布局验收打出一万。'];
         game.pendingDiscard = null;
         game.lastDiscard = null;
@@ -315,12 +320,9 @@ try {
       });
       await frames(page);
       const data = await geometry(page);
-      check(data.rivers.every(river => river.tiles.length === 36 && river.tiles.every(tile => inside(tile, size))), 'all four full 36-tile rivers remain visible', { size, scenario, rivers: data.rivers });
+      check(data.rivers.every(river => river.tiles.length === 27 && river.tiles.every(tile => inside(tile, size))), 'all four full 27-tile rivers remain visible', { size, scenario, rivers: data.rivers });
       check(data.facing.filter(item=>item.seat!==0||item.zone!=='meld').every(item=>item.dot>.995), 'all four river and public rack faces point toward their owning seat', {size,scenario,bad:data.facing.filter(item=>(item.seat!==0||item.zone!=='meld')&&item.dot<=.995)});
-      const order = await page.evaluate(() => [...document.querySelectorAll('.river')].every(river => {
-        const columns=river.id==='river-0'||river.id==='river-2'?9:4;
-        return [...river.children].every((tile,index)=>tile.style.gridArea==='' && (index===0 || tile.offsetTop>=river.children[index-1].offsetTop) && (index%columns!==0 || index===0 || tile.offsetTop>river.children[index-1].offsetTop) && new DOMMatrix(getComputedStyle(tile).transform).is2D);
-      }));
+      const order = await page.evaluate(expected => [...document.querySelectorAll('.river')].every(river=>[...river.children].every((tile,index)=>Number(tile.style.gridRow)===expected[river.id][index].row&&Number(tile.style.gridColumn)===expected[river.id][index].column)),Object.fromEntries(['bottom','right','top','left'].map((side,seat)=>['river-'+seat,Array.from({length:RIVER_LAYOUT.capacity},(_,i)=>riverCell(i,side))])));
       check(order, 'all four rivers restore chronological row-major grids and flat tile rotation', {size,scenario});
       check(data.riverOverlaps.length === 0, 'full rivers avoid other tiles, controls and player information', { size, scenario, overlaps: data.riverOverlaps });
       check(data.outsideFrame.length===0 && data.rackWallOverlaps.length===0, 'maximum racks and full rivers remain within the physical square frame', {size,scenario,outside:data.outsideFrame,overlaps:data.rackWallOverlaps});

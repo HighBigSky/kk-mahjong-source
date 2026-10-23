@@ -64,6 +64,15 @@ export function createFlatOpponentView(stage) {
     if(localPublic&&!localPublic.hidden) {
       // 正视副露随手牌上移后，按真实绒布左边界内收，不能贴到木框或影响手牌中心。
       localPublic.style.transform='none';
+      localPublic.style.width='';
+      // 副露可用宽度以实牌左缘为界；不扩大手牌预留量，避免少牌时副露向上堆到牌墙。
+      const handTiles=[...stage.querySelectorAll('#hand button')];
+      if(handTiles.length) {
+        const publicBox=localPublic.getBoundingClientRect();
+        const handLeft=Math.min(...handTiles.map(tile=>tile.getBoundingClientRect().left));
+        const gap=parseFloat(getComputedStyle(localPublic).columnGap)||0;
+        localPublic.style.width=`${Math.max(publicBox.width,handLeft-publicBox.left-gap)}px`;
+      }
       const far=project(tablePlane,left+frameWidth*.055,top+frameHeight*.055);
       const near=project(tablePlane,left+frameWidth*.055,top+frameHeight*.945);
       let inset=0;

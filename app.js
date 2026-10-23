@@ -377,12 +377,12 @@ function diceHTML(values) {
 
 function meldHTML(meld) {
   const label = meld.kind === 'gang' ? meld.added ? '补杠' : meld.concealed ? '暗杠' : '明杠' : meld.kind === 'chi' ? '吃' : '碰';
-  return `<div class="meld-group" data-kind="${meld.kind}" aria-label="${label} ${meld.tiles.map(tileName).join('、')}"><span class="meld-label" aria-hidden="true">${label}</span>${meld.tiles.map(value => tile(value)).join('')}</div>`;
+  return `<div class="meld-group" data-kind="${meld.kind}" aria-label="${label} ${meld.tiles.map(tileName).join('、')}">${meld.tiles.map(value => tile(value)).join('')}</div>`;
 }
 
 function specialGangHTML(type, kind) {
   const name = PLAY_TEXT[kind];
-  return `<div class="meld-group special-gang" data-kind="${kind}" aria-label="${name} ${tileName(type)}，已公开"><span class="meld-label" aria-hidden="true">${name}</span>${tile(type)}</div>`;
+  return `<div class="meld-group special-gang" data-kind="${kind}" aria-label="${name} ${tileName(type)}，已公开">${tile(type)}</div>`;
 }
 
 function specialTile(type) {
@@ -513,20 +513,6 @@ function positionTableLabels() {
       color:getComputedStyle(source).color, active:source.classList.contains('active')});
   };
   document.querySelectorAll('.table .direction').forEach(source => add(`direction-${source.dataset.player}`, source, source, 'center', 'direction'));
-  document.querySelectorAll('.table .opponent-rack').forEach(rack => {
-    const side = rack.classList.contains('opponent-rack-top') ? 'top' : rack.classList.contains('opponent-rack-left') ? 'left' : 'right';
-    rack.querySelectorAll('.meld-label').forEach((source, index) => add(`${rack.id}-meld-${index}`, source, source.parentElement, side, 'meld'));
-  });
-  document.querySelectorAll('.wall-stack').forEach(stack => {
-    const side = stack.dataset.side;
-    if (stack.classList.contains('has-indicator')) add(`wall-number-${stack.dataset.stack}`, stack.querySelector('.wall-stack-number'), stack, side, 'wall');
-    if (!stack.classList.contains('is-next') && !stack.classList.contains('is-head')) return;
-    const marker = getComputedStyle(stack, '::before');
-    const text = marker.content.replace(/^["']|["']$/g, '');
-    if (!text || text === 'none') return;
-    descriptors.push({key:`wall-marker-${stack.dataset.stack}`, text, anchor:stageRect(stack), side, kind:'marker', color:marker.color,
-      background:stack.classList.contains('is-head') ? '#b4dbc4' : '#e4c57f'});
-  });
   const keys = new Set(descriptors.map(item => item.key));
   for (const [key, node] of tableLabelNodes) if (!keys.has(key)) { node.remove(); tableLabelNodes.delete(key); }
   const obstacles = [...document.querySelectorAll('.table .river .tile,.table .opponent-rack .tile,.table .opponent-rack .back,.table .wall-piece:not(.is-empty),#hand button,.my-melds .tile,.player-seat,.action-zone:not([hidden]) button,.table-die')]
@@ -552,7 +538,7 @@ function positionTableLabels() {
     if (item.side === 'left') preferred.left = a.left - width - gap;
     if (item.side === 'right') preferred.left = a.left + a.width + gap;
     const candidates = [preferred];
-    // 文字优先留在所属牌组外侧；密集副露只挪说明，不挪动实牌或改变点击区。
+    // 罗盘方向字只移动说明层，不挪动实牌或改变点击区。
     for (let lane = 1; lane <= 4; lane++) {
       const distance = lane * (height + gap);
       for (const tangent of [0, -1, 1, -2, 2]) {

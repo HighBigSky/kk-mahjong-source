@@ -35,7 +35,9 @@ try{
    const tail=game.wall.findIndex(tile=>![indicator,game.wildTile,31].includes(tile));[game.wall[0],game.wall[tail]]=[game.wall[tail],game.wall[0]];
    const before=game.wall.length;await publish(game);
    assert.equal(await page.locator('#indicator-tile .pizi-marker').textContent(),'痞');
-   assert.match(await page.locator('.wall-stack.has-indicator .wall-stack-number').textContent(),/^痞·\d+$/);
+   assert.equal(await page.locator('.wall-stack-number,.wall-tail-meta,.wall-indicator-position').count(),0);
+   assert.equal(await page.locator('.wall-stack.has-indicator .wall-piece.is-indicator').count(),1);
+   assert.match(await page.locator('#wall-tail').getAttribute('aria-label'),/痞子/);
    assert.equal(await page.locator('#rules-dialog').textContent().then(text=>text.includes('皮')),false);
    const oldLabels=await page.evaluate(()=>[...document.querySelectorAll('[aria-label],[title]')].flatMap(node=>['aria-label','title'].map(name=>node.getAttribute(name)||'')).filter(text=>text.includes('皮')));
    assert.deepEqual(oldLabels,[],'visible and assistive game labels use the same spelling');
@@ -52,7 +54,8 @@ try{
    assert.equal(sent.length,1);assert.equal(sent[0].action.kind,kind);assert.equal(game.wall.length,before-1);assert.equal(game.wallInfo.tailDraws,1);
    const multiple=kind==='wildGang'?2:1;assert.deepEqual(game.players.map(player=>player.score),[1000+30*multiple,1000-10*multiple,1000-10*multiple,1000-10*multiple]);
    assert.equal(game.players[0].hand.includes(type),false);assert.equal(game.lastDraw.replacement,true);
-   assert.equal(await page.locator('#melds-0 .meld-label').textContent(),label);assert.equal(await page.locator('#hand .selected').count(),0);assertInvariants(game);
+   assert.equal(await page.locator('.meld-label').count(),0);
+   assert.ok((await page.locator('#melds-0 .special-gang').getAttribute('aria-label')).includes(label));assert.equal(await page.locator('#hand .selected').count(),0);assertInvariants(game);
    assert.equal(await page.locator('#red-gangs-0').textContent(),kind==='wildGang'?'癞×1':'杠×1');
    if(kind==='wildGang'){
     assert.match(await page.locator('#melds-0 .special-gang').getAttribute('aria-label'),/赖子杠/);

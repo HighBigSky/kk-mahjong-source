@@ -142,7 +142,7 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
       const hand=player===null?null:document.querySelector(player===0?'#hand':`#backs-${player}`);
       const cards=hand?[...hand.children].filter(card=>card.getClientRects().length).map(rect):[];
       const anchor=cards.length?{left:Math.min(...cards.map(card=>card.left)),right:Math.max(...cards.map(card=>card.right)),top:Math.min(...cards.map(card=>card.top)),bottom:Math.max(...cards.map(card=>card.bottom))}:null;
-      const areas=[...document.querySelectorAll('#hand button,.opponent-rack .tile,.opponent-rack .back,.my-melds .tile,.river .tile,#wall-tail .wall-piece:not(.is-empty),.opponent .portrait,.action-zone:not([hidden]) button:not([hidden]),#hint-btn,.hand-heading,.turn-message,.last-event,.table-center,.wall-tail-meta')]
+      const areas=[...document.querySelectorAll('#hand button,.opponent-rack .tile,.opponent-rack .back,.my-melds .tile,.river .tile,#wall-tail .wall-piece:not(.is-empty),.opponent .portrait,.action-zone:not([hidden]) button:not([hidden]),#hint-btn,.hand-heading,.turn-message,.last-event,.table-center')]
         .filter(element=>element.getClientRects().length)
         .map(element=>({...rect(element),area:element.id||element.className}))
         .filter(area=>area.right>area.left&&area.bottom>area.top);

@@ -312,7 +312,6 @@
   --public-group-gap:.35cqw;
   --self-public-tile-width:3cqw;
   --self-public-tile-height:4.2cqw;
-  --public-label-color:#e4c88e;
 }
 
 .table .opponent-rack {
@@ -366,27 +365,6 @@
   background:transparent;
 }
 
-.opponent-rack .meld-label,
-.player-rack .meld-label {
-  position:absolute;
-  display:block;
-  color:var(--public-label-color);
-  font-size:max(6px,1.4cqw);
-  font-weight:500;
-  line-height:1;
-  white-space:nowrap;
-  text-align:center;
-  text-shadow:0 .1cqw .12cqw #082b20;
-}
-
-.opponent-rack .meld-group[data-kind="redGang"] .meld-label {
-  color:#f0b8a4;
-}
-
-.opponent-rack .meld-group[data-kind="piziGang"] .meld-label {
-  color:#ead39c;
-}
-
 #game .table .opponent-rack .tile,
 #game .table .opponent-rack .backs .back {
   flex:none;
@@ -413,12 +391,6 @@
 .table .opponent-rack-top .bot-melds,
 .table .opponent-rack-top .meld-group {
   flex-direction:row;
-}
-
-.opponent-rack-top .meld-label {
-  left:0;
-  right:0;
-  bottom:calc(100% + .45cqw);
 }
 
 .table .opponent-rack-left,
@@ -460,19 +432,6 @@
   height:var(--public-tile-height);
   transform:translate(-50%,-50%) rotate(90deg);
 }
-
-.opponent-rack-left .meld-label,
-.opponent-rack-right .meld-label {
-  top:50%;
-  width:1.7cqw;
-  transform:translateY(-50%);
-  writing-mode:vertical-rl;
-  text-orientation:upright;
-  letter-spacing:.08cqw;
-}
-
-.opponent-rack-left .meld-label { right:calc(100% + .25cqw); }
-.opponent-rack-right .meld-label { left:calc(100% + .25cqw); }
 
 /* Single red/indicator kongs do not reduce the number of concealed tiles.
    A compact public row immediately above the local hand preserves all 14
@@ -517,15 +476,6 @@
   --tile-depth:.32cqw;
   --tile-side:.12cqw;
 }
-
-.player-rack .meld-label {
-  bottom:calc(100% + .3cqw);
-  left:0;
-  right:0;
-}
-
-.player-rack .meld-group[data-kind="redGang"] .meld-label { color:#f0b8a4; }
-.player-rack .meld-group[data-kind="piziGang"] .meld-label { color:#ead39c; }
 
 .hand-zone.has-melds .hand {
   justify-content:center;

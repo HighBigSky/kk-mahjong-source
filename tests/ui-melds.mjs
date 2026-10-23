@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {installVisualGeometry} from './browser-geometry.mjs';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
 import {existsSync, mkdirSync, writeFileSync} from 'node:fs';
@@ -35,6 +36,7 @@ async function player(name) {
   const context = await browser.newContext({viewport:{width:844,height:390}}); contexts.push(context);
   await context.addInitScript(() => localStorage.setItem('queqi-settings', JSON.stringify({sound:false, laizi:true, names:false})));
   const page = await context.newPage();
+  await page.addInitScript(installVisualGeometry);
   page.on('pageerror', error => report.errors.push(redact(error.message)));
   page.on('console', message => { if (message.type() === 'error') report.errors.push(redact(message.text())); });
   await page.goto(baseURL, {waitUntil:'domcontentloaded'});
@@ -68,6 +70,8 @@ async function assertAllPublic(room, label) {
     assert.deepEqual(actual.groups, expected, `${label}: viewer ${viewer} sees every actual public tile at the correct relative seat`);
     assert.deepEqual(actual.adjacent, [true, true, true, true], 'public groups share each seat rack with its concealed hand');
     assert.equal(actual.publicLabels, true);
+    assert.equal(await pages[viewer].locator('[id^="melds-"] .meld-label').count(),0);
+    assert.equal(await pages[viewer].locator('.meld-label').count(),0);
     assert.equal(actual.hiddenHands, true);
     assert.equal(actual.handCount, room.game.players[viewer].hand.length);
     assert.equal(actual.wallCount, room.game.wall.length);
@@ -159,19 +163,20 @@ try {
     for (let viewer = 0; viewer < 4; viewer++) {
       const page = pages[viewer]; await page.setViewportSize(viewport);
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await page.evaluate(()=>window.renderMahjong());
       const geometry = await page.evaluate(() => {
-        const rect = element => { const r = element.getBoundingClientRect(); return {left:r.left, right:r.right, top:r.top, bottom:r.bottom}; };
+        const rect = element => { const r = element.getBoundingClientRect(); return {left:r.left, right:r.right, top:r.top, bottom:r.bottom,quad:window.visualGeometry.quad(element)}; };
         const publicTiles = [...document.querySelectorAll('[id^="melds-"] .tile')].map((element, index) => ({...rect(element), index, seat:element.closest('[id^="melds-"]').id}));
         const protectedAreas = [...document.querySelectorAll('.river .tile, #wall-tail .wall-piece:not(.is-empty), .opponent .portrait, .backs .back, #hand button, .action-zone:not([hidden]) button:not([hidden]), #hint-btn')].map((element, index) => ({...rect(element), name:element.closest('.river') ? `river ${index}` : element.closest('#wall-tail') ? `wall ${index}` : element.closest('.opponent') ? `avatar ${index}` : element.closest('.backs') ? `concealed ${index}` : element.closest('#hand') ? `hand ${index}` : `button ${index}`}));
         const overlaps = publicTiles.flatMap(tile => protectedAreas.flatMap(area => {
           const width = Math.min(tile.right, area.right) - Math.max(tile.left, area.left);
           const height = Math.min(tile.bottom, area.bottom) - Math.max(tile.top, area.top);
-          return width > .5 && height > .5 ? [{tile:tile.index, seat:tile.seat, area:area.name, width, height}] : [];
+          return window.visualGeometry.intersects(tile.quad,area.quad) ? [{tile:tile.index, seat:tile.seat, area:area.name, width, height}] : [];
         }));
         const interTile = publicTiles.flatMap((tile, index) => publicTiles.slice(index + 1).flatMap(other => {
           const width = Math.min(tile.right, other.right) - Math.max(tile.left, other.left);
           const height = Math.min(tile.bottom, other.bottom) - Math.max(tile.top, other.top);
-          return width > .5 && height > .5 ? [{tile:tile.index, other:other.index, width, height}] : [];
+          return window.visualGeometry.intersects(tile.quad,other.quad) ? [{tile:tile.index, other:other.index, width, height}] : [];
         }));
         return {publicTiles, overlaps, interTile, pageWidth:document.body.scrollWidth, handCount:document.querySelectorAll('#hand button').length};
       });
@@ -194,7 +199,7 @@ try {
       const page = pages[viewer]; await page.setViewportSize(viewport);
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const geometry = await page.evaluate(() => {
-        const rect = element => { const r = element.getBoundingClientRect(); return {left:r.left, right:r.right, top:r.top, bottom:r.bottom}; };
+        const rect = element => { const r = element.getBoundingClientRect(); return {left:r.left, right:r.right, top:r.top, bottom:r.bottom,quad:window.visualGeometry.quad(element)}; };
         const publicTiles = [...document.querySelectorAll('[id^="melds-"] .tile')].map(rect);
         const protectedAreas = [...document.querySelectorAll('.river .tile, #wall-tail .wall-piece:not(.is-empty), .opponent .portrait, .backs .back, #hand button, .action-zone:not([hidden]) button:not([hidden]), #hint-btn')].map(rect);
         const overlaps = publicTiles.flatMap((tile, index) => protectedAreas.flatMap((area, target) => {

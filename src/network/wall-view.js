@@ -6,8 +6,8 @@ import { tileHref } from '../ui/tiles-sprite.js';
 /** @typedef {{ dice:number[], indicatorPosition:number|null, tailDraws:number }} WallInfo */
 /** @typedef {{ wall:{length:number}, wallInfo?:WallInfo|null, indicatorTile:number|null }} WallSnapshot */
 /** @typedef {{ element:HTMLSpanElement, face:SVGSVGElement|null, state:string }} PieceView */
-/** @typedef {{ element:HTMLDivElement, pieces:PieceView[], label:HTMLSpanElement }} StackView */
-/** @typedef {{ title:HTMLElement, count:HTMLElement, position:HTMLSpanElement, stacks:StackView[] }} WallView */
+/** @typedef {{ element:HTMLDivElement, pieces:PieceView[] }} StackView */
+/** @typedef {{ count:HTMLElement, stacks:StackView[] }} WallView */
 
 const TILES_PER_STACK = 2;
 const STACKS_PER_SIDE = TOTAL_TILE_COUNT / TILES_PER_STACK / 4;
@@ -31,20 +31,14 @@ function createView(element) {
   const count = document.createElement('strong');
   counter.append('余牌 ', count, ' 张');
   title.append(counter);
-  const metadata = document.createElement('div');
-  metadata.className = 'wall-tail-meta';
-  // 骰子已经搬到牌桌正中央，这里只留「第 N 墩翻痞」的说明文字。
-  const position = document.createElement('span');
-  position.className = 'wall-indicator-position';
-  metadata.append(position);
-  heading.append(title, metadata);
+  heading.append(title);
   const lane = document.createElement('div');
   lane.className = 'wall-tail-stacks';
   lane.setAttribute('aria-hidden', 'true');
   const stacks = Array.from({length:TOTAL_TILE_COUNT / TILES_PER_STACK}, (_, index) => createStack(index));
   lane.append(...stacks.map(stack => stack.element));
   element.replaceChildren(heading, lane);
-  const view = { title, count, position, stacks };
+  const view = { count, stacks };
   views.set(element, view);
   return view;
 }
@@ -63,11 +57,7 @@ function createStack(index) {
     element.append(piece);
     return {element:piece, face:null, state:''};
   });
-  const label = document.createElement('span');
-  label.className = 'wall-stack-number';
-  label.textContent = String(index + 1);
-  element.append(label);
-  return {element, pieces, label};
+  return {element, pieces};
 }
 
 /**
@@ -121,14 +111,11 @@ export function renderWall(element, game) {
   const indicatorStack = indicator < 0 ? -1 : Math.floor(indicator / TILES_PER_STACK);
 
   view.count.textContent = String(remaining);
-  view.position.textContent = indicator >= 0 ? `第 ${indicatorStack + 1} 墩翻痞` : '未翻痞';
-  view.title.title = remaining > 0 ? '青色标记处普通摸牌，金色标记处杠后补牌；牌背数量与余牌数同步' : '牌墙已空，无牌可补';
 
   for (const [stackId, stack] of view.stacks.entries()) {
     stack.element.classList.toggle('is-next', stackId === nextStack);
     stack.element.classList.toggle('is-head', stackId === headStack);
     stack.element.classList.toggle('has-indicator', stackId === indicatorStack);
-    stack.label.textContent = stackId === indicatorStack ? `痞·${stackId + 1}` : '';
     for (const [level, piece] of stack.pieces.entries()) {
       const slot = stackId * TILES_PER_STACK + level;
       const isIndicator = slot === indicator;
@@ -158,8 +145,7 @@ export function renderWall(element, game) {
   }
   const diceText = `骰子 ${info.dice[0]} 点和 ${info.dice[1]} 点，取较小点数 ${Math.min(...info.dice)}`;
   const indicatorText = indicator >= 0 ? `，痞子${tileName(/** @type {number} */ (game.indicatorTile))}在末端第 ${indicatorStack + 1} 墩上面一张` : '，未启用翻痞子';
-  const nextText = next >= 0 ? `，下一张杠后补牌在第 ${nextStack + 1} 墩${next % TILES_PER_STACK === 0 ? '上面' : '下面'}一张，金色标记所指处` : '，牌墙已空，不能补牌';
-  const headText = head >= 0 ? `，下一张普通摸牌在第 ${headStack + 1} 墩${head % TILES_PER_STACK === 0 ? '上面' : '下面'}一张，青色标记所指处` : '';
+  const nextText = next >= 0 ? `，下一张杠后补牌在第 ${nextStack + 1} 墩${next % TILES_PER_STACK === 0 ? '上面' : '下面'}一张，金色描边所指处` : '，牌墙已空，不能补牌';
+  const headText = head >= 0 ? `，下一张普通摸牌在第 ${headStack + 1} 墩${head % TILES_PER_STACK === 0 ? '上面' : '下面'}一张，青色描边所指处` : '';
   element.setAttribute('aria-label', `四方牌墙，剩余 ${remaining} 张。${diceText}${indicatorText}${nextText}${headText}`);
-  element.title = element.getAttribute('aria-label') || '';
 }
