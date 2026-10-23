@@ -1,3 +1,5 @@
+import {RIVER_LAYOUT,riverCell} from './river-layout.js';
+
 const multiply = (a,b) => Array.from({length:9},(_,i)=>
   a[Math.floor(i/3)*3]*b[i%3]+a[Math.floor(i/3)*3+1]*b[3+i%3]+a[Math.floor(i/3)*3+2]*b[6+i%3]);
 const inverse = m => {
@@ -41,6 +43,8 @@ export const planeCSS = n => `matrix3d(${[n[0],n[3],0,n[6],n[1],n[4],0,n[7],0,0,
 // 只变换现有公开 DOM，不复制牌面、不读取暗牌，不改变 136 个槽位、排序或游戏状态。
 export function createFlatOpponentView(stage) {
   const runs=new Map(),cache=new WeakMap();
+  stage.style.setProperty('--river-long-count',String(RIVER_LAYOUT.columns));
+  stage.style.setProperty('--river-short-count',String(RIVER_LAYOUT.rows));
   return function layout() {
     if(!stage.classList.contains('is-landscape'))return;
     const wall=stage.querySelector('#wall-tail'),stacks=wall?.querySelector('.wall-tail-stacks');
@@ -56,9 +60,6 @@ export function createFlatOpponentView(stage) {
     if(!tablePlane)return;
     const left=parseFloat(surface.left),top=parseFloat(surface.top),frameWidth=parseFloat(surface.width),frameHeight=parseFloat(surface.height);
     const publicScale=parseFloat(tableStyle.getPropertyValue('--table-public-scale'))||1;
-    const riverScale=parseFloat(tableStyle.getPropertyValue('--river-default-scale'))||1;
-    const riverRadius=parseFloat(tableStyle.getPropertyValue('--river-center-radius'))||.18;
-    const nearRiverRadius=parseFloat(tableStyle.getPropertyValue('--river-near-center-radius'))||riverRadius;
     const localPublic=stage.querySelector('.my-melds');
     if(localPublic&&!localPublic.hidden) {
       // 正视副露随手牌上移后，按真实绒布左边界内收，不能贴到木框或影响手牌中心。
@@ -84,15 +85,22 @@ export function createFlatOpponentView(stage) {
       if(!(width>0&&height>0))continue;
       const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-0':'bottom','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
       const kind=node.classList.contains('flat-wall-run')?'wall':node.classList.contains('river')?'river':'hand';
-      // 各家共用同心分区：外圈手牌、中圈牌墙、内圈牌河，不再沿用零散的旧坐标。
-      // 近侧双层牌墙厚度更大，牌河略向桌心收，避免放大后的最后一排贴进牌墙。
-      const radius=(kind==='river'?(side==='bottom'?nearRiverRadius:riverRadius):kind==='wall'?(['top','bottom'].includes(side)?.27:.29):.39)*(kind==='hand'?1:publicScale);
+      if(kind==='river')for(const [index,tile] of [...node.children].entries()) {
+        const cell=riverCell(index,side);
+        const column=String(cell.column),row=String(cell.row);
+        if(tile.style.gridColumn!==column)tile.style.gridColumn=column;
+        if(tile.style.gridRow!==row)tile.style.gridRow=row;
+      }
+      // 固定方桌内分三圈：暗手在外、牌墙居中、27 格牌河在内；近侧为双层墙留出厚度。
+      const radius=kind==='river'?(side==='bottom'?RIVER_LAYOUT.nearRadius:RIVER_LAYOUT.radius)
+        :kind==='wall'?(['top','bottom'].includes(side)?RIVER_LAYOUT.wallRadius:RIVER_LAYOUT.sideWallRadius):RIVER_LAYOUT.handRadius;
       const direction={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]}[side];
       const aligned={x:anchor.x+direction[0]*frameWidth*radius,y:anchor.y+direction[1]*frameHeight*radius};
-      // 牌河与牌墙围绕原桌心同比放大，保留同心布局、排序和间距关系；暗手不缩放。
+      // 牌河按容量独立定尺寸；牌墙与暗手沿用原牌体大小，四家的牌面朝向不变。
       const face=kind==='river'?node.querySelector('.tile'):null;
       // 空牌河也先对齐中心；第一张牌出现时再按原牌体宽度求等比缩放。
-      const size=(kind==='river'?(face?frameWidth*.023*riverScale/parseFloat(getComputedStyle(face).width):1):kind==='wall'&&side==='bottom'?1:.72)*(kind==='hand'?1:publicScale);
+      const size=kind==='river'?(face?frameWidth*RIVER_LAYOUT.tileWidth/parseFloat(getComputedStyle(face).width):1)
+        :(kind==='wall'&&side==='bottom'?1:.72)*(kind==='hand'?1:publicScale);
       const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${aligned.x}:${aligned.y}:${size}`;
       if(cache.get(node)===key)continue;
       node.style.setProperty('--opponent-view','none');

@@ -8,11 +8,12 @@ import { RoomService } from '../src/server/rooms.js';
 import { MahjongGame } from '../engine.js';
 import { maximumPublicFixture, maximumSpecialHandFixture } from './pizi-fixtures.mjs';
 import { installVisualGeometry } from './browser-geometry.mjs';
+import { RIVER_LAYOUT } from '../src/ui/river-layout.js';
 
 let playwright;
 try { playwright = createRequire(import.meta.url)('playwright'); }
 catch { playwright = createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright'); }
-const capacity = 36;
+const capacity = RIVER_LAYOUT.capacity;
 const screens = [
   { device: 'phone', width: 640, height: 360 },
   { device: 'phone', width: 844, height: 390 },
@@ -24,7 +25,7 @@ const screens = [
 const output = path.resolve('output'); mkdirSync(output, { recursive: true });
 const report = {
   passed: false, browser: '', capacity, screens, measurements: [], stability: [], screenshots: [], errors: [], failures: [],
-  fixtureNote: 'Rooms are created and started by real HTTP/SSE browser interaction. Every seat is then assigned 36 visual discards, exceeding the proven single-seat bound of 27. Combined four-seat rivers and maximum racks are intentionally impossible tile allocations used only to stress presentation capacity; no rules or protocol are changed.',
+  fixtureNote: 'Rooms are created and started by real HTTP/SSE browser interaction. Each seat is assigned its safe bound of 27 visual discards. Four simultaneous maximum rivers and maximum racks are intentionally impossible combined tile allocations used only to stress presentation capacity; no rules or protocol are changed.',
 };
 const service = new RoomService({ botDelayMs: 60000, disconnectGraceMs: 100 });
 const server = createServer({ roomService: service });
@@ -65,7 +66,8 @@ async function player(mobile) {
   return { page, room };
 }
 async function applyFixture(page, fixture, actions = false) {
-  await page.evaluate(({ fixture, capacity, actions }) => {
+  await page.evaluate(({ fixture, capacity, actions, columns, rows }) => {
+    window.riverTestLayout = {columns, rows};
     const game = window.mahjongGame;
     Object.assign(game, fixture);
     for (const [seat, player] of game.players.entries()) player.discards = Array.from({ length: capacity }, (_, index) => (seat * 9 + index) % 34);
@@ -75,7 +77,7 @@ async function applyFixture(page, fixture, actions = false) {
     game.lastDiscard = null; game.actionNotice = null; game.events = ['布局验收打出一万。']; game.phase = actions ? { kind: 'claim', discard: game.pendingDiscard } : { kind: 'discard', seat: 0 }; game.current = 0;
     window.mahjongRoom.availableActions = () => ({ chi: actions ? [[0, 1, 2]] : [], peng: actions, gang: actions, hu: actions, pass: actions, redGang: false, piziGang: false, wildGang: false, concealedGangs: [], addedGangs: [] });
     window.renderMahjong();
-  }, { fixture: JSON.parse(JSON.stringify(fixture)), capacity, actions });
+  }, { fixture: JSON.parse(JSON.stringify(fixture)), capacity, actions, columns:RIVER_LAYOUT.columns, rows:RIVER_LAYOUT.rows });
   await frames(page);
 }
 async function measure(page, screen, scenario) {
@@ -98,7 +100,7 @@ async function measure(page, screen, scenario) {
     const onTable=window.visualGeometry.tablePlane(corners);
     const rivers = [0, 1, 2, 3].map(seat => {
       const river = document.querySelector(`#river-${seat}`);
-      const tiles = collect(`#river-${seat} .tile`), columns = seat % 2 ? 4 : 9;
+      const tiles = collect(`#river-${seat} .tile`), columns = window.riverTestLayout.columns;
       const contact = (a,b) => Math.min(...a.quad.flatMap(p=>b.quad.map(q=>Math.hypot(p.x-q.x,p.y-q.y))));
       const contacts = tiles.flatMap((tile,index)=>[index % columns < columns-1 ? tiles[index+1] : null,tiles[index+columns]].filter(Boolean).map(other=>contact(tile,other)));
       const edge = (q,a,b) => Math.hypot(q[a].x-q[b].x,q[a].y-q[b].y);
@@ -153,7 +155,7 @@ async function measure(page, screen, scenario) {
   const viewport = { left: 0, top: 0, right: screen.width, bottom: screen.height };
   check(data.stage.width + 1 >= data.stage.height * 16 / 9, 'single landscape canvas stays at least 16:9', detail);
   check(Math.abs(data.stage.width - screen.width) <= 1 && Math.abs(data.stage.height - Math.min(screen.height, screen.width * 9 / 16)) <= 1, 'canvas fills landscape viewport and centers in taller windows', { ...detail, stage: data.stage });
-  check(data.rivers.every(river => river.tiles.length === capacity), 'all 36 physical river tiles render without truncation', { ...detail, counts: data.rivers.map(river => river.tiles.length) });
+  check(data.rivers.every(river => river.tiles.length === capacity), 'all 27 physical river tiles render without truncation', { ...detail, counts: data.rivers.map(river => river.tiles.length) });
   check(data.rivers.every(river=>river.gap==='0px' && river.maxJointGap<.25), 'all river tiles touch adjacent cells without artificial gaps', {...detail,joints:data.rivers.map(river=>({seat:river.seat,gap:river.gap,max:river.maxJointGap}))});
   check(data.rivers.filter(river=>river.seat%2).every(river=>river.modelAspects.every(ratio=>Math.abs(ratio/(5/7)-1)<.02)), 'side tiles retain their original model proportions in the common table plane', {...detail,ratios:data.rivers.filter(river=>river.seat%2).map(river=>river.modelAspects)});
   const widths=data.rivers.flatMap(river=>river.tableWidths),heights=data.rivers.flatMap(river=>river.tableHeights);

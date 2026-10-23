@@ -5,6 +5,7 @@ import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
+import {RIVER_LAYOUT} from '../src/ui/river-layout.js';
 
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
 const external=process.argv[2],service=external?null:new RoomService({botDelayMs:600000});
@@ -31,15 +32,15 @@ try {
     await page.locator('#room-ready').click();await page.locator('#room-start').click();await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing');
     if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();
     for(const dense of [false,true])for(const seat of [0,1,2,3]) {
-      await page.evaluate(({dense,seat})=>{
+      await page.evaluate(({dense,seat,capacity})=>{
         const game=window.mahjongGame;
-        for(const player of game.players){player.hand=[4,4];player.melds=[];player.redGangs=[];player.piziGangs=[];player.discards=dense?Array.from({length:36},(_,i)=>i%27):[];}
+        for(const player of game.players){player.hand=[4,4];player.melds=[];player.redGangs=[];player.piziGangs=[];player.discards=dense?Array.from({length:capacity},(_,i)=>i%27):[];}
         const cards=game.players[seat].discards;if(!dense)cards.push(22);
         const tile=cards.at(-1),index=cards.length-1;
         game.round++;game.actionNotice=null;game.result=null;game.winner=null;
         game.lastDiscard={tile,from:seat,index};game.pendingDiscard={tile,from:seat};game.phase={kind:'claim',discard:game.pendingDiscard};
         window.mahjongRoom.room.status='playing';window.renderMahjong();
-      },{dense,seat});
+      },{dense,seat,capacity:RIVER_LAYOUT.capacity});
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       const data=await page.evaluate(()=>{
         const holder=document.querySelector('#discard-focus'),focused=holder.querySelector('.tile'),original=document.querySelector('.river .tile.last-discard');
@@ -56,7 +57,7 @@ try {
       assert.ok(data.centerError<=1);assert.equal(data.pointer,'none');assert.equal(data.inBounds,true);assert.equal(data.canvasOverflow,false);
       assert.match(data.vector,/#tile-/);assert.equal(data.shape,'geometricprecision');
       assert.ok(data.aspects.every(value=>Math.abs(value-5/7)<.02));
-      if(dense)assert.equal(data.riverCount,144);
+      if(dense)assert.equal(data.riverCount,RIVER_LAYOUT.capacity*4);
       report.cases.push({size,dense,seat,...data});
       if(size.width===844&&seat===0)await page.screenshot({path:`output/river-clarity-${external?'online':'local'}-${dense?'full':'focus'}.png`});
     }

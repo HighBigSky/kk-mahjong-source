@@ -195,8 +195,8 @@ html.in-game #game.is-landscape {
   position:absolute;
   display:grid;
   cursor:pointer;
-  --river-columns:9;
-  --river-rows:4;
+  --river-columns:var(--river-long-count);
+  --river-rows:var(--river-short-count);
   --river-gap:0px;
   --river-zone-width:calc(var(--board-size) * .38 * var(--river-render-scale));
   --river-zone-height:calc(var(--table-depth-unit) * 12 * var(--river-render-scale));
@@ -217,7 +217,7 @@ html.in-game #game.is-landscape {
   place-content:center;
   place-items:center;
 }
-/* 每家固定 36 格。格子按牌身的实际显示宽高紧密排列，不再均分空白区域。 */
+/* 每家固定 27 格（9×3）。格子按牌身的实际显示宽高紧密排列，不均分空白区域。 */
 #game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:31%; width:var(--river-zone-width); height:var(--river-zone-height); }
 #game.is-landscape .table .river-top { --river-tile-turn:180deg; }
 #game.is-landscape .table .river-bottom { bottom:auto; }
@@ -235,7 +235,7 @@ html.in-game #game.is-landscape {
   transform:rotate(var(--river-tile-turn));
   transform-origin:center;
 }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:4; --river-rows:9; --river-zone-width:calc(var(--table-unit) * 13 * var(--river-render-scale)); --river-zone-height:calc(var(--table-depth-unit) * 26 * var(--river-render-scale)); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:var(--river-short-count); --river-rows:var(--river-long-count); --river-zone-width:calc(var(--table-unit) * 13 * var(--river-render-scale)); --river-zone-height:calc(var(--table-depth-unit) * 26 * var(--river-render-scale)); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
 #game.is-landscape .table .river-left { left:calc(var(--table-unit) * 8); --river-tile-turn:90deg; }
 #game.is-landscape .table .river-right { right:calc(var(--table-unit) * 8); --river-tile-turn:-90deg; }
 /* 左右牌河保留各家朝向，布局层只对整个区域等比摆放。 */
@@ -385,9 +385,6 @@ html.in-game #game.is-landscape {
   --table-frame-side-inset:calc(var(--table-frame-size) * (1 - var(--table-frame-horizontal-zoom) / var(--table-frame-zoom)) / 2);
   --table-public-scale:1.12;
   /* 牌河独立放大；以两倍局部尺寸绘制矢量和牌体，再投影回桌面，避免小图层放大发虚。 */
-  --river-default-scale:1.08;
-  --river-center-radius:.1833;
-  --river-near-center-radius:.1805;
   --river-render-scale:2;
   --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
@@ -545,7 +542,7 @@ html.in-game #game.is-landscape {
   transform-origin:0 0;
 }
 
-/* 牌河仍按顺序紧密填格；上下各 9×4、左右各 4×9，在中央指示区四周留出间隔。 */
+/* 牌河按出牌顺序紧密填格；上下各 9×3、左右各 3×9，在中央指示区四周留出间隔。 */
 #game.is-landscape .table .river-top,
 #game.is-landscape .table .river-bottom { height:var(--river-zone-height); }
 #game.is-landscape .table .river-top { top:calc(var(--table-depth-unit) * 15.4); }
