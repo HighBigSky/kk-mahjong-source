@@ -374,12 +374,12 @@
   width:var(--public-tile-width);
   height:var(--public-tile-height);
   border-radius:.25cqw;
-  border-bottom-width:.2cqw;
+  border-bottom-width:var(--tile-model-bevel);
 }
 
 .table .opponent-rack .tile {
-  --tile-depth:.22cqw;
-  --tile-side:.08cqw;
+  --tile-depth:var(--tile-model-thin-depth);
+  --tile-side:calc(var(--tile-depth) * .45);
 }
 
 .table .opponent-rack-top {
@@ -475,8 +475,8 @@
   flex:none;
   width:var(--self-public-tile-width);
   height:var(--self-public-tile-height);
-  --tile-depth:.32cqw;
-  --tile-side:.12cqw;
+  --tile-depth:var(--tile-model-thin-depth);
+  --tile-side:calc(var(--tile-depth) * .45);
 }
 
 .hand-zone.has-melds .hand {

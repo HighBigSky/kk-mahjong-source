@@ -1,60 +1,69 @@
-/* All thickness stays inside existing tile bounds; layout and hit areas are unchanged. */
+/* 统一实体牌：所有材质与厚度均在现有牌框内绘制，不改变布局和点击范围。 */
 :root {
   --tile-ivory: #f6efdd;
-  --tile-face: linear-gradient(145deg, #fffef6 0%, var(--tile-ivory) 54%, #e8dfc9 100%);
-  --tile-gloss: linear-gradient(115deg, #ffffff9c 0%, #ffffff38 18%, #ffffff00 43%, #ffffff00 75%, #ffffff24 100%);
   --tile-border: #c7c9b3;
-  --tile-border-side: #446448;
-  --tile-border-bottom: #153d2a;
+  --tile-border-side: #b6aa8d;
+  --tile-border-bottom: #453e31;
   --tile-face-hover: linear-gradient(135deg, #ffffff 0%, #fff8e9 48%, #eee2c9 100%);
-  --tile-face-selected: linear-gradient(135deg, #fffef0 0%, #fff2cf 55%, #e8d49e 100%);
   --tile-resin-light: #638e70;
   --tile-resin: #3c7353;
   --tile-resin-dark: #214c37;
-  --tile-contact: #031a129c;
   --tile-radius: .75cqw;
-  --tile-bevel: .14cqw;
-  --tile-contact-blur: .55cqw;
-  --tile-default-depth: .48cqw;
-  --tile-default-side: .18cqw;
-  /* 本家薄底与裸露侧面都画在原牌框内，手牌再按牌宽细调厚度。 */
-  --tile-hand-depth: 2px;
-  --tile-hand-side: 1px;
   --tile-hand-radius: .82cqw;
-  --tile-river-depth: .48cqw;
-  --tile-river-side: .18cqw;
   --tile-river-radius: .6cqw;
-  --tile-meld-depth: .32cqw;
-  --tile-meld-side: .12cqw;
-  --tile-bot-depth: .21cqw;
-  --tile-bot-side: .08cqw;
-  --tile-choice-depth: .85cqw;
-  --tile-choice-side: .28cqw;
-  --tile-history-depth: .55cqw;
-  --tile-history-side: .18cqw;
-  --tile-result-depth: .4cqw;
-  --tile-result-side: .14cqw;
-  --tile-indicator-depth: .35cqw;
-  --tile-indicator-side: .12cqw;
-  --tile-back-core: .38cqw;
+}
+
+/* 三档只改变厚度；调色、倒角和两层接地阴影由全部牌区共用。 */
+.tile, .back {
+  --tile-model-turn: 0deg;
+  --tile-model-shadow-x: .11;
+  --tile-model-shadow-y: .28;
+  --tile-model-soft-x: .32;
+  --tile-model-soft-y: .8;
+  --tile-model-lit-x: .5px;
+  --tile-model-lit-y: .5px;
+  --tile-model-dark-x: -.5px;
+  --tile-model-dark-y: -.7px;
+  --tile-model-top-light: #fff9e9;
+  --tile-model-left-light: #fff9e9;
+  --tile-model-right-light: #d8cfb8;
+  --tile-model-bottom-light: #d4cbb4;
+  --tile-face: linear-gradient(calc(145deg - var(--tile-model-turn)), #fffef6 0%, var(--tile-ivory) 54%, #e8dfc9 100%);
+  --tile-face-selected: linear-gradient(calc(135deg - var(--tile-model-turn)), #fffef0 0%, #fff2cf 55%, #e8d49e 100%);
+  --tile-gloss: linear-gradient(calc(115deg - var(--tile-model-turn)), #ffffff9c 0%, #ffffff38 18%, #ffffff00 43%, #ffffff00 75%, #ffffff24 100%);
+  --tile-model-unit: calc(var(--stage-height, 100cqw) / 100);
+  --tile-model-hand-depth: clamp(2px, calc(var(--tile-model-unit) * .6), 3px);
+  --tile-model-river-depth: clamp(1.1px, calc(var(--tile-model-unit) * .36), 2px);
+  --tile-model-thin-depth: clamp(.6px, calc(var(--tile-model-unit) * .22), 1.2px);
+  --tile-model-grade: thin;
+  --tile-depth: var(--tile-model-thin-depth);
+  --tile-side: calc(var(--tile-depth) * .45);
+  --tile-model-bevel: 1px;
+  --tile-model-inset: min(1px, calc(var(--tile-depth) * .25));
+  --tile-model-material-stops: #fff8e8 0%, #eeeeda 14%, #c5d2b9 30%, var(--tile-resin-light) 48%, var(--tile-resin) 74%, var(--tile-resin-dark) 100%;
+  --tile-model-face-shadow: inset var(--tile-model-lit-x) var(--tile-model-lit-y) .7px #ffffffb3, inset var(--tile-model-dark-x) var(--tile-model-dark-y) .8px #897b5c26;
+  --tile-model-edge-shadow: inset var(--tile-model-lit-x) var(--tile-model-lit-y) .6px #fffdf4a6, inset var(--tile-model-dark-x) var(--tile-model-dark-y) .65px #5c534633;
+  --tile-model-contact-shadow:
+    calc(var(--tile-model-unit) * var(--tile-model-shadow-x)) calc(var(--tile-model-unit) * var(--tile-model-shadow-y)) calc(var(--tile-model-unit) * .21) #031a12b3,
+    calc(var(--tile-model-unit) * var(--tile-model-soft-x)) calc(var(--tile-model-unit) * var(--tile-model-soft-y)) calc(var(--tile-model-unit) * .45) #041c1459;
+  --tile-model-back-inset: calc(var(--tile-depth) + 1px);
+  --tile-model-back-shadow: inset .5px .5px .7px #173d2c66, .5px .5px .6px #dbedcc80;
+  --tile-model-left-exposed: 0px;
+  --tile-model-right-exposed: 0px;
+  --tile-model-body-side: var(--tile-side);
+  --tile-body:
+    linear-gradient(180deg, var(--tile-model-material-stops)) bottom / 100% var(--tile-depth) no-repeat,
+    linear-gradient(90deg, var(--tile-model-material-stops)) right / var(--tile-model-body-side) 100% no-repeat,
+    var(--tile-face);
 }
 
 .tile {
-  --tile-depth: var(--tile-default-depth);
-  --tile-side: var(--tile-default-side);
-  --tile-body:
-    linear-gradient(180deg, var(--tile-resin-light), var(--tile-resin) 42%, var(--tile-resin-dark)) bottom / 100% var(--tile-depth) no-repeat,
-    linear-gradient(90deg, var(--tile-resin), var(--tile-resin-dark)) right / var(--tile-side) 100% no-repeat,
-    linear-gradient(135deg, var(--tile-resin-light), var(--tile-resin-dark));
   background: var(--tile-body);
   border: 1px solid var(--tile-border);
   border-right-color: var(--tile-border-side);
-  border-bottom: 1px solid var(--tile-border-bottom);
+  border-bottom-color: var(--tile-border-bottom);
   border-radius: var(--tile-radius);
-  box-shadow:
-    inset -.1cqw -.12cqw .12cqw #102d1f66,
-    .1cqw .3cqw .18cqw var(--tile-contact),
-    .2cqw .5cqw var(--tile-contact-blur) #041c1447;
+  box-shadow: var(--tile-model-contact-shadow);
   isolation: isolate;
   overflow: visible;
 }
@@ -62,17 +71,15 @@
 .tile::before {
   content: "";
   position: absolute;
-  inset: 0 var(--tile-side) var(--tile-depth) 0;
-  border: 1px solid #fdf9e9;
-  border-right-color: #c8bda4;
-  border-bottom-color: #b6aa8d;
+  inset: var(--tile-model-inset) var(--tile-side) var(--tile-depth) var(--tile-model-inset);
+  box-sizing: border-box;
+  border: var(--tile-model-bevel) solid var(--tile-model-top-light);
+  border-left-color: var(--tile-model-left-light);
+  border-right-color: var(--tile-model-right-light);
+  border-bottom-color: var(--tile-model-bottom-light);
   border-radius: inherit;
-  /* 所有正面共用象牙色树脂与静态反光，光泽在图案下方，不冲淡牌字。 */
   background: var(--tile-gloss), var(--tile-face);
-  box-shadow:
-    inset var(--tile-bevel) var(--tile-bevel) var(--tile-bevel) #ffffffd9,
-    inset calc(var(--tile-bevel) * -.9) calc(var(--tile-bevel) * -1.4) calc(var(--tile-bevel) * 1.6) #82765033,
-    0 calc(var(--tile-bevel) * .5) 0 #fff7dca6;
+  box-shadow: var(--tile-model-face-shadow);
   pointer-events: none;
   z-index: 0;
 }
@@ -87,30 +94,58 @@
   border-radius: inherit;
 }
 
-.river .tile {
-  --tile-depth: var(--tile-river-depth);
-  --tile-side: var(--tile-river-side);
-  border-radius: var(--tile-river-radius);
-  box-shadow:
-    inset -.1cqw -.1cqw .12cqw #102d1f66,
-    .1cqw .24cqw .16cqw var(--tile-contact),
-    .18cqw .42cqw .45cqw #031a1259;
+/* 反光罩层不参与命中；手牌裸露侧面也复用底面同一套连续色阶。 */
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(270deg, var(--tile-model-material-stops)) left / var(--tile-model-left-exposed) 100% no-repeat,
+    linear-gradient(90deg, var(--tile-model-material-stops)) right / var(--tile-model-right-exposed) 100% no-repeat;
+  box-shadow: var(--tile-model-edge-shadow);
+  pointer-events: none;
+  z-index: 2;
 }
 
+.river .tile, .discard-focus .tile {
+  --tile-model-grade: river;
+  --tile-depth: var(--tile-model-river-depth);
+  border-radius: var(--tile-river-radius);
+}
+/* 抵消牌河原有旋转，让高光与接地阴影仍指向桌面左上方；不旋转牌体。 */
+.river-right .tile, .discard-focus[data-player="1"] .tile {
+  --tile-model-turn: -90deg;
+  --tile-model-shadow-x: -.28; --tile-model-shadow-y: .11;
+  --tile-model-soft-x: -.8; --tile-model-soft-y: .32;
+  --tile-model-lit-x: -.5px; --tile-model-lit-y: .5px;
+  --tile-model-dark-x: .7px; --tile-model-dark-y: -.5px;
+  --tile-model-left-light: #d4cbb4; --tile-model-right-light: #fff9e9; --tile-model-bottom-light: #d8cfb8;
+}
+.river-top .tile, .discard-focus[data-player="2"] .tile {
+  --tile-model-turn: 180deg;
+  --tile-model-shadow-x: -.11; --tile-model-shadow-y: -.28;
+  --tile-model-soft-x: -.32; --tile-model-soft-y: -.8;
+  --tile-model-lit-x: -.5px; --tile-model-lit-y: -.5px;
+  --tile-model-dark-x: .5px; --tile-model-dark-y: .7px;
+  --tile-model-top-light: #d4cbb4; --tile-model-left-light: #d8cfb8; --tile-model-right-light: #fff9e9; --tile-model-bottom-light: #fff9e9;
+}
+.river-left .tile, .discard-focus[data-player="3"] .tile {
+  --tile-model-turn: 90deg;
+  --tile-model-shadow-x: .28; --tile-model-shadow-y: -.11;
+  --tile-model-soft-x: .8; --tile-model-soft-y: -.32;
+  --tile-model-lit-x: .5px; --tile-model-lit-y: -.5px;
+  --tile-model-dark-x: -.7px; --tile-model-dark-y: .5px;
+  --tile-model-top-light: #d8cfb8; --tile-model-right-light: #d4cbb4; --tile-model-bottom-light: #fff9e9;
+}
 .river .tile.last-discard {
   --tile-face: var(--tile-face-selected);
   outline: .28cqw solid #e7c77f;
   outline-offset: .12cqw;
 }
 
-.river .tile.last-discard::after {
-  z-index: 2;
-  box-shadow: 0 .08cqw .1cqw #63261888;
-  pointer-events: none;
-}
-
 .hand { --hand-gap: 1px; position: relative; isolation: isolate; gap: var(--hand-gap); }
-
 .hand::before {
   content: "";
   position: absolute;
@@ -125,49 +160,24 @@
   pointer-events: none;
   z-index: -1;
 }
-
 .hand .tile {
-  --tile-hand-depth: clamp(2px, calc(var(--hand-width, 6.18cqw) * .07), 3px);
-  --tile-hand-side: clamp(1px, calc(var(--hand-width, 6.18cqw) * .04), 2px);
-  --tile-depth: var(--tile-hand-depth);
-  --tile-side: var(--tile-hand-side);
-  --hand-bevel: clamp(.5px, calc(var(--hand-width, 6.18cqw) * .02), 1px);
-  --tile-resin-light: #638e70;
-  --tile-resin: #3c7353;
-  --tile-resin-dark: #214c37;
-  /* 底面与两处裸露侧面共用色阶；暖白高光、浅绿和深绿连续过渡。 */
-  --hand-material-stops: #fff8e8 0%, #eeeeda 14%, #c5d2b9 30%, var(--tile-resin-light) 48%, var(--tile-resin) 74%, var(--tile-resin-dark) 100%;
-  --hand-left-exposed: 0px;
-  --hand-right-exposed: 0px;
+  --tile-model-grade: hand;
+  --tile-depth: var(--tile-model-hand-depth);
+  --tile-side: min(2px, calc(var(--tile-depth) * .6));
+  --tile-model-body-side: 0px;
+  --hand-bevel: var(--tile-model-inset);
   --hand-face-width: calc((var(--hand-height, 9.4cqw) - 1px - var(--tile-depth) - var(--hand-bevel)) * 5 / 7);
-  --tile-body:
-    linear-gradient(180deg, var(--hand-material-stops)) bottom / 100% var(--tile-depth) no-repeat,
-    var(--tile-face);
-  background: var(--tile-body);
   border: 0;
-  border-right: 1px solid #b6aa8d;
-  border-bottom: 1px solid #453e31;
+  border-right: 1px solid var(--tile-border-side);
+  border-bottom: 1px solid var(--tile-border-bottom);
   border-radius: var(--tile-hand-radius);
-  box-shadow:
-    .06cqw .16cqw .12cqw #031a12b3,
-    .18cqw .45cqw var(--tile-contact-blur) #041c1459;
   transition: transform .14s, background .14s, box-shadow .14s;
 }
-
 .hand .tile::before {
-  /* 内缩牌面与 SVG 共用 5:7 平面；上左亮、下右暗的窄倒角不扩大牌框。 */
   inset: var(--hand-bevel) auto var(--tile-depth) 50%;
   width: var(--hand-face-width);
-  box-sizing: border-box;
   transform: translateX(-50%);
-  border: 1px solid #fff9e9;
-  border-right-color: #d8cfb8;
-  border-bottom-color: #d4cbb4;
-  box-shadow:
-    inset .5px .5px .7px #ffffffb3,
-    inset -.5px -.7px .8px #897b5c26;
 }
-
 .hand .tile svg {
   position: absolute;
   top: var(--hand-bevel);
@@ -177,33 +187,10 @@
   transform: translateX(-50%);
   border-radius: inherit;
 }
-
-/* 透明倒角罩层只在首张左侧、待定牌右侧打开树脂面，其余侧边仅反光。 */
-.hand .tile::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 0;
-  border-radius: inherit;
-  background:
-    linear-gradient(270deg, var(--hand-material-stops)) left / var(--hand-left-exposed) 100% no-repeat,
-    linear-gradient(90deg, var(--hand-material-stops)) right / var(--hand-right-exposed) 100% no-repeat;
-  box-shadow:
-    inset .5px .5px .6px #fffdf4a6,
-    inset -.6px -.4px .65px #5c534633;
-  pointer-events: none;
-  z-index: 2;
-}
-.hand .tile:first-child { --hand-left-exposed: var(--tile-side); }
-.hand .tile.drawn { --hand-right-exposed: var(--tile-side); }
-
-.hand .tile:not(:disabled):hover {
-  --tile-face: var(--tile-face-hover);
-  background: var(--tile-body);
-}
-
+.hand .tile:first-child { --tile-model-left-exposed: var(--tile-side); }
+.hand .tile.drawn { --tile-model-right-exposed: var(--tile-side); }
+.hand .tile:not(:disabled):hover { --tile-face: var(--tile-face-hover); background: var(--tile-body); }
 .hand .tile.hinted { outline-color: #cee7a7; z-index: 1; }
-
 .hand .tile.selected {
   z-index: 2;
   --tile-face: var(--tile-face-selected);
@@ -211,62 +198,54 @@
   border-top-color: #ffe8ab;
   outline: .32cqw solid #e7c77f;
   outline-offset: .1cqw;
-  box-shadow:
-    inset -.12cqw -.12cqw .15cqw #102d1f66,
-    .22cqw .72cqw .55cqw #031a1299,
-    .4cqw 1.3cqw 1.05cqw #031a1259;
+  box-shadow: var(--tile-model-contact-shadow);
 }
 
-.my-melds .tile {
-  --tile-depth: var(--tile-meld-depth);
-  --tile-side: var(--tile-meld-side);
-  box-shadow: .08cqw .2cqw .15cqw #031a1299, .16cqw .34cqw .35cqw #041c1447;
-}
-
-.bot-melds .tile,
+/* 副露、他家暗手、牌墙、弹窗与结算都沿用默认薄档，不再各画一套。 */
+.my-melds .tile, .bot-melds .tile, .topbar .laizi-summary .tile,
 .opponent-rack .backs.is-revealed .tile {
-  --tile-depth: var(--tile-bot-depth);
-  --tile-side: var(--tile-bot-side);
-  border-width: .1cqw;
-  box-shadow: .06cqw .16cqw .12cqw #031a1299;
+  --tile-depth: var(--tile-model-thin-depth);
+  --tile-side: calc(var(--tile-depth) * .45);
+  box-shadow: var(--tile-model-contact-shadow);
 }
-.bot-melds .tile::before,
-.opponent-rack .backs.is-revealed .tile::before { border-width: .08cqw; }
-/* Tiny revealed faces retain the gold wildcard edge and accessible name;
-   the full-size corner badge would cover the suit or rank in these racks. */
 .opponent-rack .backs.is-revealed .wild-marker { display: none; }
-.choice-option .tile { --tile-depth: var(--tile-choice-depth); --tile-side: var(--tile-choice-side); }
-.history-tiles .tile { --tile-depth: var(--tile-history-depth); --tile-side: var(--tile-history-side); }
-.result-hand .tile { --tile-depth: var(--tile-result-depth); --tile-side: var(--tile-result-side); }
-/* Higher specificity keeps these knobs authoritative over the later laizi sheet. */
-.topbar .laizi-summary .tile { --tile-depth: var(--tile-indicator-depth); --tile-side: var(--tile-indicator-side); }
 
 .back {
   position: relative;
-  background: linear-gradient(135deg, #719573 0%, #467a53 40%, #275337 100%);
+  background:
+    var(--tile-gloss),
+    linear-gradient(145deg, var(--tile-resin-light), var(--tile-resin) 54%, var(--tile-resin-dark));
   border: 1px solid #a5b794;
   border-right-color: #35583b;
-  border-bottom: var(--tile-back-core) solid #e0d6bb;
+  border-bottom-color: #e0d6bb;
   border-radius: .55cqw;
-  box-shadow:
-    inset .1cqw .12cqw .1cqw #d9e6c280,
-    inset -.12cqw -.14cqw .18cqw #12331d80,
-    .12cqw .3cqw .22cqw var(--tile-contact);
+  box-shadow: var(--tile-model-contact-shadow);
   overflow: hidden;
 }
-
 .back::before {
   content: "";
   position: absolute;
-  inset: .35cqw .3cqw .5cqw;
-  border: 1px solid #234d3380;
-  border-right-color: #a4bc9759;
-  border-bottom-color: #b6c6a059;
+  inset: var(--tile-model-back-inset);
+  border: var(--tile-model-bevel) solid #315d4380;
+  border-right-color: #c3d4b880;
+  border-bottom-color: #b6c6a080;
   border-radius: .28cqw;
-  box-shadow: inset .05cqw .08cqw .1cqw #133c244d;
+  box-shadow: var(--tile-model-back-shadow);
   pointer-events: none;
 }
-.backs-left .back, .backs-right .back { border-bottom-width: .3cqw; }
+.back::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--tile-depth);
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+  background: linear-gradient(180deg, #fff8e8, #ddd2b8);
+  box-shadow: var(--tile-model-edge-shadow);
+  pointer-events: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .hand .tile { transition: none; }
