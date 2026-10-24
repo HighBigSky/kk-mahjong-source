@@ -17,7 +17,8 @@
   --tile-contact-blur: .55cqw;
   --tile-default-depth: .48cqw;
   --tile-default-side: .18cqw;
-  --tile-hand-depth: .9cqw;
+  /* 本家只露细树脂底边；跟随牌高且封顶 2px，不改变牌体外尺寸。 */
+  --tile-hand-depth: min(2px, 3%);
   --tile-hand-side: .3cqw;
   --tile-hand-radius: .82cqw;
   --tile-river-depth: .48cqw;
@@ -128,7 +129,7 @@
 .hand .tile {
   --tile-depth: var(--tile-hand-depth);
   --tile-side: var(--tile-hand-side);
-  border-bottom: 1px solid #153d2a;
+  border-bottom: 0;
   border-radius: var(--tile-hand-radius);
   box-shadow:
     inset -.12cqw -.12cqw .15cqw #102d1f66,
@@ -142,7 +143,10 @@
   background: var(--tile-body);
 }
 
+.hand .tile.hinted { outline-color: #cee7a7; z-index: 1; }
+
 .hand .tile.selected {
+  z-index: 2;
   --tile-face: var(--tile-face-selected);
   background: var(--tile-body);
   border-top-color: #ffe8ab;
@@ -153,8 +157,6 @@
     .22cqw .72cqw .55cqw #031a1299,
     .4cqw 1.3cqw 1.05cqw #031a1259;
 }
-
-.hand .tile.hinted { outline-color: #cee7a7; }
 
 .my-melds .tile {
   --tile-depth: var(--tile-meld-depth);
