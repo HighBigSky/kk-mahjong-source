@@ -17,7 +17,7 @@
   --tile-contact-blur: .55cqw;
   --tile-default-depth: .48cqw;
   --tile-default-side: .18cqw;
-  /* 本家只露细树脂底边；跟随牌高且封顶 2px，不改变牌体外尺寸。 */
+  /* 保留本家图案的原垂直范围；牌面下沿另行铺到底，不靠减薄牌体消除绿边。 */
   --tile-hand-depth: min(2px, 3%);
   --tile-hand-side: .3cqw;
   --tile-hand-radius: .82cqw;
@@ -129,6 +129,11 @@
 .hand .tile {
   --tile-depth: var(--tile-hand-depth);
   --tile-side: var(--tile-hand-side);
+  /* 底部圆角内也用象牙色收边，避免绿色牌体从正面边缘透出；上部侧面仍保留树脂材质。 */
+  --tile-body:
+    linear-gradient(90deg, var(--tile-resin), var(--tile-resin-dark)) top right / var(--tile-side) calc(100% - var(--tile-hand-radius)) no-repeat,
+    linear-gradient(135deg, var(--tile-resin-light), var(--tile-resin-dark)) top / 100% calc(100% - var(--tile-hand-radius)) no-repeat,
+    linear-gradient(var(--tile-ivory), var(--tile-ivory));
   border-bottom: 0;
   border-radius: var(--tile-hand-radius);
   box-shadow:
@@ -136,6 +141,11 @@
     .08cqw .25cqw .16cqw #031a12b3,
     .22cqw .55cqw var(--tile-contact-blur) #041c1459;
   transition: transform .14s, background .14s, box-shadow .14s;
+}
+
+.hand .tile::before {
+  /* 只延伸现有正面，不裁切牌体，也不改变 SVG、外框与点击热区。 */
+  bottom: 0;
 }
 
 .hand .tile:not(:disabled):hover {
