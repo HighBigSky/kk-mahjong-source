@@ -1173,9 +1173,13 @@ $('#sound-btn').addEventListener('click', () => {
   preferences.sound = !preferences.sound; persist(); syncSettings(); playSound('select');
   toast(preferences.sound ? '音效已开启' : '音效已关闭');
 });
-// 回到页面或再次触碰时恢复系统暂停的朗读，不重读已经消费的日志。
-document.addEventListener('pointerdown', () => discardSpeech.resume(), {capture:true});
+// 鼠标按下即可激活音频，触屏要等抬手；必须在该手势的同步事件链中恢复。
+document.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') discardSpeech.resume(); }, {capture:true});
+document.addEventListener('pointerup', event => { if (event.pointerType !== 'mouse') discardSpeech.resume(); }, {capture:true});
+document.addEventListener('touchend', () => discardSpeech.resume(), {capture:true,passive:true});
+document.addEventListener('click', () => discardSpeech.resume(), {capture:true});
 document.addEventListener('keydown', () => discardSpeech.resume(), {capture:true});
+// 回到页面只尝试恢复已有队列，不重读已经消费的日志。
 document.addEventListener('visibilitychange', () => { if (!document.hidden) discardSpeech.resume(); });
 $('#voice-btn').addEventListener('click', () => {
   updateVoiceState();

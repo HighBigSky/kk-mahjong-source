@@ -6,6 +6,7 @@ import {createHash} from 'node:crypto';
 import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
 import {tileName} from '../engine.js';
+import {verifyRealSpeechActions} from './speech-real-actions.mjs';
 
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
 const realtime=process.argv.includes('--latency');
@@ -134,6 +135,7 @@ try {
     await page.evaluate(()=>window.mahjongRoom.leave());
     await context.close();
   }
+  if(service&&!realtime)await verifyRealSpeechActions({browser,service,base,report});
   assert.deepEqual(report.errors,[]);report.passed=true;console.log(JSON.stringify(report,null,2));
 } finally {
   writeFileSync(`output/discard-speech-${realtime?'latency-':''}${external?'online':'local'}.json`,JSON.stringify(report,null,2));

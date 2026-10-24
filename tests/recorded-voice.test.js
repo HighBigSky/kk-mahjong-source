@@ -1,19 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRecordedVoice,voiceWindow} from '../src/ui/recorded-voice.js';
+import {tileName} from '../engine.js';
+import {VOICE_BANK} from '../src/ui/voice-bank.js';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-function harness({blocked=false,failDecode=false,holdPreviewDecode=false}={}) {
-  const sources=[],errors=[];let context,enabled=true,decoded=0,releasePreview;
+function harness({blocked=false,failDecode=false,holdPreviewDecode=false,bankKeys=['1m','5z','7z','chi','peng','gang','hu','zimo']}={}) {
+  const sources=[],errors=[];let context,enabled=true,decoded=0,releasePreview,silentStarts=0;
   class Context {
     constructor(){context=this;this.state=blocked?'suspended':'running';this.sampleRate=24000;}
     createBuffer(){return {silent:true};}
-    createBufferSource(){const source={connect(){},disconnect(){},start(){if(!source.buffer.silent)sources.push(source);},stop(){source.onended?.();}};return source;}
+    createBufferSource(){const source={connect(){},disconnect(){},start(){if(!source.buffer.silent)sources.push(source);else silentStarts++;},stop(){source.onended?.();}};return source;}
     decodeAudioData(bytes){decoded++;const key=new TextDecoder().decode(bytes);if(holdPreviewDecode&&key==='1m')return new Promise(resolve=>{releasePreview=()=>resolve({key});});return failDecode?Promise.reject(Error('bad clip')):Promise.resolve({key});}
     resume(){if(!blocked)this.state='running';return Promise.resolve();}
   }
-  const bank=Object.fromEntries(['1m','5z','7z','chi','peng','gang','hu','zimo'].map(key=>[key,Buffer.from(key).toString('base64')]));
+  const bank=Object.fromEntries(bankKeys.map(key=>[key,Buffer.from(key).toString('base64')]));
   const voice=createRecordedVoice({isEnabled:()=>enabled,Context,bank,onError:message=>errors.push(message)});
-  return {voice,sources,errors,get context(){return context;},get decoded(){return decoded;},setEnabled:value=>{enabled=value;},unblock:()=>{blocked=false;},releasePreview:()=>releasePreview()};
+  return {voice,sources,errors,get context(){return context;},get decoded(){return decoded;},get silentStarts(){return silentStarts;},setEnabled:value=>{enabled=value;},unblock:()=>{blocked=false;},releasePreview:()=>releasePreview()};
 }
 test('recorded clips queue in order, reuse decoding, and keep red/white honor mapping correct',async()=>{
   const h=harness();for(const name of ['一万','红中','白板','吃','碰','杠','胡','自摸','一万'])h.voice.say(name);
@@ -66,4 +68,30 @@ test('a slow obsolete preview decoder cannot hold up an already decoded confirme
   h.voice.say('一万',{preview:true});h.voice.say('红中');
   assert.equal(h.sources.length,1);assert.equal(h.sources[0].buffer.key,'5z');
   h.releasePreview();await tick();assert.equal(h.sources.length,1,'迟到的预听解码结果不能重播或覆盖正式声音');
+});
+
+test('every tileName output and all action names resolve to an existing bank entry',async()=>{
+  const h=harness({bankKeys:Object.keys(VOICE_BANK)});h.voice.unlock();await tick();
+  const names=[...Array.from({length:34},(_,i)=>tileName(i)),'红中','发财','白板','吃','碰','杠','胡','自摸'];
+  for(const name of names){assert.equal(h.voice.say(name),true,name);await tick();h.sources.at(-1).onended();await tick();}
+  assert.deepEqual(h.voice.getState().played,names);assert.equal(h.voice.getState().queued,0);assert.deepEqual(h.errors,[]);
+});
+
+test('missing names and missing clips return false with visible-error callbacks; mute remains silent',async()=>{
+  const h=harness();assert.equal(h.voice.say('不存在的牌'),false);assert.match(h.errors.at(-1),/牌名映射/);
+  assert.equal(h.voice.say('二万'),false);assert.match(h.errors.at(-1),/二万.*配音资源/);
+  assert.equal(h.voice.getState().played.length,0);assert.equal(h.voice.getState().queued,0);assert.ok(h.voice.getState().error);
+  h.setEnabled(false);assert.equal(h.voice.say('不存在的牌'),false);assert.equal(h.errors.length,2);
+  h.setEnabled(true);assert.equal(h.voice.say('一万'),true);await tick();assert.equal(h.voice.getState().error,'');
+});
+
+test('a later gesture sends a fresh silent unlock frame for an already created suspended context',async()=>{
+  const h=harness({blocked:true});h.voice.unlock();await tick();assert.equal(h.silentStarts,1);
+  h.voice.say('一万');await tick();assert.equal(h.silentStarts,2);assert.equal(h.voice.getState().queued,1);
+  h.unblock();h.voice.unlock();await tick();assert.equal(h.silentStarts,3);assert.deepEqual(h.voice.getState().played,['一万']);assert.equal(h.voice.getState().queued,0);
+});
+
+test('a closed context is recreated for the next action without replaying an already played name',async()=>{
+  const h=harness();h.voice.say('一万');await tick();h.sources[0].onended();await tick();const old=h.context;old.state='closed';
+  h.voice.say('红中');await tick();assert.notEqual(h.context,old);assert.deepEqual(h.voice.getState().played,['一万','红中']);assert.equal(h.voice.getState().queued,0);assert.equal(h.voice.getState().error,'');
 });
