@@ -69,8 +69,9 @@ const discardFocusState = createDiscardFocusState({storage:(() => {
   try { return sessionStorage; } catch { return null; }
 })()});
 let focusedDiscard = null;
-let discardFocusGeometry = null;
-const discardFlights = new Set();
+let discardFocusFrame = null;
+let discardFocusTarget = null;
+const discardFocusLayout = new ResizeObserver(() => positionDiscardFocus());
 const calculateHints = createHintCalculator();
 let hintState = {mode:'none', candidates:[]};
 let hintChoice = 0;
@@ -566,70 +567,50 @@ function discardRiverTile(discard) {
 function positionDiscardFocus() {
   if (!focusedDiscard) return;
   const target = discardRiverTile(focusedDiscard);
-  if (!target) return;
-  const plane = tilePlane(target, $('#game'));
-  if (!plane) return;
+  if (target !== discardFocusTarget) {
+    discardFocusLayout.disconnect();
+    discardFocusTarget = target;
+    if (target) discardFocusLayout.observe(target);
+  }
+  const plane = target && tilePlane(target, $('#game'));
+  if (!plane) { $('#discard-focus').hidden = true; queueDiscardFocusLayout(); return; }
   const {width,height,matrix} = plane;
-  const sourceRect = JSON.stringify([width,height,matrix]);
-  if (discardFocusGeometry?.sourceRect === sourceRect) return;
   const holder = $('#discard-focus');
   if (holder.parentElement !== $('#game')) $('#game').append(holder);
-  const face = holder.querySelector('.tile');
-  for (const animation of face.getAnimations()) animation.cancel();
-  // 聚焦只高亮，不再因牌河疏密改变大小；动画复用实牌四角和统一牌宽。
-  const transform = planeCSS(matrix);
-  discardFocusGeometry = {width,height,transform,scale:1,sourceRect};
-  holder.style.cssText = `left:0;top:0;width:${width}px;height:${height}px;transform-origin:0 0;transform:${transform}`;
+  // 每次按实牌四角定位并恢复显隐；同牌、重复快照和窗口重排也不能跳过。
+  holder.style.cssText = `left:0;top:0;width:${width}px;height:${height}px;transform-origin:0 0;transform:${planeCSS(matrix)}`;
+  holder.hidden = false;
+}
+
+function queueDiscardFocusLayout() {
+  if (discardFocusFrame !== null || !focusedDiscard) return;
+  // 首次挂载或相机布局尚未完成时重试；回调只定位当前焦点，不复活已撤销的牌。
+  discardFocusFrame = requestAnimationFrame(() => {
+    discardFocusFrame = null;
+    if (!focusedDiscard) return;
+    layoutOpponentView();
+    positionDiscardFocus();
+  });
 }
 
 function settleDiscardFocus() {
-  if (!focusedDiscard) return;
-  const previous = focusedDiscard;
-  const holder = $('#discard-focus');
-  const face = holder.querySelector('.tile');
+  if (discardFocusFrame !== null) cancelAnimationFrame(discardFocusFrame);
+  discardFocusFrame = null;
   focusedDiscard = null;
-  // A claimed tile has already left the river. Never fly a duplicate back into
-  // that empty slot or into the next tile which happened to occupy its index.
-  const target = discardRiverTile(previous);
-  if (target && face && discardFocusGeometry && !holder.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const {width,height,transform,scale} = discardFocusGeometry;
-    const destination = tilePlane(target,$('#game'));
-    if (!destination) { holder.hidden=true; discardFocusGeometry=null; return; }
-    const flight = face.cloneNode(true);
-    flight.classList.add('discard-flight');
-    flight.setAttribute('aria-hidden', 'true');
-    flight.style.cssText = `left:0;top:0;width:${width}px;height:${height}px;transform-origin:0 0`;
-    $('#game').append(flight);
-    discardFlights.add(flight);
-    // 首帧沿用放大牌投影，末帧回到真实牌河四角，不改变底下实牌的槽位。
-    const animation = flight.animate([
-      {transform:`${transform} translate(${width/2}px,${height/2}px) scale(${scale}) translate(${-width/2}px,${-height/2}px)`, opacity:1},
-      {transform:planeCSS(destination.matrix), opacity:0},
-    ], {duration:260, easing:'cubic-bezier(.22,.65,.25,1)', fill:'forwards'});
-    const remove = () => { flight.remove(); discardFlights.delete(flight); };
-    animation.finished.then(remove, remove);
-  }
-  discardFocusGeometry = null;
-  holder.hidden = true;
+  discardFocusLayout.disconnect();
+  discardFocusTarget = null;
+  // 只撤去原地描边；不复制、不缩放，也不向已被吃碰杠胡取走的格位飞回。
+  $('#discard-focus').hidden = true;
 }
 
 function renderDiscardFocus() {
   const focus = discardFocusState.update({game, room:network.room, connected:network.status === 'connected'});
-  if (!network.room || network.room.status !== 'playing') {
-    focusedDiscard = null;
-    discardFocusGeometry = null;
-    $('#discard-focus').hidden = true;
-    for (const flight of discardFlights) flight.remove();
-    discardFlights.clear();
-    return;
-  }
-  if (focus?.key === focusedDiscard?.key) { positionDiscardFocus(); return; }
-  if (focusedDiscard) settleDiscardFocus();
-  const holder = $('#discard-focus');
   if (!focus) {
-    holder.hidden = true;
+    settleDiscardFocus();
     return;
   }
+  const holder = $('#discard-focus');
+  if (focus.key !== focusedDiscard?.key) settleDiscardFocus();
   focusedDiscard = focus;
   holder.dataset.key = focus.key;
   holder.dataset.player = String(focus.from);
@@ -637,14 +618,8 @@ function renderDiscardFocus() {
   setHTMLIfChanged($('#discard-focus-tile'), tile(focus.tile));
   holder.setAttribute('aria-label', `${displayNames[focus.from]}打出${tileName(focus.tile)}`);
   dismissDiceIntro();
-  holder.hidden = false;
   positionDiscardFocus();
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    holder.querySelector('.tile').animate([
-      {transform:'scale(1)', opacity:.7},
-      {transform:`scale(${discardFocusGeometry.scale})`, opacity:1},
-    ], {duration:180, easing:'ease-out'});
-  }
+  queueDiscardFocusLayout();
 }
 
 function renderTing() {

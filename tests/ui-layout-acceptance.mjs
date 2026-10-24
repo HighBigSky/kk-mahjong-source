@@ -214,8 +214,8 @@ async function stability(page, screen, seat) {
     return { before, after, unchangedNodes, expanded, focusAspect, targetAspect, focusTargetError, focusNeighborOverlaps, focusHidden: document.querySelector('#discard-focus').hidden, flights: document.querySelectorAll('.discard-flight').length, lastCount: document.querySelector(`#river-${seat}`).querySelectorAll('.tile').length };
   }, { capacity, seat });
   check(result.unchangedNodes, 'unchanged render preserves river DOM nodes', { screen, seat });
-  check(result.expanded && result.focusHidden && result.flights === 0, 'latest river tile enlarges then finishes shrinking', { screen, seat, expanded: result.expanded, hidden: result.focusHidden, flights: result.flights });
-  check(result.focusNeighborOverlaps.length === 0, 'expanded latest tile does not cover neighboring river tiles', { screen, seat, overlaps: result.focusNeighborOverlaps });
+  check(result.expanded && result.focusHidden && result.flights === 0, 'latest river tile highlights at its original size then disappears in place', { screen, seat, expanded: result.expanded, hidden: result.focusHidden, flights: result.flights });
+  check(result.focusNeighborOverlaps.length === 0, 'fixed-size latest tile does not cover neighboring river tiles', { screen, seat, overlaps: result.focusNeighborOverlaps });
   check(result.focusTargetError<.8 && Math.abs(result.focusAspect / result.targetAspect - 1) < .05, 'dense-river focus preserves all four real tile corners and their table perspective', {screen,seat,error:result.focusTargetError,aspect:result.focusAspect,targetAspect:result.targetAspect});
   check(result.lastCount === capacity, 'last tile remains after animation', { screen, seat, count: result.lastCount });
   const maxDelta = Math.max(...result.before.flatMap((rect, index) => rect.map((value, component) => Math.abs(value - (result.after[index]?.[component] ?? Infinity)))));

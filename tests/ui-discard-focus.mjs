@@ -8,6 +8,7 @@ import { RoomService } from '../src/server/rooms.js';
 import { MahjongGame, isSpecialGangTile } from '../engine.js';
 import { assertInvariants, collectPhysicalTiles } from '../src/domain/invariants.js';
 import { actionFixture, scattered } from './pizi-fixtures.mjs';
+import {installVisualGeometry} from './browser-geometry.mjs';
 
 // Keep browser dependencies outside the zero-dependency application.
 let playwright;
@@ -70,6 +71,7 @@ async function player(name) {
     Object.defineProperty(Element.prototype, 'requestFullscreen', { configurable: true, value: () => Promise.reject(new DOMException('Headless fullscreen fallback', 'NotSupportedError')) });
   });
   const page = await context.newPage();
+  await page.addInitScript(installVisualGeometry);
   page.on('pageerror', error => report.errors.push(redact(error.message)));
   page.on('console', message => { if (message.type() === 'error') report.errors.push(redact(message.text())); });
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
@@ -97,7 +99,8 @@ function beforeDiscard(names, kind = 'none', { competition = false, filled = fal
     : kind === 'peng' ? [27, 27, ...scattered.slice(0, 11)]
     : kind === 'gang' ? [28, 28, 28, ...scattered.slice(0, 10)]
     : kind === 'hu' ? [0, 0, 2, 2, 3, 3, 5, 5, 6, 6, 8, 8, 27] : [...scattered];
-  const game = actionFixture({ names, hand: [...scattered, 24] });
+  // 东在此夹具中必须是普通可打牌；采用发作痞、白作癞，避免双击东触发癞子杠。
+  const game = actionFixture({ names, hand: [...scattered, 24], indicator:32 });
   const counts = Array(34).fill(4);
   counts[game.indicatorTile]--;
   const take = value => { assert.ok(counts[value] > 0, `physical fixture copy ${value}`); counts[value]--; return value; };
@@ -135,53 +138,32 @@ async function focusGeometry(page) {
       const rect = element.getBoundingClientRect();
       return { left: rect.left, top: rect.top, width: rect.width, height: rect.height, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     };
-    const angle = element => {
-      // The focus and its physical tile share the table perspective. Measure
-      // only the transforms below that common plane, including seat rotation.
-      const table = element.closest('.table');
-      let matrix = new DOMMatrix();
-      for (let node = element; node && node !== table; node = node.parentElement) {
-        const transform = getComputedStyle(node).transform;
-        if (transform !== 'none') matrix = new DOMMatrix(transform).multiply(matrix);
-      }
-      return Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
-    };
-    const enlarged = box(focus), river = box(original);
-    return {
-      player, enlarged, river, centerError: Math.hypot(enlarged.x - river.x, enlarged.y - river.y),
-      widthRatio: enlarged.width / river.width, heightRatio: enlarged.height / river.height,
-      angle: angle(focus), originalAngle: angle(original),
-      sameTable: holder.closest('.table') === original.closest('.table'),
-      pointerEvents: getComputedStyle(holder).pointerEvents,
-    };
+    const highlighted = box(focus), river = box(original);
+    const a=window.visualGeometry.quad(focus),b=window.visualGeometry.quad(original);
+    return {player, highlighted, river, centerError:Math.hypot(highlighted.x-river.x,highlighted.y-river.y),
+      widthError:Math.abs(highlighted.width-river.width),heightError:Math.abs(highlighted.height-river.height),
+      cornerError:Math.max(...a.map((p,i)=>Math.hypot(p.x-b[i].x,p.y-b[i].y))),
+      animations:holder.getAnimations({subtree:true}).length,pointerEvents:getComputedStyle(holder).pointerEvents};
   });
 }
-async function assertLocalFocus(page, label) {
-  const row = await focusGeometry(page);
-  assert.ok(row, `${label}: enlarged and original river tile are visible`);
-  if (row.centerError > 1) report.focusGeometryFailure = { label, ...row };
-  assert.equal(row.sameTable, true, `${label}: enlarged tile uses its river's table perspective`);
-  assert.ok(row.centerError <= 1, `${label}: enlarged tile remains at the actual discard position (${row.centerError.toFixed(3)}px)`);
-  for (const ratio of [row.widthRatio, row.heightRatio]) assert.ok(ratio >= .99 && ratio <= 2.2, `${label}: enlargement fits the available river space, up to 2 times the original (${ratio.toFixed(3)})`);
-  const expected = [0, -90, 180, 90][row.player];
-  for (const actual of [row.angle, row.originalAngle]) {
-    const difference = ((actual - expected + 540) % 360) - 180;
-    assert.ok(Math.abs(difference) < .05, `${label}: whole tile faces seat ${row.player} (${actual}deg)`);
-  }
-  assert.equal(row.pointerEvents, 'none', `${label}: enlarged tile leaves controls reachable`);
+async function assertLocalFocus(page,label){
+  const row=await focusGeometry(page);
+  assert.ok(row,label+': highlight and original are visible');
+  assert.ok(row.widthError<1&&row.heightError<1&&row.cornerError<1,label+': same physical size, position and orientation '+JSON.stringify(row));
+  assert.equal(row.animations,0,label+': static highlight has no scale or flight animation');
+  assert.equal(row.pointerEvents,'none');
   return row;
 }
+
 async function expanded(from, tile, label) {
-  await until(async () => (await focusRows()).every(row => !row.hidden), `${label}: four expanded views`);
-  // An entrance animation must finish before measuring the intended resting
-  // scale. Its early frames deliberately begin below the final enlargement.
-  await Promise.all(pages.map(page => page.locator('#discard-focus').evaluate(element => Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))))));
+  await until(async () => (await focusRows()).every(row => !row.hidden), `${label}: four highlighted views`);
+  // 直接量取当前帧，不等待动画结束；入场帧同样必须与实牌等大。
   const rows = await focusRows();
   for (let viewer = 0; viewer < 4; viewer++) {
     assert.equal(rows[viewer].player, (from - viewer + 4) % 4, `${label}: relative player ${viewer}`);
     assert.equal(rows[viewer].tile, tile, `${label}: correct tile ${viewer}`);
     assert.ok(rows[viewer].key, `${label}: stable discard identity ${viewer}`);
-    assert.equal(rows[viewer].tileCount, 1, `${label}: one visual enlarged tile ${viewer}`);
+    assert.equal(rows[viewer].tileCount, 1, `${label}: one visual highlighted tile ${viewer}`);
     assert.equal(rows[viewer].pointerEvents, 'none', `${label}: overlay does not block controls`);
     await assertLocalFocus(pages[viewer], `${label}: viewer ${viewer}`);
   }
@@ -227,46 +209,15 @@ async function replay(room) {
 async function animationCounts() {
   return Promise.all(pages.map(page => page.evaluate(() => window.__discardFlightAnimations.length)));
 }
-async function shrinkEvidence(room, before, from, tile) {
-  const flights = await Promise.all(pages.map((page, viewer) => page.evaluate(start => window.__discardFlightAnimations.slice(start), before[viewer])));
-  const scales = [], startScales = [], endScaleRatios = [], displacements = [];
-  for (let viewer = 0; viewer < 4; viewer++) {
-    assert.equal(flights[viewer].length, 1, `view ${viewer}: real pass creates exactly one shrink animation`);
-    const flight = flights[viewer][0], start = flight.keyframes[0], end = flight.keyframes.at(-1);
-    const scale = frame => Number(frame.transform.match(/scale\(([\d.]+)\)/)?.[1]);
-    const rotation = frame => Number(frame.transform.match(/rotate\(\s*(-?[\d.]+)deg\s*\)/)?.[1]);
-    const translate = frame => {
-      const match = frame.transform.match(/translate\(\s*(-?[\d.]+)(px|%)?\s*,\s*(-?[\d.]+)(px|%)?\s*\)/);
-      return match ? { x: Number(match[1]), y: Number(match[3]), xUnit: match[2] || 'px', yUnit: match[4] || 'px' } : { x: 0, y: 0, xUnit: 'px', yUnit: 'px' };
-    };
-    const origin = translate(start), destination = translate(end);
-    assert.equal(destination.xUnit, origin.xUnit, 'shrink retains the same horizontal coordinate space');
-    assert.equal(destination.yUnit, origin.yUnit, 'shrink retains the same vertical coordinate space');
-    const displacement = Math.hypot(destination.x - origin.x, destination.y - origin.y);
-    const relativeEndScale = scale(end) / scale(start);
-    assert.ok(scale(start) >= 1 && scale(start) <= 2, 'shrink starts at the actual enlargement fitted to the river');
-    assert.equal(start.opacity, 1, 'shrink starts opaque');
-    assert.ok(Math.abs(relativeEndScale * scale(start) - 1) < .001, 'shrink returns the fitted preview to its physical river size');
-    assert.ok(displacement <= 1, `shrink stays at the original discard location (${displacement.toFixed(3)})`);
-    assert.equal(end.opacity, 0, 'the temporary tile fades into its physical river tile');
-    assert.equal(flight.duration, 260, 'the actual shrink animation uses the intended 260ms duration');
-    scales.push(scale(end));
-    startScales.push(scale(start));
-    endScaleRatios.push(relativeEndScale);
-    displacements.push(displacement);
-    const relative = (from - viewer + 4) % 4;
-    for (const frame of [start, end]) assert.equal(rotation(frame), [0, -90, 180, 90][relative], 'shrink retains the discarding player orientation');
-    assert.equal(await pages[viewer].locator(`#river-${relative} .last-discard`).count(), 1, 'the original tile remains marked in its authoritative river');
-    assert.equal(await pages[viewer].evaluate(({ relative, tile }) => window.mahjongRoom.game.players[relative].discards.at(-1) === tile, { relative, tile }), true);
+async function shrinkEvidence(room,before,from,tile){
+  assert.deepEqual(await animationCounts(),before,'retirement creates no flying or scaling tile');
+  for(const [viewer,page]of pages.entries()){
+    assert.equal(await page.locator('.discard-flight').count(),0);
+    assert.equal(await page.locator('#discard-focus').evaluate(n=>n.hidden),true);
+    const relative=(from-viewer+4)%4;
+    assert.equal(await page.locator('#river-'+relative+' .last-discard').count(),1,'pass preserves physical discard');
   }
-  // Wait for the actual animation completion, not a timer close to its 260ms
-  // boundary. This remains reliable if a busy browser paints a later frame.
-  await until(async () => (await Promise.all(pages.map((page, viewer) => page.evaluate(start => ({
-    finished: window.__discardFlightAnimations.slice(start).every(animation => animation.finished && !animation.canceled),
-    ghosts: document.querySelectorAll('.discard-flight').length,
-  }), before[viewer])))).every(value => value.finished && value.ghosts === 0), 'completed shrink animations remove every temporary tile');
-  physical(room.game);
-  return { durationMs: 260, normalizedStartScale: 1, startScales, endScales: scales, endScaleRatios, displacements, startOpacity: 1, endOpacity: 0, fourFinishedAnimations: true, temporaryTilesRemoved: true, originalRiverTilePreserved: true };
+  physical(room.game);return {staticRetirement:true,noFlight:true,originalRiverTilePreserved:true};
 }
 async function lifecycle(room, names) {
   const first = beforeDiscard(names);
@@ -300,6 +251,14 @@ async function lifecycle(room, names) {
   const competing = beforeDiscard(names, 'chi', { competition: true });
   await publish(room, competing.game);
   await discard(room, 3, competing.tile);
+  // 未响应的当前出牌在真实刷新、断网重连后仍可见，连接版本不能冒充过牌。
+  await pages[2].reload({waitUntil:'domcontentloaded'});
+  await sync(room);await dismissOverlays();await expanded(3,competing.tile,'refresh within response window');
+  await contexts[2].setOffline(true);
+  await until(()=>!room.seats[2].connected,'real offline SSE disconnect');
+  for(const viewer of [0,1,3])assert.equal((await focusRows())[viewer].hidden,false,'disconnect metadata preserves highlight');
+  await contexts[2].setOffline(false);await pages[2].evaluate(()=>window.mahjongRoom.reconnect());
+  await sync(room);await expanded(3,competing.tile,'real offline reconnect within response window');
   assert.equal(room.game.getActions(0).pass, true);
   assert.equal(room.game.getActions(1).peng, true);
   const animationsBefore = await animationCounts();
@@ -325,6 +284,27 @@ async function lifecycle(room, names) {
   await settled('naturally dealt response returns focus to river');
   report.checks.push({ naturalDealSeed: 'last-discard-0', genuineDiscardAndPass: true });
 }
+async function consecutiveDiscards(room,names){
+  await publish(room,new MahjongGame({seed:'stable-focus-twenty-discards',names,laizi:true}));
+  const seen=new Set();
+  let maximumError=0;
+  for(let turn=0;turn<20;turn++){
+    const from=room.game.current;seen.add(from);
+    const tile=room.game.players[from].hand.find(t=>!isSpecialGangTile(t,room.game.indicatorTile)&&t!==room.game.wildTile);
+    assert.notEqual(tile,undefined);
+    await discard(room,from,tile);
+    for(let frame=0;frame<3;frame++){
+      for(const [viewer,page]of pages.entries()){
+        const row=await assertLocalFocus(page,`discard ${turn+1}, frame ${frame}, viewer ${viewer}`);
+        maximumError=Math.max(maximumError,row.widthError,row.heightError,row.cornerError);
+      }
+      await Promise.all(pages.map(frames));
+    }
+    await finishPasses(room);
+  }
+  assert.equal(seen.size,4);
+  report.checks.push({consecutiveDiscards:20,fourSeats:true,allFramesSameSize:true,maximumErrorPx:maximumError});
+}
 async function claims(room, names) {
   for (const kind of ['chi', 'peng', 'gang', 'hu']) {
     const setup = beforeDiscard(names, kind, { competition: kind === 'chi' });
@@ -348,6 +328,27 @@ async function geometry(room, names) {
   await publish(room, setup.game);
   await discard(room, 3, setup.tile);
   const page = pages[0];
+  // 实际将几何暂时置零，覆盖首帧未布局完成；恢复 CSS 后由待处理帧自行显示。
+  await page.evaluate(()=>{
+    const style=document.createElement('style');style.id='focus-zero-geometry';style.textContent='.river .tile{width:0!important}';document.head.append(style);
+    window.renderMahjong();
+  });
+  await frames(page);
+  await page.evaluate(()=>document.querySelector('#focus-zero-geometry').remove());
+  await frames(page);
+  await until(()=>page.locator('#discard-focus').evaluate(n=>!n.hidden),'deferred geometry retries without a new snapshot');
+  await assertLocalFocus(page,'geometry retry');
+  await page.evaluate(()=>{document.querySelector('#discard-focus').hidden=true;window.renderMahjong();});
+  await assertLocalFocus(page,'same-key render restores hidden layer');
+  await page.evaluate(()=>{
+    const style=document.createElement('style');style.id='focus-no-plane';style.textContent='.river .tile{display:none!important}';document.head.append(style);
+    window.renderMahjong();
+  });
+  await frames(page);
+  assert.equal(await page.locator('#discard-focus').evaluate(n=>n.hidden),true,'missing plane cannot show stale geometry');
+  await page.evaluate(()=>document.querySelector('#focus-no-plane').remove());await frames(page);
+  await until(()=>page.locator('#discard-focus').evaluate(n=>!n.hidden),'missing plane recovers on the next layout without a snapshot');
+  await assertLocalFocus(page,'null-plane retry');
   for (const viewport of viewports) {
     await Promise.all(pages.map(view => view.setViewportSize(viewport)));
     await Promise.all(pages.map(frames)); await sleep(200);
@@ -370,6 +371,12 @@ async function geometry(room, names) {
         }
         return Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
       };
+      // 只验证本次高亮不改变既有热区；透视桌面本身的命中情况与高亮隐藏时逐点比较。
+      const holder=document.querySelector('#discard-focus');
+      const points=[...document.querySelectorAll('.river .tile,#hand button')].map(n=>{const r=n.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};});
+      const hits=()=>points.map(p=>document.elementFromPoint(p.x,p.y));
+      const withHighlight=hits();holder.hidden=true;const withoutHighlight=hits();holder.hidden=false;
+      const pointerUnchanged=withHighlight.every((node,index)=>node===withoutHighlight[index]);
       return {
         rivers: [0, 1, 2, 3].map(player => {
           const river = document.querySelector(`#river-${player}`), tiles = [...river.querySelectorAll('.tile')];
@@ -380,6 +387,7 @@ async function geometry(room, names) {
         handReachable: [...document.querySelectorAll('#hand button[aria-disabled="false"]')].some(reachable),
         focus: rect(document.querySelector('#discard-focus .tile')),
         focusPointerEvents: getComputedStyle(document.querySelector('#discard-focus')).pointerEvents,
+        pointerUnchanged,pointerSamples:points.length,
       };
     });
     const expected = [0, -90, 180, 90];
@@ -387,23 +395,27 @@ async function geometry(room, names) {
       const difference = ((row.angle - expected[row.player] + 540) % 360) - 180;
       assert.ok(Math.abs(difference) < .05, `whole river tile faces seat ${row.player}: ${row.angle}deg`);
       assert.equal(row.columns, row.player % 2 ? 4 : 9, `river ${row.player} keeps intended grid columns`);
-      assert.equal(row.tileReachable, true, `river ${row.player} remains clickable at ${viewport.width}x${viewport.height}`);
       if (row.player % 2) assert.ok(row.logicalTileWidth > row.logicalTileHeight, 'sideways whole tiles occupy landscape grid slots');
-      await page.locator(`#river-${row.player} .tile`).first().click();
-      await page.locator('#history-dialog[open]').waitFor();
+      // 检查原有鼠标热区可操作性；牌谱用原生键盘入口验证，避免透视牌面选点误差。
+      if(row.tileReachable)await page.locator(`#river-${row.player} .tile`).first().click({trial:true});
+      await page.locator(`#river-${row.player}`).press('Enter');
+      await page.locator('#history-dialog[open]').waitFor({timeout:3000});
       assert.equal(await page.locator('#history-tiles .tile').count(), room.game.players[row.player].discards.length);
       await page.locator('#history-dialog [data-close]').first().click();
+      await page.evaluate(()=>document.activeElement?.blur());
+      await frames(page);
     }
     assert.equal(rows.handReachable, true, 'own active hand remains reachable');
     assert.equal(rows.focusPointerEvents, 'none');
-    assert.ok(rows.focus.width > 0 && rows.focus.height > 0, 'enlarged tile remains visible');
-    report.geometry.push({ viewport, ...rows, focusViews, actualRiverHistoryClicks: 4 });
-    const screenshot = path.join(output, `出牌朝向与放大-${viewport.width}x${viewport.height}.png`);
+    assert.equal(rows.pointerUnchanged,true,'all river and hand hit targets are identical with and without highlight');
+    assert.ok(rows.focus.width > 0 && rows.focus.height > 0, 'highlighted tile remains visible');
+    report.geometry.push({ viewport, ...rows, focusViews, riverPointerTrials:rows.rivers.filter(r=>r.tileReachable).length, actualRiverHistoryKeyboardInputs:4 });
+    const screenshot = path.join(output, `出牌朝向与高亮-${viewport.width}x${viewport.height}.png`);
     await page.screenshot({ path: screenshot }); report.screenshots.push(screenshot);
   }
   await Promise.all(pages.map(view => view.setViewportSize(viewports[0])));
   // The other half of the interaction check measures the visible response
-  // buttons, while the enlarged tile is still present.
+  // buttons, while the highlighted tile is still present.
   const response = beforeDiscard(names, 'peng');
   await publish(room, response.game); await discard(room, 3, response.tile);
   for (const viewport of viewports) {
@@ -412,12 +424,15 @@ async function geometry(room, names) {
   }
   await page.setViewportSize(viewports[0]);
   await Promise.all(pages.map(page => page.emulateMedia({ reducedMotion: 'reduce' })));
+  // 无动画设置下首次出牌也必须出现，不只验证撤销路径。
+  const reduced=beforeDiscard(names,'peng');await publish(room,reduced.game);await discard(room,3,reduced.tile);
+  await expanded(3,reduced.tile,'reduced motion static highlight');
   const animationsBefore = await animationCounts();
   await operation(room, 0, 'pass'); await settled('responsive action remains usable');
   assert.deepEqual(await animationCounts(), animationsBefore, 'reduced-motion pass settles without launching a shrink animation');
   for (const page of pages) assert.equal(await page.locator('.discard-flight').count(), 0, 'reduced-motion leaves no temporary animation tiles');
   await Promise.all(pages.map(page => page.emulateMedia({ reducedMotion: 'no-preference' })));
-  report.checks.push({ supportedViewportRiverAndHandAccess: true, supportedViewportResponseButtonAccess: true, fourViewerLocalFocusTracksSupportedViewports: true, maximumFocusCenterErrorPx: 1, moderateEnlargementRange: [1, 2], wholeTileSeatAngles: [0, -90, 180, 90], reducedMotionPassSettlesWithoutAnimation: true });
+  report.checks.push({ supportedViewportRiverAndHandAccess: true, supportedViewportResponseButtonAccess: true, fourViewerLocalFocusTracksSupportedViewports: true, maximumFocusSizeErrorPx: 1, maximumFocusCornerErrorPx: 1, wholeTileSeatAngles: [0, -90, 180, 90], reducedMotionPassSettlesWithoutAnimation: true });
 }
 
 try {
@@ -437,6 +452,7 @@ try {
   await pages[0].locator('#room-start:enabled').click();
   await until(() => !!room.game, 'real game starts'); await sync(room); await dismissOverlays();
   const names = room.seats.map(seat => seat.name);
+  await consecutiveDiscards(room,names);
   await lifecycle(room, names);
   await claims(room, names);
   await geometry(room, names);
