@@ -66,21 +66,31 @@ export function createFlatOpponentView(stage) {
       localPublic.style.width='';
       // 副露可用宽度以实牌左缘为界；不扩大手牌预留量，避免少牌时副露向上堆到牌墙。
       const handTiles=[...stage.querySelectorAll('#hand button')];
+      let handLimit=Infinity;
       if(handTiles.length) {
         const publicBox=localPublic.getBoundingClientRect();
         const handLeft=Math.min(...handTiles.map(tile=>tile.getBoundingClientRect().left));
         const gap=parseFloat(getComputedStyle(localPublic).columnGap)||0;
-        localPublic.style.width=`${Math.max(publicBox.width,handLeft-publicBox.left-gap)}px`;
+        handLimit=Math.max(0,handLeft-publicBox.left);
+        // 第四张明示痞子也能杠出，副露预留不能越过实牌左缘；容量不足时按组换行。
+        localPublic.style.width=`${Math.min(handLimit,Math.max(publicBox.width,handLimit-gap))}px`;
       }
       const far=project(tablePlane,left+frameWidth*.055,top+frameHeight*.055);
       const near=project(tablePlane,left+frameWidth*.055,top+frameHeight*.945);
       let inset=0;
-      for(const tile of localPublic.querySelectorAll('.tile')) {
-        const box=tile.getBoundingClientRect();
-        for(const y of [box.top-stageBox.top,box.bottom-stageBox.top]) {
-          const edge=far.x+(y-far.y)*(near.x-far.x)/(near.y-far.y);
-          inset=Math.max(inset,edge+1-(box.left-stageBox.left));
+      // 绒布边界内收后仍须避开手牌；按组数收敛，通常一次即可，无牌宽缩放。
+      for(let pass=0;pass<=localPublic.children.length;pass++) {
+        inset=0;
+        for(const tile of localPublic.querySelectorAll('.tile')) {
+          const box=tile.getBoundingClientRect();
+          for(const y of [box.top-stageBox.top,box.bottom-stageBox.top]) {
+            const edge=far.x+(y-far.y)*(near.x-far.x)/(near.y-far.y);
+            inset=Math.max(inset,edge+1-(box.left-stageBox.left));
+          }
         }
+        const width=parseFloat(getComputedStyle(localPublic).width),limit=Math.max(0,handLimit-inset);
+        if(width<=limit+.01)break;
+        localPublic.style.width=`${limit}px`;
       }
       localPublic.style.transform=`translateX(${inset}px)`;
     }

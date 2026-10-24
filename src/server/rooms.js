@@ -311,6 +311,7 @@ export class RoomService {
         // The teaching engine logs seat 0's actual draw; never broadcast that secret.
         events:game.events.map(event => /^你(?:摸|补)到/.test(event) ? `${game.players[0].name}${event.startsWith('你补') ? '补牌' : '摸牌'}。` : event),
         laiziEnabled:game.laiziEnabled, indicatorTile:game.indicatorTile, wildTile:game.wildTile,
+        indicatorTaken:game.indicatorTaken, indicatorTakenBy:mapSeat(game.indicatorTakenBy),
         wallInfo:{...game.wallInfo, dice:[...game.wallInfo.dice]},
         actions:paused ? {...EMPTY_ACTIONS} : game.getActions(viewer),
       },

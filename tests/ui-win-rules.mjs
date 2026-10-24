@@ -43,7 +43,8 @@ async function newPlayer(name) {
 function fixture(room, scenario, round) {
   const game = new MahjongGame({seed:`ui-rule-${round}`, laizi:true, names:room.seats.map(seat => seat.name)});
   game.round = round; game.indicatorTile = TILE.GREEN; game.wildTile = TILE.WHITE;
-  game.wallInfo = {dice:[1, 1], indicatorPosition:0, tailDraws:0};
+  // 杠开胡型用例预留首张暗牌作补牌；槽位取痞另由四端交互用例验证。
+  game.wallInfo = scenario.gangReplacement ? {dice:[2, 2], indicatorPosition:2, tailDraws:0} : {dice:[1, 1], indicatorPosition:0, tailDraws:0};
   const pool = Array.from({length:TOTAL_TILE_COUNT}, (_, index) => Math.floor(index / 4));
   const take = tiles => tiles.map(tile => {
     const index = pool.indexOf(tile); assert.ok(index >= 0, `fixture exceeds four copies: ${tile}`);

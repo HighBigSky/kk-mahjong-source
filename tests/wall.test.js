@@ -88,12 +88,12 @@ test('explicit same-seed restart resets both random streams and all wall metadat
   const seed = 'repeat-wall-and-dice';
   const game = new MahjongGame({ seed, laizi: true });
   const before = structuredClone({ wall: game.wall, wallInfo: game.wallInfo, players: game.players,
-    indicator: game.indicatorTile, wild: game.wildTile, events: game.events });
-  game._drawTile(0, true);
-  assert.equal(game.wallInfo.tailDraws, 1);
+    indicator: game.indicatorTile, indicatorTaken:game.indicatorTaken, indicatorTakenBy:game.indicatorTakenBy, wild: game.wildTile, events: game.events });
+  while (!game.indicatorTaken) game._drawTile(0, true);
+  assert.equal(game.indicatorTakenBy, 0);
   game.newRound(seed, { restart: true });
   assert.deepEqual({ wall: game.wall, wallInfo: game.wallInfo, players: game.players,
-    indicator: game.indicatorTile, wild: game.wildTile, events: game.events }, before);
+    indicator: game.indicatorTile, indicatorTaken:game.indicatorTaken, indicatorTakenBy:game.indicatorTakenBy, wild: game.wildTile, events: game.events }, before);
   assertInvariants(game);
 });
 
@@ -173,27 +173,39 @@ for (const kind of ['redGang', 'concealed', 'added', 'exposed']) {
   });
 }
 
-test('mixed ordinary and replacement draws keep the flipped physical indicator outside both wall ends', () => {
+test('mixed ordinary and replacement draws take the exposed physical indicator exactly once at its slot', () => {
   const game = new MahjongGame({ seed: 'drain-both-wall-ends', laizi: true });
   const expected = [...game.wall];
   const indicator = game.indicatorTile;
   const position = game.wallInfo.indicatorPosition;
+  const slots = expected.map((tile, rank) => ({tile, slot:rank + (rank >= position ? 1 : 0), indicator:false}));
+  slots.push({tile:indicator, slot:position, indicator:true});
+  slots.sort((left, right) => left.slot - right.slot);
   let replacements = 0;
+  let indicatorDraws = 0;
   let step = 0;
-  while (expected.length) {
+  while (slots.length) {
     const replacement = step++ % 2 === 0;
-    const tile = replacement ? expected.shift() : expected.pop();
+    const entry = replacement ? slots.shift() : slots.pop();
+    const count = game.wall.length;
+    if (!entry.indicator) assert.equal(replacement ? expected.shift() : expected.pop(), entry.tile);
     assert.equal(game._drawTile(0, replacement), true);
-    assert.equal(game.lastDraw.tile, tile);
-    if (replacement) replacements++;
+    assert.equal(game.lastDraw.tile, entry.tile);
+    if (entry.indicator) {
+      indicatorDraws++;
+      assert.equal(game.indicatorTaken, true);
+      assert.equal(game.indicatorTakenBy, 0);
+      assert.equal(game.wall.length, count, 'taking the exposed tile does not decrement remaining backs');
+    } else if (replacement) replacements++;
     assert.equal(game.wallInfo.tailDraws, replacements);
     assert.equal(game.indicatorTile, indicator);
-    assert.equal(game.wallInfo.indicatorPosition, position, 'flipped slot stays in the physical wall diagram');
+    assert.equal(game.wallInfo.indicatorPosition, position, 'slot numbering never changes');
     assert.deepEqual(game.wall, expected);
     assertInvariants(game);
   }
   const playable = game.players.flatMap(player => player.hand);
-  assert.equal(playable.filter(tile => tile === indicator).length, 3, 'the fourth physical copy remains flipped');
+  assert.equal(indicatorDraws, 1);
+  assert.equal(playable.filter(tile => tile === indicator).length, 4, 'the fourth physical copy has entered a hand');
   assert.equal(collectPhysicalTiles(game).length, 136);
   assert.equal(game._drawTile(0, true), false, 'an empty wall cannot supply a replacement');
   assert.equal(game.wallInfo.tailDraws, replacements, 'empty-wall attempts do not move the tail');
@@ -217,4 +229,46 @@ test('wall invariants reject invalid dice, a lower indicator slot and impossible
   }
   game.wallInfo = valid;
   assertInvariants(game);
+});
+
+test('all six indicator positions preserve real head, tail and mixed physical order', () => {
+  for (const dice of [1,2,3,4,5,6]) for (const mode of ['head','tail','mixed']) {
+    const game = new MahjongGame({seed:`indicator-order-${dice}`,laizi:true});
+    game._diceRandom = () => (dice-.5)/6;
+    game.newRound(undefined,{restart:true});
+    const position = (dice-1)*2;
+    const pending = game.wall.map((tile,index)=>({tile,slot:index+(index>=position?1:0),indicator:false}));
+    pending.push({tile:game.indicatorTile,slot:position,indicator:true});
+    pending.sort((a,b)=>a.slot-b.slot);
+    let transfers=0,step=0;
+    while (pending.length) {
+      const replacement=mode==='tail'||(mode==='mixed'&&step++%2===0);
+      const next=replacement?pending.shift():pending.pop(),count=game.wall.length;
+      assert.equal(game._drawTile(3,replacement),true,`${dice}/${mode}`);
+      assert.equal(game.lastDraw.tile,next.tile);
+      assert.equal(game.wall.length,count-(next.indicator?0:1));
+      if(next.indicator)transfers++;
+      assert.equal(game.indicatorTaken,transfers===1);
+      assertInvariants(game);
+    }
+    assert.equal(transfers,1);
+    assert.equal(game.indicatorTakenBy,3);
+    assert.equal(game._drawTile(3),false);
+  }
+});
+
+test('indicator ownership flags cannot hide a missing copy, double-count a held copy or name an invalid taker', () => {
+  const game=new MahjongGame({seed:'indicator-owner-guards',laizi:true});
+  game.indicatorTaken=true;game.indicatorTakenBy=0;
+  assert.throws(()=>assertInvariants(game),/conservation/);
+  game.indicatorTaken=false;game.indicatorTakenBy=null;
+  while(!game.indicatorTaken)game._drawTile(0,true);
+  game.indicatorTaken=false;
+  assert.throws(()=>assertInvariants(game),/conservation/);
+  game.indicatorTaken=true;
+  for(const invalid of [null,-1,4]){
+    game.indicatorTakenBy=invalid;
+    assert.throws(()=>assertInvariants(game),/taken state and taker/);
+  }
+  game.indicatorTakenBy=0;assertInvariants(game);
 });

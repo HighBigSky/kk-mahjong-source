@@ -7,7 +7,8 @@ export const authorizedWallChanges = Object.freeze([
   'Independent seeded dice choose the upper tile of the smaller-die stack from the wall tail.',
   'A red or north candidate swaps with a physical white dragon at that position; green becomes wild.',
   'Every kong replacement draws from the wall tail; ordinary draws still use the wall head.',
-  'The three playable indicator copies follow red-dragon single-tile kong rules: optional declaration, no discard or concealed win, no ordinary meld use, no normal meld slot, and a tail supplement.',
+  'Held indicator copies follow red-dragon single-tile kong rules: optional declaration, no discard or concealed win, no ordinary meld use, no normal meld slot, and a tail supplement.',
+  '2026-10-24 authorized wall rule: the exposed physical indicator enters the drawing hand when the head or tail reaches its slot, without reducing the concealed-wall count; the indicator face type remains fixed.',
   'Ordinary four-group wins and their AI estimates require a same-code numbered 2/5/8 pair; seven pairs is exempt, and wildcards may supply one or both tiles of the required pair.',
   'Seven pairs, all triplets, all numbered 2/5/8 tiles, and all honors are big wins with unrestricted pair and wildcard count; all-258/all-honor wins need the valid hand size but no group decomposition.',
   'Only ordinary wins after chi, peng, exposed or added kong are limited to one concealed wildcard; concealed and single-tile special kongs do not open the hand.',
@@ -336,6 +337,31 @@ replaceOnce('    for (let player = 0; player < 4; player++) this.players[player]
 replaceOnce('points: 0, scoreDelta: [0, 0, 0, 0], patterns:', 'points: 0, scoreDelta: [...this.gangScoreDelta], patterns:', 'draw retains gang ledger');
 const scoreNote = '底分10；红中杠、痞子杠其余三家各付10，赖子杠各付20；开杠立即结算，荒庄保留杠分。原番型分值不变，杠上开花额外加10。屁胡自摸三家各付一份，屁胡接胡放铳一家付一份；大胡三家各付一份。';
 source = source.replace(/scoringNote: '[^']*'/g, 'scoringNote: ' + JSON.stringify(scoreNote));
+// 冻结文件不变；独立预期把明示实牌临时插回其位置，验证不跳牌且只转移一次归属。
+replaceOnce('    this.indicatorTile = null;',
+  '    this.indicatorTile = null;\n    this.indicatorTaken = false;\n    this.indicatorTakenBy = null;', 'reset exposed indicator ownership');
+replaceChecked('this.wall.length > 0', 'this._canDrawTile()', 2, 'kong availability includes the final exposed tile');
+replaceOnce('  _drawTile(player, replacement = false) {',
+  `  _canDrawTile() {
+    return this.wall.length > 0 || (this.indicatorTile !== null && !this.indicatorTaken && this.wallInfo.indicatorPosition === this.wallInfo.tailDraws);
+  }
+
+  _drawTile(player, replacement = false) {`, 'pending indicator counts as a physical drawable tile');
+replaceOnce('    if (!this.wall.length) {', '    if (!this._canDrawTile()) {', 'empty physical wall guard');
+replaceOnce('    const tile = replacement ? this.wall.shift() : this.wall.pop();\n    if (replacement) this.wallInfo.tailDraws++;',
+  `    const physical = [...this.wall];
+    const index = this.wallInfo.indicatorPosition - this.wallInfo.tailDraws;
+    const pending = this.indicatorTile !== null && !this.indicatorTaken && index >= 0 && index <= physical.length;
+    if (pending) physical.splice(index, 0, this.indicatorTile);
+    const takeIndicator = pending && index === (replacement ? 0 : physical.length - 1);
+    const tile = takeIndicator ? this.indicatorTile : replacement ? this.wall.shift() : this.wall.pop();
+    if (takeIndicator) { this.indicatorTaken = true; this.indicatorTakenBy = player; }
+    else if (replacement) this.wallInfo.tailDraws++;`, 'draw the real exposed tile at its insertion position');
+const drawLog = '    this._log(player === 0 ? `你${replacement ? \'补\' : \'摸\'}到${tileName(tile)}。` : `${this.players[player].name}${replacement ? \'补牌\' : \'摸牌\'}。`);';
+replaceOnce(drawLog, drawLog + '\n    if (takeIndicator) this._log(`${this.players[player].name}${replacement ? \'补牌\' : \'摸牌\'}取走明示皮子${tileName(tile)}。`);', 'public exposed-tile transfer log');
+replaceChecked('this.wall.length === 0 &&', '!this._canDrawTile() &&', 2, 'special-only hands exhaust after the exposed tile is taken');
+replaceOnce('...(this.indicatorTile === null ? [] : [this.indicatorTile]),',
+  '...(this.indicatorTile === null || this.indicatorTaken ? [] : [this.indicatorTile]),', 'do not count the taken indicator twice in visible owners');
 export const legacyWallOracle = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 /** Independent seeded shuffle/roll prediction for rule-specific fixtures. */

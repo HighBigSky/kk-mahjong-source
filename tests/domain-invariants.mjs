@@ -31,7 +31,7 @@ function physicalTiles(game) {
       ...player.hand, ...player.discards, ...player.redGangs, ...(player.piziGangs ?? []),
       ...player.melds.flatMap(meld => meld.tiles),
     ]),
-    ...(game.indicatorTile === null ? [] : [game.indicatorTile]),
+    ...(game.indicatorTile === null || game.indicatorTaken ? [] : [game.indicatorTile]),
   ];
 }
 
@@ -52,6 +52,7 @@ function observableState(game) {
     round: game.round, dealer: game.dealer, current: game.current,
     phase: phaseKind(game), wall: game.wall, wallInfo: game.wallInfo, players: game.players,
     laiziEnabled: game.laiziEnabled, indicatorTile: game.indicatorTile, wildTile: game.wildTile,
+    indicatorTaken:game.indicatorTaken === true, indicatorTakenBy:game.indicatorTakenBy ?? null,
     pendingDiscard: game.pendingDiscard, lastDraw: game.lastDraw,
     winner: game.winner, result: game.result,
   };
@@ -143,6 +144,8 @@ function playRandomPair(oldGame, newGame, random, checkInvariants, report, seed)
   const entry = {
     seed, steps, laizi: oldGame.laiziEnabled, round: oldGame.round, dealer: oldGame.dealer,
     result: oldGame.result.kind, scores: newGame.players.map(player => player.score),
+    indicatorTaken:newGame.indicatorTaken === true,
+    indicatorTakenBy:newGame.indicatorTakenBy ?? null,
     oldEventsSha256: hash(JSON.stringify(oldGame.events)),
     newEventsSha256: hash(JSON.stringify(newGame.events)),
     stepLogsSha256: transcript.digest('hex'),
@@ -260,6 +263,7 @@ export async function runDomainRegression({ writeReport = true } = {}) {
     const options = { seed, laizi: round >= 4 };
     playAIPair(new oracle.MahjongGame(options), new current.MahjongGame(options), checkInvariants, report, seed);
   }
+  if (!baselineOnly) assert.ok(report.rounds.some(round=>round.indicatorTaken), 'original random seeds exercise the exposed physical indicator transfer');
   if (!baselineOnly) {
     // Closed ordinary hands no longer claim discards, so the unchanged original
     // seeds need not include a human Hu. Add a separately reported real deal;

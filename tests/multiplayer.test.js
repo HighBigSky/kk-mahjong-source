@@ -200,16 +200,18 @@ test('four remote players receive white indicator and green wild after a red rev
     }
   }
   assert.equal(room.streams[0].latest.state.actions.redGang, true);
-  const replacementTile = game.wall[0];
+  const takesIndicator = game.wallInfo.indicatorPosition === game.wallInfo.tailDraws;
+  const replacementTile = takesIndicator ? game.indicatorTile : game.wall[0];
   const wallInfo = structuredClone(game.wallInfo);
   const accepted = await room.request(0, 'action', {
     action: { kind: 'redGang' }, version: room.room.version, requestId: 'returned-red-gang',
   });
   assert.equal(accepted.status, 200);
   assert.deepEqual(game.players[0].redGangs, [RED_DRAGON]);
-  assert.equal(game.wall.length, 81);
+  assert.equal(game.wall.length, takesIndicator ? 82 : 81);
   assert.equal(game.lastDraw.tile, replacementTile, 'the authoritative kong replacement comes from the wall tail');
-  assert.deepEqual(game.wallInfo, { ...wallInfo, tailDraws: wallInfo.tailDraws + 1 });
+  assert.deepEqual(game.wallInfo, { ...wallInfo, tailDraws: wallInfo.tailDraws + (takesIndicator ? 0 : 1) });
+  assert.equal(game.indicatorTaken, takesIndicator);
   assertInvariants(game);
   for (let player = 0; player < 4; player++) {
     const stream = room.streams[player];
@@ -409,7 +411,7 @@ test('four HTTP clients finish a seeded round with conserved tiles and exact eng
     const physicalKnown = room.streams.flatMap(stream => stream.latest.state.players[0].hand);
     const publicState = room.streams[0].latest.state;
     physicalKnown.push(...publicState.players.flatMap(seat => [...seat.discards, ...seat.redGangs, ...seat.piziGangs, ...seat.melds.flatMap(meld => meld.tiles)]));
-    if (publicState.indicatorTile !== null) physicalKnown.push(publicState.indicatorTile);
+    if (publicState.indicatorTile !== null && !publicState.indicatorTaken) physicalKnown.push(publicState.indicatorTile);
     assert.equal(physicalKnown.length + publicState.wallCount, 136);
     assert.ok(Array.from({ length: 34 }, (_, tile) => physicalKnown.filter(value => value === tile).length).every(count => count <= 4));
   }
@@ -534,4 +536,39 @@ test('the owner can remove an offline ghost seat and a departed owner can be rem
   assert.equal(kickedOwner.status, 200);
   assert.equal(h.service.rooms.get(code).owner, 1, 'ownership transfers to the next human seat');
   assert.equal(h.service.rooms.get(code).seats[0], null);
+});
+
+test('all four clients agree when a kong supplement takes the exposed indicator and the player declares it again', async t => {
+  const h=await harness(t),room=await fourPlayers(h,{laizi:true});
+  await room.start();
+  const hand=[0,2,4,6,8,9,11,13,15,17,18,20,22,RED_DRAGON];
+  const game=actionFixture({names:room.names,seat:2,hand});
+  game.wallInfo.tailDraws=game.wallInfo.indicatorPosition;
+  room.room.game=game;h.service._changed(room.room);await room.sync(room.room.version);
+  const count=game.wall.length,indicator=game.indicatorTile,position=game.wallInfo.indicatorPosition;
+  const first={action:{kind:'redGang'},version:room.room.version,requestId:'take-exposed-indicator'};
+  assert.equal((await room.request(2,'action',first)).status,200);
+  assert.equal(game.indicatorTaken,true);assert.equal(game.indicatorTakenBy,2);
+  assert.equal(game.wall.length,count);assert.equal(game.lastDraw.tile,indicator);
+  const after=room.room.version;
+  assert.equal((await room.request(2,'action',first)).data.duplicate,true);
+  assert.equal(room.room.version,after);
+  for(let viewer=0;viewer<4;viewer++){
+    const state=room.streams[viewer].latest.state;
+    assert.equal(state.indicatorTaken,true);assert.equal(state.indicatorTakenBy,(2-viewer+4)%4);
+    assert.equal(state.wallCount,count);assert.equal(state.indicatorTile,indicator);
+    assert.equal(state.wallInfo.indicatorPosition,position);assertPrivacy(room.streams[viewer].latest);
+    if(viewer===2){assert.equal(state.players[0].hand[state.lastDraw.index],indicator);assert.equal(state.lastDraw.replacement,true);}
+    else assert.equal(state.lastDraw,null,'ordinary hidden draws remain private');
+    const refreshed=await h.api(`/api/rooms/${room.code}/state`,{token:room.tokens[viewer]});
+    assert.equal(refreshed.data.state.indicatorTaken,true);
+    assert.equal(refreshed.data.state.indicatorTakenBy,(2-viewer+4)%4);
+  }
+  const next=game.wall[0];
+  assert.equal((await room.request(2,'action',{action:{kind:'piziGang'},version:room.room.version,requestId:'declare-taken-indicator'})).status,200);
+  assert.equal(game.wall.length,count-1);assert.equal(game.lastDraw.tile,next);
+  assert.deepEqual(game.players[2].piziGangs,[indicator]);
+  assert.deepEqual(game.gangScoreDelta,[-20,-20,60,-20]);
+  for(let viewer=0;viewer<4;viewer++)assert.deepEqual(room.streams[viewer].latest.state.players[(2-viewer+4)%4].piziGangs,[indicator]);
+  assertInvariants(game);
 });

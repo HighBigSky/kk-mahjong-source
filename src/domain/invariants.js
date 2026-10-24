@@ -19,7 +19,7 @@ export function collectPhysicalTiles(state) {
       ...player.hand, ...player.discards, ...player.redGangs, ...(player.piziGangs || []),
       ...player.melds.flatMap(meld => meld.tiles),
     ]),
-    ...(state.indicatorTile === null ? [] : [state.indicatorTile]),
+    ...(state.indicatorTile === null || state.indicatorTaken ? [] : [state.indicatorTile]),
   ];
 }
 
@@ -68,6 +68,10 @@ export function assertInvariants(state, previousPhase) {
     }
   }
   const wallInfo = state.wallInfo;
+  if (typeof state.indicatorTaken !== 'boolean' ||
+      (state.indicatorTaken ? state.indicatorTile === null || wallInfo?.indicatorPosition == null || !isPlayerId(state.indicatorTakenBy) : state.indicatorTakenBy !== null)) {
+    throw new Error('The exposed indicator must have one valid taken state and taker.');
+  }
   if (!wallInfo || !Array.isArray(wallInfo.dice) || wallInfo.dice.length !== 2 ||
       wallInfo.dice.some(value => !Number.isInteger(value) || value < 1 || value > 6) ||
       !Number.isInteger(wallInfo.tailDraws) || wallInfo.tailDraws < 0 ||

@@ -624,7 +624,7 @@ function renderDiscardFocus() {
 
 function renderTing() {
   const seat = game.players[0];
-  const visibleTiles = [...game.players.flatMap(player => [...player.discards, ...player.redGangs, ...(player.piziGangs || []), ...player.melds.flatMap(meld => meld.tiles)]), ...(game.indicatorTile == null ? [] : [game.indicatorTile])];
+  const visibleTiles = [...game.players.flatMap(player => [...player.discards, ...player.redGangs, ...(player.piziGangs || []), ...player.melds.flatMap(meld => meld.tiles)]), ...(game.indicatorTile == null || game.indicatorTaken ? [] : [game.indicatorTile])];
   const eligible = network.status === 'connected' && network.room?.status === 'playing' && !network.room.paused && !network.busy && !specialGangPending && !openingDeal.active && game.phase.kind !== PHASE.DEALING && $('#dice-intro').hidden;
   hintState = eligible ? calculateHints({hand:seat.hand, melds:seat.melds, wildTile:game.wildTile, indicatorTile:game.indicatorTile, visibleTiles}) : {mode:'none', candidates:[]};
   // 第四张已经打出时仍可接胡，但不能伪称墙内还有该牌。

@@ -2,7 +2,7 @@ import { PHASE } from '../domain/model.js';
 
 const SESSION_KEY = 'queqi-room-session';
 const emptyActions = () => ({ hu:false, peng:false, gang:false, redGang:false, piziGang:false, chi:[], pass:false, concealedGangs:[], addedGangs:[] });
-const emptyState = () => ({ players:Array.from({length:4}, () => ({name:'等待好友', hand:[], melds:[], redGangs:[], piziGangs:[], discards:[], score:1000})), wall:{length:0}, phase:{kind:PHASE.DEALING, dealt:0}, current:null, dealer:0, round:0, pendingDiscard:null, lastDiscard:null, result:null, winner:null, lastDraw:null, events:[], actionNotice:null, laiziEnabled:false, indicatorTile:null, wildTile:null, wallInfo:null });
+const emptyState = () => ({ players:Array.from({length:4}, () => ({name:'等待好友', hand:[], melds:[], redGangs:[], piziGangs:[], discards:[], score:1000})), wall:{length:0}, phase:{kind:PHASE.DEALING, dealt:0}, current:null, dealer:0, round:0, pendingDiscard:null, lastDiscard:null, result:null, winner:null, lastDraw:null, events:[], actionNotice:null, laiziEnabled:false, indicatorTile:null, indicatorTaken:false, indicatorTakenBy:null, wildTile:null, wallInfo:null });
 
 /** Same-origin HTTP commands and server-sent snapshots. No rules run in this adapter. */
 export function createRoomClient({ onChange = () => {}, onBusyChange, onError = () => {} } = {}) {

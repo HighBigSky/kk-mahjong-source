@@ -6,7 +6,7 @@ import {
   SUIT_SIZE, HONOR_COUNT, MAX_SEQUENCE_START_RANK,
   isTileCode, isNumbered, isJiangTile, suitOf, rankOf, suitStartOf,
 } from './src/domain/tile.js';
-import { PHASE, ACTION, isPlayerId } from './src/domain/model.js';
+import { PHASE, ACTION, isPlayerId, nextWallSlot } from './src/domain/model.js';
 import { assertPhaseTransition } from './src/domain/invariants.js';
 import { SCORE_RULES, SCORING_TEXT } from './src/domain/scoring.js';
 
@@ -470,6 +470,10 @@ export class MahjongGame {
   _responses = [];
   /** @type {TileCode|null} */
   indicatorTile = null;
+  /** 明示实牌的归属独立于牌面类型，取走后仍沿用本局痞子规则。 */
+  indicatorTaken = false;
+  /** @type {PlayerId|null} */
+  indicatorTakenBy = null;
   /** @type {TileCode|null} */
   wildTile = null;
   /** @type {WallInfo} */
@@ -513,6 +517,8 @@ export class MahjongGame {
     }
     this.laiziEnabled = Boolean(laizi);
     this.indicatorTile = null;
+    this.indicatorTaken = false;
+    this.indicatorTakenBy = null;
     this.wildTile = null;
     this.wallInfo = {
       dice: [Math.floor(this._diceRandom() * DICE_SIDES) + 1, Math.floor(this._diceRandom() * DICE_SIDES) + 1],
@@ -587,7 +593,7 @@ export class MahjongGame {
     if (seat.melds.length < 4) {
       // 癞子不能按原牌面吃碰，也不能作为手中搭子参与吃；杠和胡沿用各自规则。
       actions.peng = tile !== this.wildTile && counts[tile] >= 2;
-      actions.gang = counts[tile] >= 3 && this.wall.length > 0;
+      actions.gang = counts[tile] >= 3 && this._canDrawTile();
       if (tile !== this.wildTile && player === (this.pendingDiscard.from + 1) % 4 && isNumbered(tile)) {
         for (let start = tile - 2; start <= tile; start++) {
           if (start < TILE.MAN || suitOf(start) !== suitOf(tile) || rankOf(start) > MAX_SEQUENCE_START_RANK) continue;
@@ -614,7 +620,7 @@ export class MahjongGame {
     if (!counts) return actions;
     const replacement = this.lastDraw?.player === player && this.lastDraw.replacement === true;
     actions.hu = this.lastDraw?.player === player && canWin(seat.hand, seat.melds, this.wildTile, this.indicatorTile, true, replacement);
-    if (this.wall.length > 0) {
+    if (this._canDrawTile()) {
       // 同牌多重身份只开放最高优先级入口：皮子 > 红中 > 癞子。
       actions.redGang = this.indicatorTile !== RED_DRAGON && counts[RED_DRAGON] > 0;
       actions.piziGang = this.indicatorTile !== null && counts[this.indicatorTile] > 0;
@@ -802,7 +808,7 @@ export class MahjongGame {
     this._setPhase({ kind: PHASE.DISCARD, seat: player });
     this._log(`${seat.name}${{ chi: '吃', peng: '碰', gang: '明杠' }[action]}${tileName(tile)}。`);
     if (action === 'gang') this._drawTile(player, true);
-    else if (this.wall.length === 0 && seat.hand.length > 0 && seat.hand.every(value => isSpecialGangTile(value, this.indicatorTile))) {
+    else if (!this._canDrawTile() && seat.hand.length > 0 && seat.hand.every(value => isSpecialGangTile(value, this.indicatorTile))) {
       this._finishDraw(this._blockedSpecialGangReason(seat.hand));
     }
   }
@@ -825,20 +831,31 @@ export class MahjongGame {
     this._drawTile(player, true);
   }
 
+  /** 明示实牌可能是最后一张可补牌，此时余牌计数仍为零。 @returns {boolean} */
+  _canDrawTile() {
+    return nextWallSlot(this.wall.length, this.wallInfo, this.indicatorTile !== null, this.indicatorTaken, true) !== null;
+  }
+
   /** @param {PlayerId} player @param {boolean} [replacement] @returns {boolean} */
   _drawTile(player, replacement = false) {
     this.current = player;
-    if (!this.wall.length) {
+    const slot = nextWallSlot(this.wall.length, this.wallInfo, this.indicatorTile !== null, this.indicatorTaken, replacement);
+    if (slot === null) {
       this._finishDraw(); return false;
     }
-    const tile = /** @type {TileCode} */ (replacement ? this.wall.shift() : this.wall.pop());
-    if (replacement) this.wallInfo.tailDraws++;
+    const takeIndicator = !this.indicatorTaken && this.indicatorTile !== null && slot === this.wallInfo.indicatorPosition;
+    const tile = /** @type {TileCode} */ (takeIndicator ? this.indicatorTile : replacement ? this.wall.shift() : this.wall.pop());
+    if (takeIndicator) {
+      this.indicatorTaken = true;
+      this.indicatorTakenBy = player;
+    } else if (replacement) this.wallInfo.tailDraws++;
     const hand = this.players[player].hand;
     hand.push(tile); hand.sort((a, b) => a - b);
     this._setPhase({ kind: PHASE.DISCARD, seat: player });
     this.lastDraw = { player, tile, index: hand.lastIndexOf(tile), replacement };
     this._log(player === 0 ? `你${replacement ? '补' : '摸'}到${tileName(tile)}。` : `${this.players[player].name}${replacement ? '补牌' : '摸牌'}。`);
-    if (this.wall.length === 0 && hand.length > 0 && hand.every(value => isSpecialGangTile(value, this.indicatorTile))) {
+    if (takeIndicator) this._log(`${this.players[player].name}${replacement ? '补牌' : '摸牌'}取走明示皮子${tileName(tile)}。`);
+    if (!this._canDrawTile() && hand.length > 0 && hand.every(value => isSpecialGangTile(value, this.indicatorTile))) {
       this._finishDraw(this._blockedSpecialGangReason(hand));
     }
     return true;
@@ -847,7 +864,7 @@ export class MahjongGame {
   /** @returns {TileCode[]} */
   _visibleTiles() {
     return [
-      ...(this.indicatorTile === null ? [] : [this.indicatorTile]),
+      ...(this.indicatorTile === null || this.indicatorTaken ? [] : [this.indicatorTile]),
       ...this.players.flatMap(player => [...player.discards, ...player.redGangs, ...player.piziGangs, ...player.melds.flatMap(meld => meld.tiles)]),
     ];
   }

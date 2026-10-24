@@ -155,14 +155,15 @@ test('holding an indicator still permits an ordinary peng, followed by an option
   assertConservation(game);
 });
 
-test('all three concealed indicator copies and red dragons can be declared through consecutive tail supplements', () => {
+test('all four indicator copies including the exposed tile can be declared through consecutive tail supplements', () => {
   const game = fixture({ hand: [...scattered.slice(0, 10), PIZI, PIZI, RED_DRAGON, RED_DRAGON], draws: [PIZI, RED_DRAGON, TILE.WEST, TILE.NORTH, TILE.SOUTH, TILE.EAST] });
-  for (let step = 0; step < 6; step++) {
+  for (let step = 0; step < 7; step++) {
     const actions = game.getActions(0);
     assert.equal(game.claim(0, actions.redGang ? 'redGang' : 'piziGang'), true);
     assertConservation(game);
   }
-  assert.deepEqual(game.players[0].piziGangs, [PIZI, PIZI, PIZI]);
+  assert.deepEqual(game.players[0].piziGangs, [PIZI, PIZI, PIZI, PIZI]);
+  assert.equal(game.indicatorTaken, true);
   assert.deepEqual(game.players[0].redGangs, [RED_DRAGON, RED_DRAGON, RED_DRAGON]);
   assert.equal(game.wallInfo.tailDraws, 6);
   assert.equal(game.players[0].hand.length, 14);
@@ -355,4 +356,69 @@ test('invariants reject an undeclared winning indicator and malformed public ind
   const ordinaryIndex = malformed.players[0].hand.findIndex(tile => tile !== PIZI);
   malformed.players[0].piziGangs.push(malformed.players[0].hand.splice(ordinaryIndex, 1)[0]);
   assert.throws(() => assertInvariants(malformed), /declared indicator kong/);
+});
+
+for (const replacement of [false, true]) {
+  test(`${replacement ? 'tail supplement' : 'head draw'} transfers the exposed indicator without consuming a back`, () => {
+    const game = fixture({hand:scattered, seat:1, draws:[TILE.WEST]});
+    if (replacement) game.wallInfo.tailDraws = game.wallInfo.indicatorPosition;
+    else limitWall(game, game.wallInfo.indicatorPosition);
+    const before = {count:game.wall.length, tail:game.wallInfo.tailDraws, scores:game.players.map(player=>player.score)};
+    assert.equal(game._drawTile(1, replacement), true);
+    assert.equal(game.indicatorTaken, true);
+    assert.equal(game.indicatorTakenBy, 1);
+    assert.equal(game.indicatorTile, PIZI);
+    assert.equal(game.wildTile, nextWildTile(PIZI));
+    assert.deepEqual(game.lastDraw, {player:1,tile:PIZI,index:game.players[1].hand.lastIndexOf(PIZI),replacement});
+    assert.equal(game.players[1].hand.length, 14);
+    assert.equal(game.wall.length, before.count);
+    assert.equal(game.wallInfo.tailDraws, before.tail);
+    assert.deepEqual(game.players.map(player=>player.score), before.scores);
+    assert.equal(game.getActions(1).piziGang, true);
+    assert.equal(game.getActions(1).hu, false);
+    assert.equal(game.discard(1, game.lastDraw.index), false);
+    assertConservation(game);
+
+    const next = game.wall[0];
+    assert.equal(game.claim(1, 'piziGang'), true);
+    assert.deepEqual(game.players[1].piziGangs, [PIZI]);
+    assert.equal(game.wall.length, before.count - 1);
+    assert.equal(game.wallInfo.tailDraws, before.tail + 1);
+    assert.equal(game.lastDraw.tile, next);
+    assert.equal(game.lastDraw.replacement, true);
+    assert.deepEqual(game.players.map(player=>player.score), before.scores.map((score,seat)=>score+(seat===1?30:-10)));
+    const settled = stateOf(game);
+    assert.equal(game.claim(1, 'piziGang'), false, 'the same physical tile cannot be declared twice');
+    assert.deepEqual(stateOf(game), settled);
+    assertConservation(game);
+  });
+}
+
+test('a player may retain the exposed indicator and discard an ordinary tile without declaring or scoring a kong', () => {
+  const game = fixture({hand:scattered, seat:2});
+  game.wallInfo.tailDraws = game.wallInfo.indicatorPosition;
+  assert.equal(game._drawTile(2, true), true);
+  const scores = game.players.map(player=>player.score);
+  const ordinaryIndex = game.players[2].hand.findIndex(tile=>!isSpecialGangTile(tile, PIZI));
+  assert.equal(game.discard(2, ordinaryIndex), true);
+  assert.ok(game.players[2].hand.includes(PIZI));
+  assert.deepEqual(game.players[2].piziGangs, []);
+  assert.deepEqual(game.players.map(player=>player.score), scores);
+  assert.equal(game.indicatorTakenBy, 2);
+  assertConservation(game);
+});
+
+test('the last physical exposed indicator enters the hand before a special-only turn ends in a draw', () => {
+  const game = fixture({hand:[], draws:[]});
+  limitWall(game, 0);
+  game.wallInfo.tailDraws = game.wallInfo.indicatorPosition;
+  assert.equal(game._drawTile(0, true), true);
+  assert.deepEqual(game.players[0].hand, [PIZI]);
+  assert.equal(game.indicatorTaken, true);
+  assert.equal(game.indicatorTakenBy, 0);
+  assert.equal(game.phase.kind, 'ended');
+  assert.equal(game.result.kind, 'draw');
+  assert.equal(game.wall.length, 0);
+  assert.equal(game.getActions(0).piziGang, false);
+  assertConservation(game);
 });

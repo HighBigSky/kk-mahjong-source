@@ -10,7 +10,7 @@ const ordinaryWin = [0, 1, 2, 3, 4, 5, 9, 10, 11, 27, 27, 27, 25, 25];
 
 function physicalTiles(game) {
   return [
-    ...(game.indicatorTile === null ? [] : [game.indicatorTile]),
+    ...(game.indicatorTile === null || game.indicatorTaken ? [] : [game.indicatorTile]),
     ...game.wall,
     ...game.players.flatMap(player => [
       ...player.hand, ...player.discards, ...player.redGangs, ...player.piziGangs,
@@ -450,4 +450,21 @@ test('eight complete optional-mode AI rounds conserve tiles, scores, and the rev
     assert.deepEqual(game.players.map(player => player.score), scores);
     assertConservation(game);
   }
+});
+
+test('the indicator type continues to forbid Hu after its exposed physical copy is taken', () => {
+  const game=fixture({hand:[0,0,1,1,2,2,9,9,10,10,25,25,33]});
+  game.wallInfo.tailDraws=game.wallInfo.indicatorPosition;
+  const count=game.wall.length;
+  assert.equal(game._drawTile(0,true),true);
+  assert.equal(game.indicatorTaken,true);
+  assert.equal(game.wall.length,count);
+  assert.equal(game.indicatorTile,33);
+  assert.equal(game.wildTile,WILD);
+  assert.equal(isWinning(game.players[0].hand,0,WILD),true,'the raw seven-pairs shape is complete');
+  assert.equal(isWinning(game.players[0].hand,0,WILD,game.indicatorTile),false,'the retained indicator type still blocks Hu');
+  assert.equal(game.getActions(0).hu,false);
+  assert.equal(game.getActions(0).piziGang,true);
+  assertConservation(game);
+  assertInvariants(game);
 });

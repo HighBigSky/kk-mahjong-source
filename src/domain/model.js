@@ -25,7 +25,7 @@ export const ACTION = Object.freeze({
 /** @typedef {{tile:TileCode, from:PlayerId}} PendingDiscard */
 /**
  * Slots count from the wall tail: even positions are upper tiles, odd lower.
- * The exposed indicator owns its tile separately; its original slot stays visible.
+ * tailDraws counts concealed wall tiles taken from the tail, excluding the indicator.
  * @typedef {{dice:[number, number], indicatorPosition:number|null, tailDraws:number}} WallInfo
  */
 /** @typedef {{name:string, points:number}} ScoreBreakdown */
@@ -90,6 +90,7 @@ export const ACTION = Object.freeze({
  *            lastDiscard?:{from:PlayerId,tile:TileCode,index:number}|null,
  *            result:GameResult|null, winner:PlayerId|null, lastDraw:LastDraw|null,
  *            events:string[], laiziEnabled:boolean, indicatorTile:TileCode|null,
+ *            indicatorTaken:boolean, indicatorTakenBy:PlayerId|null,
  *            wildTile:TileCode|null, wallInfo:WallInfo}} GameState
  */
 
@@ -99,4 +100,20 @@ export const ACTION = Object.freeze({
  */
 export function isPlayerId(player) {
   return typeof player === 'number' && Number.isInteger(player) && player >= 0 && player < PLAYER_COUNT;
+}
+
+/** 下一张实际槽位；明示痞子不计余牌，但未取走前仍占据原来的摸补顺序。
+ * @param {number} remaining @param {WallInfo} info
+ * @param {boolean} hasIndicator @param {boolean} indicatorTaken
+ * @param {boolean} [replacement] @returns {number|null}
+ */
+export function nextWallSlot(remaining, info, hasIndicator, indicatorTaken, replacement = false) {
+  const position = hasIndicator ? info.indicatorPosition : null;
+  if (position !== null && !indicatorTaken) {
+    const offset = position - info.tailDraws;
+    if (offset === (replacement ? 0 : remaining)) return position;
+  }
+  if (remaining === 0) return null;
+  const rank = replacement ? info.tailDraws : info.tailDraws + remaining - 1;
+  return rank + (position !== null && rank >= position ? 1 : 0);
 }

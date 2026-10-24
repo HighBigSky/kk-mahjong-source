@@ -100,14 +100,7 @@ async function publish(page, room, game) {
 }
 
 function nextSlot(game) {
-  let taken = 0;
-  let slot = 0;
-  while (taken < game.wallInfo.tailDraws) {
-    if (slot !== game.wallInfo.indicatorPosition) taken++;
-    slot++;
-  }
-  if (slot === game.wallInfo.indicatorPosition) slot++;
-  return slot;
+  return liveSlots(game)[0] ?? -1;
 }
 
 /** Independent physical-slot oracle; neither concealed tile codes nor UI data. */
@@ -115,7 +108,9 @@ function liveSlots(game) {
   const indicator = game.indicatorTile === null ? -1 : game.wallInfo.indicatorPosition;
   const available = Array.from({length:TOTAL_TILE_COUNT}, (_, slot) => slot).filter(slot => slot !== indicator);
   const start = game.wallInfo.tailDraws;
-  return available.slice(start, start + game.wall.length);
+  const slots = available.slice(start, start + game.wall.length);
+  if (indicator >= 0 && !game.indicatorTaken) slots.push(indicator);
+  return slots.sort((a,b)=>a-b);
 }
 
 let observerRoom;
@@ -186,7 +181,7 @@ function assertPublicWall(state, game) {
   assert.ok(state.badges.every(value=>value==='none'));
   assert.equal(state.directionLabels,4);
   assert.ok(state.arrows.every(value=>value==='""'));
-  assert.deepEqual(state.faces, game.indicatorTile === null ? [] : [`#tile-${game.indicatorTile}`], 'Only the public indicator may have a visible SVG face.');
+  assert.deepEqual(state.faces, game.indicatorTile === null || game.indicatorTaken ? [] : [`#tile-${game.indicatorTile}`], 'Only the untaken public indicator may have a visible SVG face.');
   assert.deepEqual(state.publicWallKeys, ['length'], 'The client must receive a count, never the concealed wall array.');
   assert.deepEqual(state.wallInfoKeys, ['dice', 'indicatorPosition', 'tailDraws']);
   assert.equal(state.ownHandVisible, true);
@@ -197,7 +192,7 @@ function assertPublicWall(state, game) {
   assert.equal(state.backs, game.wall.length, 'One visible back per live wall tile.');
   assert.equal(state.count, game.wall.length, 'The wall caption uses the server count.');
   assert.equal(state.centerCount, game.wall.length, 'The central live count agrees with the wall.');
-  assert.deepEqual(state.indicator, game.indicatorTile === null ? [] : [game.wallInfo.indicatorPosition]);
+  assert.deepEqual(state.indicator, game.indicatorTile === null || game.indicatorTaken ? [] : [game.wallInfo.indicatorPosition]);
   assert.equal(state.empty, TOTAL_TILE_COUNT - game.wall.length - state.indicator.length);
   const live = liveSlots(game);
   assert.deepEqual(state.next, live.length ? [live[0]] : []);
@@ -212,12 +207,14 @@ async function screenshot(page, name) {
 
 /** Fixture only: perform real engine draws, then retain each real tile in its river. */
 function drawIntoRiver(game, player, replacement) {
+  const wasTaken = game.indicatorTaken;
   assert.equal(game._drawTile(player, replacement), true);
   const tile = game.lastDraw.tile;
   const hand = game.players[player].hand;
   const index = hand.lastIndexOf(tile);
   assert.ok(index >= 0);
-  game.players[player].discards.push(hand.splice(index, 1)[0]);
+  const destination = !wasTaken && game.indicatorTaken ? game.players[player].piziGangs : game.players[player].discards;
+  destination.push(hand.splice(index, 1)[0]);
   game.lastDraw = null;
   assertInvariants(game);
 }
@@ -377,7 +374,8 @@ try {
   // Late-wall display fixture, not a claim that twenty supplement draws form a
   // legal complete game: every draw is real, and every physical tile is retained.
   const late = new MahjongGame({seed:normal.seed, laizi:true});
-  for (let draw = 0; draw < 20; draw++) drawIntoRiver(late, draw % 4, true);
+  for (let draw = 0; late.wallInfo.tailDraws < 20; draw++) drawIntoRiver(late, draw % 4, true);
+  assert.equal(late.indicatorTaken, true);
   for (let player = 0; player < 4; player++) {
     const limit = player === 0 || player === 2 ? 12 : 8;
     while (late.players[player].discards.length < limit) drawIntoRiver(late, player, false);
@@ -426,13 +424,15 @@ try {
   // markers without presenting the synthetic sequence as a legal whole game.
   const boundary = new MahjongGame({seed:normal.seed, laizi:true});
   while (boundary.wall.length > 2) drawIntoRiver(boundary, boundary.wall.length % 4, false);
+  if (!boundary.indicatorTaken) drawIntoRiver(boundary, 0, false);
+  assert.equal(boundary.indicatorTaken, true);
   await page.setViewportSize({width:844,height:390});
   for (const remaining of [2, 1, 0]) {
     await publish(page, room, boundary);
     const state = await wallState(page);
     assertPublicWall(state, boundary);
     assert.equal(state.backs, remaining);
-    assert.deepEqual(state.indicator, initial.indicator);
+    assert.deepEqual(state.indicator, [], 'the original exposed slot is now empty');
     if (remaining === 1) assert.deepEqual(state.head, state.next, 'The final live tile is both the head and tail.');
     if (remaining === 0) { assert.deepEqual(state.head, []); assert.deepEqual(state.next, []); }
     assert.equal(collectPhysicalTiles(boundary).length, TOTAL_TILE_COUNT);
@@ -441,7 +441,7 @@ try {
     if (remaining > 0) drawIntoRiver(boundary, 0, remaining === 1);
   }
   await screenshot(page, 'ui-wall-empty-390x844.png');
-  report.checks.push('A conservation-checked display fixture reaches 2→1→0 with a head draw then a tail supplement: counts decrease one by one, the indicator never moves, the last tile carries both markers, and zero tiles carry neither marker.');
+  report.checks.push('A conservation-checked display fixture takes the exposed tile then reaches 2→1→0: the original indicator slot is empty, the last back carries both markers, and the physically empty wall carries neither marker.');
 
   const redReveal = findGame((game, seed) => {
     const unflipped = new MahjongGame({seed, laizi:false});
