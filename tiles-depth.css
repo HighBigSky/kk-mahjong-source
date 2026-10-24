@@ -17,9 +17,9 @@
   --tile-contact-blur: .55cqw;
   --tile-default-depth: .48cqw;
   --tile-default-side: .18cqw;
-  /* 本家立牌从正前方观看，底面与侧面均被正面遮住。 */
-  --tile-hand-depth: 0px;
-  --tile-hand-side: 0px;
+  /* 本家薄底与裸露侧面都画在原牌框内，手牌再按牌宽细调厚度。 */
+  --tile-hand-depth: 2px;
+  --tile-hand-side: 1px;
   --tile-hand-radius: .82cqw;
   --tile-river-depth: .48cqw;
   --tile-river-side: .18cqw;
@@ -127,42 +127,75 @@
 }
 
 .hand .tile {
+  --tile-hand-depth: clamp(2px, calc(var(--hand-width, 6.18cqw) * .07), 3px);
+  --tile-hand-side: clamp(1px, calc(var(--hand-width, 6.18cqw) * .04), 2px);
   --tile-depth: var(--tile-hand-depth);
   --tile-side: var(--tile-hand-side);
-  /* 正常态全是象牙色正面；相邻牌仅用单条暖灰线分隔，不绘制绿色树脂。 */
-  --tile-body: var(--tile-face);
+  --hand-bevel: clamp(.5px, calc(var(--hand-width, 6.18cqw) * .02), 1px);
+  --tile-resin-light: #638e70;
+  --tile-resin: #3c7353;
+  --tile-resin-dark: #214c37;
+  /* 底面与两处裸露侧面共用色阶；暖白高光、浅绿和深绿连续过渡。 */
+  --hand-material-stops: #fff8e8 0%, #eeeeda 14%, #c5d2b9 30%, var(--tile-resin-light) 48%, var(--tile-resin) 74%, var(--tile-resin-dark) 100%;
+  --hand-left-exposed: 0px;
+  --hand-right-exposed: 0px;
+  --hand-face-width: calc((var(--hand-height, 9.4cqw) - 1px - var(--tile-depth) - var(--hand-bevel)) * 5 / 7);
+  --tile-body:
+    linear-gradient(180deg, var(--hand-material-stops)) bottom / 100% var(--tile-depth) no-repeat,
+    var(--tile-face);
+  background: var(--tile-body);
   border: 0;
   border-right: 1px solid #b6aa8d;
   border-bottom: 1px solid #453e31;
   border-radius: var(--tile-hand-radius);
   box-shadow:
-    .08cqw .25cqw .16cqw #031a12b3,
-    .22cqw .55cqw var(--tile-contact-blur) #041c1459;
+    .06cqw .16cqw .12cqw #031a12b3,
+    .18cqw .45cqw var(--tile-contact-blur) #041c1459;
   transition: transform .14s, background .14s, box-shadow .14s;
 }
 
 .hand .tile::before {
-  /* 整个正面铺满内容框，外部 1px 深色底边独立表达立牌厚度。 */
-  inset: 0;
-  border: 0;
+  /* 内缩牌面与 SVG 共用 5:7 平面；上左亮、下右暗的窄倒角不扩大牌框。 */
+  inset: var(--hand-bevel) auto var(--tile-depth) 50%;
+  width: var(--hand-face-width);
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  border: 1px solid #fff9e9;
+  border-right-color: #d8cfb8;
+  border-bottom-color: #d4cbb4;
   box-shadow:
-    inset var(--tile-bevel) var(--tile-bevel) var(--tile-bevel) #ffffffd9,
-    inset calc(var(--tile-bevel) * -.9) calc(var(--tile-bevel) * -1.4) calc(var(--tile-bevel) * 1.6) #82765033;
+    inset .5px .5px .7px #ffffffb3,
+    inset -.5px -.7px .8px #897b5c26;
 }
 
-.hand .tile svg { width: 100%; height: 100%; border-radius: inherit; }
+.hand .tile svg {
+  position: absolute;
+  top: var(--hand-bevel);
+  left: 50%;
+  width: var(--hand-face-width);
+  height: calc(100% - var(--tile-depth) - var(--hand-bevel));
+  transform: translateX(-50%);
+  border-radius: inherit;
+}
 
-/* 只给裸露的两处侧边画 1px 树脂线，不改牌体、牌面或点击框。 */
-.hand .tile:is(:first-child, .drawn)::after {
+/* 透明倒角罩层只在首张左侧、待定牌右侧打开树脂面，其余侧边仅反光。 */
+.hand .tile::after {
   content: "";
   position: absolute;
-  inset: var(--tile-hand-radius) 0;
+  inset: 0;
   border: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(270deg, var(--hand-material-stops)) left / var(--hand-left-exposed) 100% no-repeat,
+    linear-gradient(90deg, var(--hand-material-stops)) right / var(--hand-right-exposed) 100% no-repeat;
+  box-shadow:
+    inset .5px .5px .6px #fffdf4a6,
+    inset -.6px -.4px .65px #5c534633;
   pointer-events: none;
   z-index: 2;
 }
-.hand .tile:first-child::after { border-left: 1px solid #3c7353; }
-.hand .tile.drawn::after { border-right: 1px solid #638e70; }
+.hand .tile:first-child { --hand-left-exposed: var(--tile-side); }
+.hand .tile.drawn { --hand-right-exposed: var(--tile-side); }
 
 .hand .tile:not(:disabled):hover {
   --tile-face: var(--tile-face-hover);
