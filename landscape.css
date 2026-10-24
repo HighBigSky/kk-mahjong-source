@@ -366,14 +366,12 @@ html.in-game #game.is-landscape {
   /* 只内收左右装饰木沿，沿用原纹理尺寸；牌区与上下取景均不缩放。 */
   --table-frame-horizontal-zoom:1.12;
   --table-frame-side-inset:calc(var(--table-frame-size) * (1 - var(--table-frame-horizontal-zoom) / var(--table-frame-zoom)) / 2);
-  /* 唯一实牌基准：只随画布等比变化，与牌数、座位、牌区和阶段无关。 */
+  /* 桌上实牌基准；本家手牌在自身容器内独立放大，不带动其它牌区。 */
   --tile-face-width:calc(var(--table-frame-size) * .03);
   --tile-face-height:calc(var(--tile-face-width) * 7 / 5);
   --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
   --rack-width:calc(var(--stage-width) * .66);
-  --hand-width:var(--tile-face-width);
-  --hand-height:var(--tile-face-height);
   --public-tile-width:var(--tile-face-width);
   --public-tile-height:var(--tile-face-height);
   --self-public-tile-width:var(--tile-face-width);
@@ -588,7 +586,7 @@ html.in-game #game.is-landscape {
 .is-landscape .player-seat .opponent-score { color:#f1d27d; }
 .is-landscape .room-meta { top:13%; left:2%; width:23%; opacity:.7; font-size:calc(var(--ui-unit) * 2.1); flex-direction:column; align-items:flex-start; gap:0; }
 
-/* 本家保持正视；前沿留出副露换行空间，手牌始终居中且尺寸固定。 */
+/* 本家保持正视；前沿留出副露换行空间，手牌在自身可用区域居中。 */
 .is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:50%; width:var(--rack-width); bottom:2%; transform:translateX(-50%); }
 /* 提示放在手牌右下侧，低于吃碰杠热区，显隐不挤动手牌。 */
 .is-landscape .play-assist { position:absolute; left:calc(100% + var(--stage-width) * .012); right:auto; top:auto; bottom:0; width:min(calc(var(--stage-width) * .145),max(48px,calc(var(--ui-unit) * 13))); max-height:none; overflow:visible; border:0; background:none; box-shadow:none; }
@@ -612,7 +610,12 @@ html.in-game #game.is-landscape {
 /* 单张杠沿用普通副露的牌体尺寸与朝向，不再交换宽高或单独横转牌面。 */
 .is-landscape .hand-zone .player-rack {
   --public-reserve:0px;
-  --hand-space:calc(var(--rack-width) - var(--public-reserve) * 2);
+  /* 仅回收手牌对称预留中的空白，副露继续使用原来的预留与牌体尺寸。 */
+  --hand-space:calc(var(--rack-width) - var(--public-reserve) * 1.7);
+  --hand-scale:2.2;
+  /* 14 张约占内容宽度九成；另留原有的水平 padding 与新摸牌间隔。 */
+  --hand-width:min(calc(var(--tile-face-width) * var(--hand-scale)),calc((var(--hand-space) - var(--ui-unit) * 2.7) * .9 / 14));
+  --hand-height:calc(var(--hand-width) * 7 / 5);
   position:relative;
   display:grid;
   grid-template-columns:minmax(0,1fr);
