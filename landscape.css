@@ -36,7 +36,6 @@ html.in-game #game.is-landscape {
   --tile-hand-radius:calc(var(--ui-unit) * .7);
   --tile-bevel:calc(var(--ui-unit) * .14);
   --tile-contact-blur:calc(var(--ui-unit) * .45);
-  --tile-hand-side:calc(var(--ui-unit) * .28);
   --tile-river-depth:calc(var(--table-unit) * .48);
   --tile-river-side:calc(var(--table-unit) * .18);
   --tile-river-radius:calc(var(--table-unit) * .55);

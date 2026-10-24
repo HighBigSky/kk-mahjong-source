@@ -17,9 +17,9 @@
   --tile-contact-blur: .55cqw;
   --tile-default-depth: .48cqw;
   --tile-default-side: .18cqw;
-  /* 保留本家图案的原垂直范围；牌面下沿另行铺到底，不靠减薄牌体消除绿边。 */
-  --tile-hand-depth: min(2px, 3%);
-  --tile-hand-side: .3cqw;
+  /* 本家立牌从正前方观看，底面与侧面均被正面遮住。 */
+  --tile-hand-depth: 0px;
+  --tile-hand-side: 0px;
   --tile-hand-radius: .82cqw;
   --tile-river-depth: .48cqw;
   --tile-river-side: .18cqw;
@@ -109,7 +109,7 @@
   pointer-events: none;
 }
 
-.hand { position: relative; isolation: isolate; }
+.hand { position: relative; isolation: isolate; gap: 0; }
 
 .hand::before {
   content: "";
@@ -129,24 +129,33 @@
 .hand .tile {
   --tile-depth: var(--tile-hand-depth);
   --tile-side: var(--tile-hand-side);
-  /* 底部圆角内也用象牙色收边，避免绿色牌体从正面边缘透出；上部侧面仍保留树脂材质。 */
-  --tile-body:
-    linear-gradient(90deg, var(--tile-resin), var(--tile-resin-dark)) top right / var(--tile-side) calc(100% - var(--tile-hand-radius)) no-repeat,
-    linear-gradient(135deg, var(--tile-resin-light), var(--tile-resin-dark)) top / 100% calc(100% - var(--tile-hand-radius)) no-repeat,
-    linear-gradient(var(--tile-ivory), var(--tile-ivory));
-  border-bottom: 0;
-  border-radius: var(--tile-hand-radius);
+  /* 正常态全是象牙色正面；相邻牌仅用单条暖灰线分隔，不绘制绿色树脂。 */
+  --tile-body: var(--tile-face);
+  border: 0;
+  border-right: 1px solid #b6aa8d;
+  border-bottom: 1px solid #453e31;
+  border-radius: 0;
   box-shadow:
-    inset -.12cqw -.12cqw .15cqw #102d1f66,
     .08cqw .25cqw .16cqw #031a12b3,
     .22cqw .55cqw var(--tile-contact-blur) #041c1459;
   transition: transform .14s, background .14s, box-shadow .14s;
 }
 
 .hand .tile::before {
-  /* 只延伸现有正面，不裁切牌体，也不改变 SVG、外框与点击热区。 */
-  bottom: 0;
+  /* 整个正面铺满内容框，外部 1px 深色底边独立表达立牌厚度。 */
+  inset: 0;
+  border: 0;
+  box-shadow:
+    inset var(--tile-bevel) var(--tile-bevel) var(--tile-bevel) #ffffffd9,
+    inset calc(var(--tile-bevel) * -.9) calc(var(--tile-bevel) * -1.4) calc(var(--tile-bevel) * 1.6) #82765033;
 }
+
+.hand .tile svg { width: 100%; height: 100%; border-radius: inherit; }
+
+/* 仅外端和独立牌保留圆角，普通牌的相邻边缘始终贴合。 */
+.hand .tile:first-child { border-top-left-radius: var(--tile-hand-radius); border-bottom-left-radius: var(--tile-hand-radius); }
+.hand .tile:last-child { border-top-right-radius: var(--tile-hand-radius); border-bottom-right-radius: var(--tile-hand-radius); }
+.hand .tile:is(.drawn, .selected, .hinted) { border-radius: var(--tile-hand-radius); }
 
 .hand .tile:not(:disabled):hover {
   --tile-face: var(--tile-face-hover);
