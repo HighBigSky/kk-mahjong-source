@@ -109,7 +109,7 @@
   pointer-events: none;
 }
 
-.hand { position: relative; isolation: isolate; gap: 0; }
+.hand { --hand-gap: 1px; position: relative; isolation: isolate; gap: var(--hand-gap); }
 
 .hand::before {
   content: "";
@@ -151,6 +151,18 @@
 }
 
 .hand .tile svg { width: 100%; height: 100%; border-radius: inherit; }
+
+/* 只给裸露的两处侧边画 1px 树脂线，不改牌体、牌面或点击框。 */
+.hand .tile:is(:first-child, .drawn)::after {
+  content: "";
+  position: absolute;
+  inset: var(--tile-hand-radius) 0;
+  border: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.hand .tile:first-child::after { border-left: 1px solid #3c7353; }
+.hand .tile.drawn::after { border-right: 1px solid #638e70; }
 
 .hand .tile:not(:disabled):hover {
   --tile-face: var(--tile-face-hover);

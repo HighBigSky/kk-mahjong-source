@@ -264,7 +264,8 @@ html.in-game #game.is-landscape {
 .is-landscape .hand-zone .player-rack,.is-landscape .hand-zone.has-melds .player-rack { display:flex; flex-direction:row; align-items:flex-end; gap:calc(var(--ui-unit) * 1); pointer-events:none; }
 .is-landscape .hand { min-width:0; }
 .is-landscape .hand .tile { width:var(--hand-width); height:var(--hand-height); pointer-events:auto; }
-.is-landscape .hand .tile.drawn { margin-left:calc(var(--ui-unit) * 1.5); }
+/* 普通牌缝计入待定区总间隔，保持新摸牌原来的分隔距离。 */
+.is-landscape .hand .tile.drawn { margin-left:calc(var(--ui-unit) * 1.5 - var(--hand-gap)); }
 .is-landscape .hand .tile.selected { transform:translateY(calc(var(--ui-unit) * -1.9)); outline-width:calc(var(--ui-unit) * .32); outline-offset:calc(var(--ui-unit) * .1); }
 .is-landscape .hand .tile.hinted { outline-width:calc(var(--ui-unit) * .4); outline-offset:calc(var(--ui-unit) * .12); }
 .is-landscape .hand::before { left:calc(var(--ui-unit) * -.45); right:calc(var(--ui-unit) * -.45); bottom:calc(var(--ui-unit) * -.55); height:calc(var(--ui-unit) * 1.15); border-radius:calc(var(--ui-unit) * .5); }
@@ -622,7 +623,7 @@ html.in-game #game.is-landscape {
   gap:0;
   align-items:end;
 }
-.is-landscape .hand { grid-area:1 / 1; justify-self:center; width:var(--hand-space); flex:none; flex-wrap:nowrap; justify-content:center; height:calc(var(--hand-height) + var(--ui-unit) * 2); gap:0; padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * .6) 0; overflow:visible; }
+.is-landscape .hand { --hand-gap:clamp(1px,calc(var(--ui-unit) * .25),2px); grid-area:1 / 1; justify-self:center; width:var(--hand-space); flex:none; flex-wrap:nowrap; justify-content:center; height:calc(var(--hand-height) + var(--ui-unit) * 2); gap:var(--hand-gap); padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * .6) 0; overflow:visible; }
 .is-landscape .hand::before { display:none; }
 .is-landscape .hand .tile { flex-shrink:0; }
 .is-landscape .hand .tile.drawn:first-child { margin-left:0; }
@@ -633,7 +634,8 @@ html.in-game #game.is-landscape {
   gap:0;
   --public-reserve:min(calc(var(--rack-width) * .28),calc((var(--special-count) * 5 + var(--meld-count) * 19) * var(--ui-unit)));
 }
-.is-landscape .hand-zone.has-melds .hand { justify-content:center; }
+/* 细缝增加总宽后，副露侧补少量内边距，避免极限单牌杠挤到首张手牌。 */
+.is-landscape .hand-zone.has-melds .hand { justify-content:center; padding-left:calc(var(--ui-unit) * .6 + var(--hand-gap) * 4); }
 .is-landscape .turn-message,.is-landscape .last-event { right:auto; }
 /* 远端牌列内移后，回合与出牌文字放入左侧信息带，避免压住对家牌墙。 */
 .is-landscape .turn-message { top:20%; left:2%; width:20%; font-size:calc(var(--ui-unit) * 2.2); line-height:1.2; }
