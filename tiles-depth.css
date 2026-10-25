@@ -1,10 +1,10 @@
 /* 统一实体牌：所有材质与厚度均在现有牌框内绘制，不改变布局和点击范围。 */
 :root {
   --tile-ivory: #f6efdd;
-  /* 象牙牌的外轮廓：正面浅骨色、右侧与底部收深，靠轮廓本身交代实体边界。 */
-  --tile-border: #d8ccb2;
-  --tile-border-side: #a08c68;
-  --tile-border-bottom: #7d6a4a;
+  /* 象牙牌的外轮廓：四面统一收炭黑，右下更深，牌体与绿绒布之间有清晰边界。 */
+  --tile-border: #5a4c39;
+  --tile-border-side: #241d16;
+  --tile-border-bottom: #17120d;
   --tile-face-hover: linear-gradient(135deg, #ffffff 0%, #fff8e9 48%, #eee2c9 100%);
   /* 明亮麻将绿区别于深绿绒布；牌体与牌背同族，厚度比牌背深一档。 */
   --tile-resin-light: #69bb88;
@@ -46,10 +46,12 @@
   --tile-model-lit-y: .5px;
   --tile-model-dark-x: -.5px;
   --tile-model-dark-y: -.7px;
-  --tile-model-top-light: #fff9e9;
-  --tile-model-left-light: #fff9e9;
-  --tile-model-right-light: #d8cfb8;
-  --tile-model-bottom-light: #d4cbb4;
+  /* 牌面倒角用炭黑描边替代原来的白色亮边：左上受光略浅、右下背光更深，
+     牌面因此有一圈清晰的黑边，轮廓不再融进侧壁。 */
+  --tile-model-top-light: #4a4232;
+  --tile-model-left-light: #4a4232;
+  --tile-model-right-light: #241d16;
+  --tile-model-bottom-light: #1a140f;
   --tile-face: linear-gradient(calc(145deg - var(--tile-model-turn)), #fffef6 0%, var(--tile-ivory) 54%, #e8dfc9 100%);
   --tile-face-selected: linear-gradient(calc(135deg - var(--tile-model-turn)), #fffef0 0%, #fff2cf 55%, #e8d49e 100%);
   /* 牌面做凸面处理：左上强高光、右下轻微压暗，像真实象牙面微微鼓起，而不是一块纯色平板。 */
@@ -65,7 +67,8 @@
   --tile-model-grade: thin;
   --tile-depth: var(--tile-model-thin-depth);
   --tile-side: calc(var(--tile-depth) * .45);
-  --tile-model-bevel: max(1px, calc(var(--tile-depth) * .2));
+  /* 描边只保留 1–1.8px 的细线，避免炭黑边过粗盖住象牙牌面。 */
+  --tile-model-bevel: max(1px, calc(var(--tile-depth) * .14));
   --tile-model-inset: min(1px, calc(var(--tile-depth) * .25));
   /* 侧壁色阶：紧贴牌面是近乎纯白的骨色高光，向外依次压到暖米色、深骨色，最外缘收一条深边。
      明暗跨度足够大，侧壁才会被读成“一块厚度”，而不是牌面外描了一圈边。 */
@@ -114,7 +117,7 @@
   background: var(--tile-gloss), var(--tile-face);
   /* 牌面比侧壁高一层：先沿右下画一条 1px 硬边（牌面投在侧壁上的接触阴影），
      再向侧壁铺一层短距离暖色柔影，牌面与侧壁之间才有真实的落差。 */
-  box-shadow: var(--tile-model-face-shadow), 1px 1px 0 #6b573a4d, calc(var(--tile-depth) * .22) calc(var(--tile-depth) * .3) calc(var(--tile-depth) * .5) #4a3a2252;
+  box-shadow: var(--tile-model-face-shadow), 1px 1px 0 #15100a4d, calc(var(--tile-depth) * .22) calc(var(--tile-depth) * .3) calc(var(--tile-depth) * .5) #3a2c1a5c;
   pointer-events: none;
   z-index: 0;
 }
@@ -158,7 +161,7 @@
   --tile-model-soft-x: -.8; --tile-model-soft-y: .32;
   --tile-model-lit-x: -.5px; --tile-model-lit-y: .5px;
   --tile-model-dark-x: .7px; --tile-model-dark-y: -.5px;
-  --tile-model-left-light: #d4cbb4; --tile-model-right-light: #fff9e9; --tile-model-bottom-light: #d8cfb8;
+  --tile-model-left-light: #241d16; --tile-model-right-light: #4a4232; --tile-model-bottom-light: #241d16;
 }
 .river-top .tile, .discard-focus[data-player="2"] .tile {
   --tile-model-turn: 180deg;
@@ -166,7 +169,7 @@
   --tile-model-soft-x: -.32; --tile-model-soft-y: -.8;
   --tile-model-lit-x: -.5px; --tile-model-lit-y: -.5px;
   --tile-model-dark-x: .5px; --tile-model-dark-y: .7px;
-  --tile-model-top-light: #d4cbb4; --tile-model-left-light: #d8cfb8; --tile-model-right-light: #fff9e9; --tile-model-bottom-light: #fff9e9;
+  --tile-model-top-light: #241d16; --tile-model-left-light: #241d16; --tile-model-right-light: #4a4232; --tile-model-bottom-light: #4a4232;
 }
 .river-left .tile, .discard-focus[data-player="3"] .tile {
   --tile-model-turn: 90deg;
@@ -174,7 +177,7 @@
   --tile-model-soft-x: .8; --tile-model-soft-y: -.32;
   --tile-model-lit-x: .5px; --tile-model-lit-y: -.5px;
   --tile-model-dark-x: -.7px; --tile-model-dark-y: .5px;
-  --tile-model-top-light: #d8cfb8; --tile-model-right-light: #d4cbb4; --tile-model-bottom-light: #fff9e9;
+  --tile-model-top-light: #241d16; --tile-model-right-light: #241d16; --tile-model-bottom-light: #4a4232;
 }
 .river .tile.last-discard {
   --tile-face: var(--tile-face-selected);
@@ -205,12 +208,19 @@
      此前这里是 0px，右侧露出的是象牙色牌面，整排手牌因此看起来像平卡。 */
   --tile-model-body-side: calc(100% - var(--hand-face-width));
   --hand-bevel: var(--tile-model-inset);
+  /* 牌面按 5:7 反推宽度；底部 1px 描边先扣除再算，避免牌面被拉高。 */
   --hand-face-width: calc((var(--hand-height, 9.4cqw) - 1px - var(--tile-depth) - var(--hand-bevel)) * 5 / 7);
-  /* 手牌是正面朝上的象牙牌：右侧与底部露出的侧壁同为骨色，
-     只用一条更深的骨色外轮廓勾住体积，不再用绿色描边。 */
+  /* 手牌离视线最近，落影比其它牌区更重：贴地 AO、主投影、远柔影一起下拉，
+     牌子像被压在桌面上，而不是贴着一张纸。 */
+  --tile-model-contact-shadow:
+    calc(var(--tile-model-unit) * .1) calc(var(--tile-model-unit) * .16) calc(var(--tile-model-unit) * .08) #02120bf2,
+    calc(var(--tile-model-unit) * .2) calc(var(--tile-model-unit) * .5) calc(var(--tile-model-unit) * .5) #02150eb3,
+    calc(var(--tile-model-unit) * .45) calc(var(--tile-model-unit) * 1) calc(var(--tile-model-unit) * 1.3) #021a1159;
+  /* 手牌正面朝上：只有右侧和底部露出骨色侧壁，外轮廓也只在这两侧收炭黑；
+     左、上两侧由牌面自身的炭黑倒角充当边缘，避免出现两条平行黑线。 */
   border: 0;
-  border-right: 1px solid #8b7756;
-  border-bottom: 1px solid #73613f;
+  border-right: 1px solid #241d16;
+  border-bottom: 1px solid #17120d;
   border-radius: var(--tile-hand-radius);
   transition: transform .14s, background .14s, box-shadow .14s;
 }
