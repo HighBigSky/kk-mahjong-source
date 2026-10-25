@@ -581,7 +581,12 @@ html.in-game #game.is-landscape {
 .hint-wait .tile { flex:none; width:var(--hint-tile-width); height:auto; aspect-ratio:5 / 7; border-radius:calc(var(--hint-tile-width) * .086); }
 .hint-wait-meta { display:grid; gap:calc(var(--ui-unit) * .4); white-space:nowrap; text-align:center; font-size:max(9px,calc(var(--ui-unit) * 2.3)); font-variant-numeric:tabular-nums; line-height:1.2; }
 .hint-wait-meta small { font-size:max(8px,calc(var(--ui-unit) * 1.9)); }
-#hint-text { margin:calc(var(--ui-unit) * 1) 0 0; width:0; min-width:100%; max-height:2.6em; overflow:auto; overflow-wrap:anywhere; font-size:max(9px,calc(var(--ui-unit) * 2)); line-height:1.3; }
+#hint-text { --hint-line-count:1; --hint-line-extra:0; --hint-line-size:min(calc(var(--ui-unit) * max(2.6,6 - max(0,min(var(--hint-line-count),10) - 2) * .4)),calc((100cqw - max(45px,var(--ui-unit) * 10) - (var(--hint-line-count) + var(--hint-line-extra)) * 1px) / (var(--hint-line-count) + var(--hint-line-extra)))); container-type:inline-size; margin:calc(var(--ui-unit) * 1) 0 0; width:100%; min-width:0; font-size:max(9px,calc(var(--ui-unit) * 2)); line-height:1.3; }
+.hint-line-core,.hint-line-waits { display:flex; flex-wrap:nowrap; align-items:center; gap:1px; min-width:0; white-space:nowrap; }
+.hint-line-label,.hint-line-wait { flex:none; }
+.hint-line-wait { display:flex; }
+#hint-text .tile { flex:none; min-width:0; width:var(--hint-line-size); height:auto; aspect-ratio:5 / 7; border-radius:calc(var(--hint-line-size) * .086); }
+.hint-line-total { display:block; margin-top:calc(var(--ui-unit) * .4); font-variant-numeric:tabular-nums; }
 .hint-details select { width:100%; min-width:0; margin-top:calc(var(--ui-unit) * .5); border:0; border-top:1px solid #b89d6155; background:#f3e7bf; color:#79522b; font-size:max(9px,calc(var(--ui-unit) * 1.9)); }
 /* 单张杠沿用普通副露的牌体尺寸与朝向，不再交换宽高或单独横转牌面。 */
 .is-landscape .hand-zone .player-rack {

@@ -8,7 +8,7 @@ import { renderWall } from './src/network/wall-view.js';
 import { createRoomOrientation } from './src/ui/orientation.js';
 import { createRoomFullscreen } from './src/ui/fullscreen.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
-import { createHintCalculator, hintText, specialGangKind, settlementCoins, PLAY_TEXT } from './src/ui/play-assist.js';
+import { createHintCalculator, createHintDisclosure, hintText, specialGangKind, settlementCoins, PLAY_TEXT } from './src/ui/play-assist.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
 import { createOpeningDeal, DEAL_TEXT } from './src/ui/opening-deal.js';
 import { createFlatOpponentView, tilePlane, planeCSS } from './src/ui/flat-opponents.js';
@@ -76,8 +76,8 @@ const calculateHints = createHintCalculator();
 let hintState = {mode:'none', candidates:[]};
 let hintChoice = 0;
 let hintStateKey = '';
-let hintDetailsClosed = false;
-let hintSession = '';
+const hintDisclosure = createHintDisclosure();
+let hintDescription = '';
 let handTap = null;
 let specialGangPending = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
@@ -259,6 +259,8 @@ function updateRoom() {
 
 function roomChanged() {
   const room = network.room;
+  // 发牌动画暂缓 render 时也记录连接边沿，重连后允许重新首次展开。
+  hintDisclosure.update({session:`${room?.code || ''}:${game.round}`, connected:network.status === 'connected'});
   // 发牌期间只暂缓画面更新，网络与服务端照常推进；结束后一次性绘制最新快照。
   const retainOpening = openingDeal.retain(room,game,network.status === 'connected');
   roomFullscreen.setInRoom(Boolean(room));
@@ -636,14 +638,13 @@ function renderTing() {
   const stateKey = JSON.stringify(hintState);
   if (stateKey !== hintStateKey) { hintChoice = 0; hintStateKey = stateKey; }
   const shown = hintState.candidates.length > 0 && (hintState.mode === 'ready' || humanTurn());
+  hintDisclosure.update({session:`${network.room?.code || ''}:${game.round}`, connected:network.status === 'connected', ready:shown && hintState.mode === 'ready'});
   const panel = $('#play-assist');
   panel.hidden = !shown;
   if (!shown) { updateHintDetails(); return; }
-  const session = `${network.room.code}:${game.round}`;
-  // 收起只影响本地展示；同一局的摸牌、接牌或重复快照不能把浮窗自动打开。
-  if (session !== hintSession) { hintSession = session; hintDetailsClosed = false; }
   const candidate = hintState.candidates[hintChoice] || hintState.candidates[0];
-  const text = hintText(candidate, hintState.mode === 'ready');
+  const content = hintText(candidate, hintState.mode === 'ready');
+  hintDescription = content.text;
   $('#hint-label').textContent = PLAY_TEXT.hint;
   // 静态更新期间旧 HTML 仍可正常选牌，新结构就绪后再绘制牌面提示卡。
   if ($('#hint-details')) {
@@ -656,27 +657,29 @@ function renderTing() {
     $('#hint-details').style.setProperty('--hint-columns', String(Math.min(6, candidate.waits.length)));
     setHTMLIfChanged($('#hint-waits'), candidate.waits.map(wait => `<div class="hint-wait" role="listitem">${tile(wait.type)}<span class="hint-wait-meta"><b>${PLAY_TEXT.remaining}${wait.remaining}${PLAY_TEXT.copies}</b><small>${wait.claim ? PLAY_TEXT.claim : PLAY_TEXT.selfDrawOnly}</small></span></div>`).join(''));
   }
-  $('#hint-text').textContent = text;
-  $('#hint-btn').setAttribute('aria-label', PLAY_TEXT.hint + '：' + text);
-  $('#hint-btn').title = text + '\n' + (hintState.mode === 'discard' ? PLAY_TEXT.confirm + '\n' : '') + PLAY_TEXT.note;
+  const line = $('#hint-text');
+  line.style.setProperty('--hint-line-count', String(content.waits.length));
+  line.style.setProperty('--hint-line-extra', String(content.discardedTile === null ? 0 : 1));
+  setHTMLIfChanged(line, `<span class="hint-line-core"><span class="hint-line-label">${content.lead}</span>${content.discardedTile === null ? '' : `${tile(content.discardedTile, 'hint-line-discard')}<span class="hint-line-label">→ ${PLAY_TEXT.listen}</span>`}<span class="hint-line-waits" role="list" aria-label="${PLAY_TEXT.waits}">${content.waits.map(wait => `<span class="hint-line-wait" role="listitem">${tile(wait.type)}</span>`).join('')}</span></span><span class="hint-line-total">${content.total}</span>`);
+  $('#hint-btn').title = content.text + '\n' + (hintState.mode === 'discard' ? PLAY_TEXT.confirm + '\n' : '') + PLAY_TEXT.note;
   $('#hint-btn').disabled = false;
   const choices = $('#hint-choice');
   choices.hidden = hintState.mode !== 'discard' || hintState.candidates.length < 2;
-  setHTMLIfChanged(choices, hintState.candidates.map((value, index) => '<option value="' + index + '">' + (index + 1) + '. ' + hintText(value, false) + '</option>').join(''));
+  setHTMLIfChanged(choices, hintState.candidates.map((value, index) => '<option value="' + index + '">' + (index + 1) + '. ' + hintText(value, false).text + '</option>').join(''));
   choices.value = String(hintChoice);
   updateHintDetails();
 }
 
 function updateHintDetails() {
   if (!$('#hint-details')) return;
-  const open = !$('#play-assist').hidden && !hintDetailsClosed;
+  const open = !$('#play-assist').hidden && hintDisclosure.open;
   $('#hint-details').hidden = !open;
   $('#hint-btn').setAttribute('aria-expanded', String(open));
-  $('#hint-btn').setAttribute('aria-label', `${open ? PLAY_TEXT.hint : PLAY_TEXT.openHint}：${$('#hint-text').textContent}`);
+  $('#hint-btn').setAttribute('aria-label', `${open ? PLAY_TEXT.hint : PLAY_TEXT.openHint}：${hintDescription}`);
 }
 
 function closeHintDetails() {
-  hintDetailsClosed = true;
+  hintDisclosure.close();
   updateHintDetails();
 }
 
@@ -1094,7 +1097,7 @@ function selectHint() {
   renderSelection();
 }
 $('#hint-btn').addEventListener('click', () => {
-  if (hintDetailsClosed) { hintDetailsClosed = false; updateHintDetails(); return; }
+  if (!hintDisclosure.open) { hintDisclosure.show(); updateHintDetails(); return; }
   const candidate = hintState.candidates[hintChoice];
   if (!candidate || hintState.mode !== 'discard' || !humanTurn()) return;
   if (selected === candidate.index && hinted === candidate.index) { void confirmHand(candidate.index); return; }

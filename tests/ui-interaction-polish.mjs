@@ -318,10 +318,12 @@ async function tingChecks(room, names) {
   const before = await button.boundingBox(); await button.click();
   await until(() => button.evaluate((element,y) => element.getBoundingClientRect().y < y-2,before.y),'Selection raises the tile');
   assert.equal(await button.getAttribute('aria-pressed'),'true');
-  assert.match(await page.locator('#hint-text').textContent(),/打【南】.*二万/);
+  assert.equal(await page.locator('#hint-text .hint-line-discard use').getAttribute('href'),'#tile-28');
+  assert.ok((await page.locator('#hint-text .hint-line-waits use').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href')))).includes('#tile-1'));
   await screenshot(page,'selected-unified-hint');
   const current=actionFixture({names,hand:waiting});current.players[1].hand.push(current.wall.pop());current.current=1;current.phase={kind:'discard',seat:1};current.lastDraw=null;
-  await publish(room,current);assert.match(await page.locator('#hint-text').textContent(),/^已听：.*二万/);
+  await publish(room,current);assert.match(await page.locator('#hint-text').textContent(),/^已听：/);
+  assert.ok((await page.locator('#hint-text .hint-line-waits use').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href')))).includes('#tile-1'));
   report.tingPanelGeometry=[];
   for(const viewport of sizes){await page.setViewportSize(viewport);await frames(page);const geometry=await page.locator('#play-assist').boundingBox();assert.ok(geometry.x>=-1&&geometry.y>=-1&&geometry.x+geometry.width<=viewport.width+1&&geometry.y+geometry.height<=viewport.height+1);report.tingPanelGeometry.push({viewport,...geometry});}
   await page.setViewportSize(sizes[0]);await frames(page);
@@ -369,12 +371,13 @@ async function fourthCopyClaimCheck(room, names) {
   assertInvariants(game);
   assert.equal(game.getActions(0).hu, true, 'Current fourth physical South can complete seven pairs');
   await publish(room, game);
-  assert.match(await page.locator('#hint-text').textContent(),/南（0张，仅接胡）/);
+  assert.ok((await page.locator('#hint-text .hint-line-waits use').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href')))).includes('#tile-28'));
+  assert.match(await page.locator('#hint-btn').getAttribute('aria-label'),/南（0张，仅接胡）/);
   assert.equal(await page.locator('#play-assist').isVisible(),true);
   await screenshot(page,'fourth-copy-current-claim');
   game.pendingDiscard=null;game.current=1;game.phase={kind:'discard',seat:1};game.lastDraw=null;
   await publish(room,game);
-  assert.equal((await page.locator('#hint-text').textContent()).includes('南（0张，仅接胡）') && await page.locator('#play-assist').isVisible(),false);
+  assert.equal((await page.locator('#hint-btn').getAttribute('aria-label')).includes('南（0张，仅接胡）') && await page.locator('#play-assist').isVisible(),false);
   report.fourthCopyClaim = { knownCopies: 4, serverHu: true, duringResponse: { claim: true, selfDraw: false }, afterResponseShown: false, conservation: 136 };
 }
 async function featureChecks(room, names) {

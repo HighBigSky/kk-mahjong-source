@@ -91,5 +91,26 @@ export function createHintCalculator() {
 export function hintText(candidate, ready) {
   const waits = candidate.waits.map(wait => `${tileName(wait.type)}（${wait.remaining}${PLAY_TEXT.copies}${wait.selfDraw ? '' : '，' + PLAY_TEXT.claimOnly}）`).join(' / ');
   const total = `（${PLAY_TEXT.total} ${candidate.total} ${PLAY_TEXT.copies}）`;
-  return ready ? `${PLAY_TEXT.ready}${waits}${total}` : `${PLAY_TEXT.discard}【${tileName(candidate.discardedTile)}】→ ${PLAY_TEXT.listen}【${waits}】${total}`;
+  // 可见正文由牌面表达；完整文字只供按钮读屏、标题及候选下拉框使用。
+  return {discardedTile:ready ? null : candidate.discardedTile, waits:candidate.waits, total,
+    lead:ready ? PLAY_TEXT.ready : PLAY_TEXT.discard,
+    text:ready ? `${PLAY_TEXT.ready}${waits}${total}` : `${PLAY_TEXT.discard} ${tileName(candidate.discardedTile)} → ${PLAY_TEXT.listen} ${waits}${total}`};
+}
+
+/** 只管理本地展开状态；候选、快照和回合更新不能重置用户的收起操作。 */
+export function createHintDisclosure() {
+  let session = '', connected = false, consumed = false, open = false;
+  return {
+    /** @param {{session:string, connected:boolean, ready?:boolean}} state */
+    update(state) {
+      if (state.session !== session || state.connected && !connected) { consumed = false; open = false; }
+      session = state.session; connected = state.connected;
+      // 仅真正已听牌时消费一次自动展开；14 张待打的候选不触发。
+      if (state.connected && state.ready && !consumed) { consumed = true; open = true; }
+      return open;
+    },
+    show() { open = true; },
+    close() { consumed = true; open = false; },
+    get open() { return open; },
+  };
 }

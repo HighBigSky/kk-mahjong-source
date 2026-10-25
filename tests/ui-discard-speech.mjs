@@ -69,6 +69,7 @@ try {
       game.indicatorTile=33;game.wildTile=27;game.lastDraw=null;game.pendingDiscard=null;
       game.phase={kind:'discard',seat:0};game.current=0;window.renderMahjong();
     });
+    if(await page.locator('#hint-details').isHidden())await page.locator('#hint-btn:visible').click();
     await page.locator('#hint-btn:visible').click();
     assert.equal(await page.locator('#hand .hinted').count(),1,'提示只高亮建议牌');
     const afterSelection=await page.evaluate(()=>({voices:window.mahjongGameAudio.getState().played.length,effects:window.__effectCount||0}));

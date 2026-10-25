@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHintCalculator, specialGangKind, hintText, settlementCoins} from '../src/ui/play-assist.js';
+import {createHintCalculator, createHintDisclosure, specialGangKind, hintText, settlementCoins} from '../src/ui/play-assist.js';
 import {getTingHints} from '../src/ui/ting.js';
 import {TILE} from '../src/domain/tile.js';
 import {actionFixture, scattered} from './pizi-fixtures.mjs';
@@ -61,7 +61,9 @@ test('all discard suggestions reuse existing Hu and retain the selected physical
     const old=getTingHints(input,candidate.index);
     assert.deepEqual(candidate.waits.map(({remaining,...wait})=>wait),old.waits);
     assert.equal(candidate.waits.find(wait=>wait.type===4)?.remaining,1);
-    assert.match(hintText(candidate,false),/打【.+】→ 听【.+】（共 \d+ 张）/);
+    const content=hintText(candidate,false);
+    assert.equal(content.discardedTile,candidate.discardedTile);assert.deepEqual(content.waits,candidate.waits);
+    assert.match(content.text,/打 .+ → 听 .+（共 \d+ 张）/);assert.doesNotMatch(content.text,/[【】]/);
   }
   assert.equal(calc(structuredClone(input)),result,'equal inputs reuse the full calculation');
   const updated=calc({...input,visibleTiles:[4,4,4]});
@@ -69,9 +71,31 @@ test('all discard suggestions reuse existing Hu and retain the selected physical
 });
 test('ready hands and no-wait hands have a single consistent state', () => {
   const calc=createHintCalculator();const ready=calc({hand:waiting});
-  assert.equal(ready.mode,'ready');assert.match(hintText(ready.candidates[0],true),/^已听：/);
+  assert.equal(ready.mode,'ready');assert.match(hintText(ready.candidates[0],true).text,/^已听：/);
+  assert.equal(hintText(ready.candidates[0],true).discardedTile,null);
   assert.equal(calc({hand:[...scattered,27]}).mode,'none');
   assert.equal(calc({hand:[...waiting,TILE.RED]}).mode,'none');
+});
+
+test('hint disclosure opens once on ready, preserves manual close, resets per room, round and reconnect', () => {
+  const panel=createHintDisclosure(),state={session:'room-a:1',connected:true,ready:false};
+  assert.equal(panel.update(state),false,'discard candidates never auto-open');
+  assert.equal(panel.update({...state,ready:true}),true,'first ready transition opens');
+  panel.close();
+  for(let repeat=0;repeat<3;repeat++)assert.equal(panel.update({...state,ready:true}),false,'snapshots preserve close');
+  assert.equal(panel.update(state),false);assert.equal(panel.update({...state,ready:true}),false,'second ready transition stays closed');
+  panel.show();assert.equal(panel.open,true);panel.close();
+  for(const session of ['room-a:2','room-b:2']){
+    assert.equal(panel.update({...state,session}),false);assert.equal(panel.update({...state,session,ready:true}),true);panel.close();
+  }
+  panel.update({...state,session:'room-b:2',connected:false});
+  assert.equal(panel.update({...state,session:'room-b:2',ready:true}),true,'reconnect rearms first reveal');
+});
+
+test('closing a manually opened discard preview also locks the first automatic reveal', () => {
+  const panel=createHintDisclosure(),state={session:'room:1',connected:true,ready:false};
+  panel.update(state);panel.show();panel.close();
+  assert.equal(panel.update({...state,ready:true}),false);panel.show();assert.equal(panel.open,true);
 });
 test('candidate order follows wait types, unseen copies, then existing score', () => {
   const input={hand:[0,0,1,1,2,2,3,3,4,4,5,5,6,7]};
