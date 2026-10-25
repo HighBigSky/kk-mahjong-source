@@ -5,9 +5,20 @@
   --tile-border-side: #b6aa8d;
   --tile-border-bottom: #453e31;
   --tile-face-hover: linear-gradient(135deg, #ffffff 0%, #fff8e9 48%, #eee2c9 100%);
-  --tile-resin-light: #638e70;
-  --tile-resin: #3c7353;
-  --tile-resin-dark: #214c37;
+  /* 牌体与牌背保留翡翠绿，以更高明度和浅绿倒角区别于深绿绒布。 */
+  --tile-resin-light: #a8dfb0;
+  --tile-resin: #6dc284;
+  --tile-resin-dark: #3c955d;
+  --tile-back-light: var(--tile-resin-light);
+  --tile-back: var(--tile-resin);
+  --tile-back-dark: var(--tile-resin-dark);
+  --tile-back-border: #c1ecc3;
+  --tile-back-border-side: #4a8157;
+  --tile-back-frame: #2a6d4480;
+  --tile-back-frame-light: #dbf1ce80;
+  --tile-back-frame-bottom: #a7d8ac80;
+  --tile-back-emboss-dark: #23573566;
+  --tile-back-emboss-light: #e4f6d980;
   --tile-radius: .75cqw;
   --tile-hand-radius: .82cqw;
   --tile-river-radius: .6cqw;
@@ -40,14 +51,14 @@
   --tile-side: calc(var(--tile-depth) * .45);
   --tile-model-bevel: 1px;
   --tile-model-inset: min(1px, calc(var(--tile-depth) * .25));
-  --tile-model-material-stops: #fff8e8 0%, #eeeeda 14%, #c5d2b9 30%, var(--tile-resin-light) 48%, var(--tile-resin) 74%, var(--tile-resin-dark) 100%;
+  --tile-model-material-stops: #fff8e8 0%, #edf4dc 14%, #c9e4c4 30%, var(--tile-resin-light) 48%, var(--tile-resin) 74%, var(--tile-resin-dark) 100%;
   --tile-model-face-shadow: inset var(--tile-model-lit-x) var(--tile-model-lit-y) .7px #ffffffb3, inset var(--tile-model-dark-x) var(--tile-model-dark-y) .8px #897b5c26;
   --tile-model-edge-shadow: inset var(--tile-model-lit-x) var(--tile-model-lit-y) .6px #fffdf4a6, inset var(--tile-model-dark-x) var(--tile-model-dark-y) .65px #5c534633;
   --tile-model-contact-shadow:
     calc(var(--tile-model-unit) * var(--tile-model-shadow-x)) calc(var(--tile-model-unit) * var(--tile-model-shadow-y)) calc(var(--tile-model-unit) * .21) #031a12b3,
     calc(var(--tile-model-unit) * var(--tile-model-soft-x)) calc(var(--tile-model-unit) * var(--tile-model-soft-y)) calc(var(--tile-model-unit) * .45) #041c1459;
   --tile-model-back-inset: calc(var(--tile-depth) + 1px);
-  --tile-model-back-shadow: inset .5px .5px .7px #173d2c66, .5px .5px .6px #dbedcc80;
+  --tile-model-back-shadow: inset .5px .5px .7px var(--tile-back-emboss-dark), .5px .5px .6px var(--tile-back-emboss-light);
   --tile-model-left-exposed: 0px;
   --tile-model-right-exposed: 0px;
   --tile-model-body-side: var(--tile-side);
@@ -214,9 +225,9 @@
   position: relative;
   background:
     var(--tile-gloss),
-    linear-gradient(145deg, var(--tile-resin-light), var(--tile-resin) 54%, var(--tile-resin-dark));
-  border: 1px solid #a5b794;
-  border-right-color: #35583b;
+    linear-gradient(145deg, var(--tile-back-light), var(--tile-back) 54%, var(--tile-back-dark));
+  border: 1px solid var(--tile-back-border);
+  border-right-color: var(--tile-back-border-side);
   border-bottom-color: #e0d6bb;
   border-radius: .55cqw;
   box-shadow: var(--tile-model-contact-shadow);
@@ -226,9 +237,9 @@
   content: "";
   position: absolute;
   inset: var(--tile-model-back-inset);
-  border: var(--tile-model-bevel) solid #315d4380;
-  border-right-color: #c3d4b880;
-  border-bottom-color: #b6c6a080;
+  border: var(--tile-model-bevel) solid var(--tile-back-frame);
+  border-right-color: var(--tile-back-frame-light);
+  border-bottom-color: var(--tile-back-frame-bottom);
   border-radius: .28cqw;
   box-shadow: var(--tile-model-back-shadow);
   pointer-events: none;
