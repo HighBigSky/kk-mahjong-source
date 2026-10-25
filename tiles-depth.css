@@ -5,20 +5,23 @@
   --tile-border-side: #b6aa8d;
   --tile-border-bottom: #453e31;
   --tile-face-hover: linear-gradient(135deg, #ffffff 0%, #fff8e9 48%, #eee2c9 100%);
-  /* 浅暖牌体与暖棕牌背共用全牌区调色，避免与深绿绒布融在一起。 */
-  --tile-resin-light: #f1e9da;
-  --tile-resin: #d7cebf;
-  --tile-resin-dark: #b0a697;
-  --tile-back-light: #d8ac78;
-  --tile-back: #b7804b;
-  --tile-back-dark: #885631;
-  --tile-back-border: #c5a07a;
-  --tile-back-border-side: #795336;
-  --tile-back-frame: #70482f80;
-  --tile-back-frame-light: #f4ddba80;
-  --tile-back-frame-bottom: #dfbf9680;
-  --tile-back-emboss-dark: #50342166;
-  --tile-back-emboss-light: #f3dfc180;
+  /* 明亮麻将绿区别于深绿绒布；牌体与牌背同族，厚度比牌背深一档。 */
+  --tile-resin-light: #69bb88;
+  --tile-resin: #37985b;
+  --tile-resin-dark: #226b3e;
+  --tile-back-light: #77d39a;
+  --tile-back: #3fae6a;
+  --tile-back-dark: #1f7a45;
+  --tile-back-border: #a0e2b5;
+  --tile-back-border-side: #2e864f;
+  --tile-back-frame: #1e613d80;
+  --tile-back-frame-light: #c7f0cd80;
+  --tile-back-frame-bottom: #93d2a680;
+  --tile-back-emboss-dark: #18482b66;
+  --tile-back-emboss-light: #dff4db80;
+  --tile-joint-highlight: #fff8e8;
+  --tile-joint-light: #edf4df;
+  --tile-joint-green: #cbe8ca;
   --tile-radius: .75cqw;
   --tile-hand-radius: .82cqw;
   --tile-river-radius: .6cqw;
@@ -51,7 +54,8 @@
   --tile-side: calc(var(--tile-depth) * .45);
   --tile-model-bevel: 1px;
   --tile-model-inset: min(1px, calc(var(--tile-depth) * .25));
-  --tile-model-material-stops: #fff8e8 0%, #eee6d8 14%, #e5dbcd 30%, var(--tile-resin-light) 48%, var(--tile-resin) 74%, var(--tile-resin-dark) 100%;
+  /* 暖白高光先过渡浅绿再进入树脂绿；底面与裸露侧边共用连续色阶。 */
+  --tile-model-material-stops: var(--tile-joint-highlight) 0%, var(--tile-joint-light) 14%, var(--tile-joint-green) 30%, var(--tile-resin-light) 48%, var(--tile-resin) 74%, var(--tile-resin-dark) 100%;
   --tile-model-face-shadow: inset var(--tile-model-lit-x) var(--tile-model-lit-y) .7px #ffffffb3, inset var(--tile-model-dark-x) var(--tile-model-dark-y) .8px #897b5c26;
   --tile-model-edge-shadow: inset var(--tile-model-lit-x) var(--tile-model-lit-y) .6px #fffdf4a6, inset var(--tile-model-dark-x) var(--tile-model-dark-y) .65px #5c534633;
   --tile-model-contact-shadow:
