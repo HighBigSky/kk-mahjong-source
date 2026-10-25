@@ -5,20 +5,20 @@
   --tile-border-side: #b6aa8d;
   --tile-border-bottom: #453e31;
   --tile-face-hover: linear-gradient(135deg, #ffffff 0%, #fff8e9 48%, #eee2c9 100%);
-  /* 牌体与牌背保留翡翠绿，以更高明度和浅绿倒角区别于深绿绒布。 */
-  --tile-resin-light: #a8dfb0;
-  --tile-resin: #6dc284;
-  --tile-resin-dark: #3c955d;
-  --tile-back-light: var(--tile-resin-light);
-  --tile-back: var(--tile-resin);
-  --tile-back-dark: var(--tile-resin-dark);
-  --tile-back-border: #c1ecc3;
-  --tile-back-border-side: #4a8157;
-  --tile-back-frame: #2a6d4480;
-  --tile-back-frame-light: #dbf1ce80;
-  --tile-back-frame-bottom: #a7d8ac80;
-  --tile-back-emboss-dark: #23573566;
-  --tile-back-emboss-light: #e4f6d980;
+  /* 浅暖牌体与暖棕牌背共用全牌区调色，避免与深绿绒布融在一起。 */
+  --tile-resin-light: #f1e9da;
+  --tile-resin: #d7cebf;
+  --tile-resin-dark: #b0a697;
+  --tile-back-light: #d8ac78;
+  --tile-back: #b7804b;
+  --tile-back-dark: #885631;
+  --tile-back-border: #c5a07a;
+  --tile-back-border-side: #795336;
+  --tile-back-frame: #70482f80;
+  --tile-back-frame-light: #f4ddba80;
+  --tile-back-frame-bottom: #dfbf9680;
+  --tile-back-emboss-dark: #50342166;
+  --tile-back-emboss-light: #f3dfc180;
   --tile-radius: .75cqw;
   --tile-hand-radius: .82cqw;
   --tile-river-radius: .6cqw;
@@ -51,7 +51,7 @@
   --tile-side: calc(var(--tile-depth) * .45);
   --tile-model-bevel: 1px;
   --tile-model-inset: min(1px, calc(var(--tile-depth) * .25));
-  --tile-model-material-stops: #fff8e8 0%, #edf4dc 14%, #c9e4c4 30%, var(--tile-resin-light) 48%, var(--tile-resin) 74%, var(--tile-resin-dark) 100%;
+  --tile-model-material-stops: #fff8e8 0%, #eee6d8 14%, #e5dbcd 30%, var(--tile-resin-light) 48%, var(--tile-resin) 74%, var(--tile-resin-dark) 100%;
   --tile-model-face-shadow: inset var(--tile-model-lit-x) var(--tile-model-lit-y) .7px #ffffffb3, inset var(--tile-model-dark-x) var(--tile-model-dark-y) .8px #897b5c26;
   --tile-model-edge-shadow: inset var(--tile-model-lit-x) var(--tile-model-lit-y) .6px #fffdf4a6, inset var(--tile-model-dark-x) var(--tile-model-dark-y) .65px #5c534633;
   --tile-model-contact-shadow:
