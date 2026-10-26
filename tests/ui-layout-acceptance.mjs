@@ -8,7 +8,7 @@ import { RoomService } from '../src/server/rooms.js';
 import { MahjongGame } from '../engine.js';
 import { maximumPublicFixture, maximumSpecialHandFixture } from './pizi-fixtures.mjs';
 import { installVisualGeometry } from './browser-geometry.mjs';
-import { RIVER_LAYOUT } from '../src/ui/river-layout.js';
+import { RIVER_LAYOUT, riverCell } from '../src/ui/river-layout.js';
 
 let playwright;
 try { playwright = createRequire(import.meta.url)('playwright'); }
@@ -24,7 +24,7 @@ const screens = [
 ];
 const output = path.resolve('output'); mkdirSync(output, { recursive: true });
 const report = {
-  passed: false, browser: '', capacity, screens, measurements: [], stability: [], screenshots: [], errors: [], failures: [],
+  passed: false, browser: '', capacity, screens, measurements: [], singleLayer:[], stability: [], screenshots: [], errors: [], failures: [],
   fixtureNote: 'Rooms are created and started by real HTTP/SSE browser interaction. Each seat is assigned 36 visual discards. Four simultaneous maximum rivers and maximum racks are intentionally impossible combined tile allocations used only to stress presentation capacity; no rules or protocol are changed.',
 };
 const service = new RoomService({ botDelayMs: 60000, disconnectGraceMs: 100 });
@@ -83,7 +83,7 @@ async function applyFixture(page, fixture, actions = false) {
 async function measure(page, screen, scenario) {
   await page.setViewportSize({ width: screen.width, height: screen.height }); await frames(page);
   await page.evaluate(() => window.renderMahjong()); await frames(page);
-  const data = await page.evaluate(() => {
+  const data = await page.evaluate(expectedCells => {
     const boxes = new WeakMap();
     const box = element => {
       if (boxes.has(element)) return boxes.get(element);
@@ -105,7 +105,10 @@ async function measure(page, screen, scenario) {
       const contacts = tiles.flatMap((tile,index)=>[index % columns < columns-1 ? tiles[index+1] : null,tiles[index+columns]].filter(Boolean).map(other=>contact(tile,other)));
       const edge = (q,a,b) => Math.hypot(q[a].x-q[b].x,q[a].y-q[b].y);
       return {
-        seat, tiles, box: box(river), gap:getComputedStyle(river).gap, maxJointGap:Math.max(...contacts), sideAspects:seat%2?tiles.map(tile=>(edge(tile.quad,0,3)+edge(tile.quad,1,2))/(edge(tile.quad,0,1)+edge(tile.quad,2,3))):[], clientWidth: river.clientWidth, clientHeight: river.clientHeight,
+        seat, tiles, box: box(river), gap:getComputedStyle(river).gap, rowGap:getComputedStyle(river).rowGap, columnGap:getComputedStyle(river).columnGap,
+        columns:getComputedStyle(river).gridTemplateColumns.split(/\s+/).length, rows:getComputedStyle(river).gridTemplateRows.split(/\s+/).length,
+        explicitCells:[...river.children].every((tile,index)=>Number(tile.style.gridColumn)===expectedCells[seat][index].column&&Number(tile.style.gridRow)===expectedCells[seat][index].row),
+        maxJointGap:Math.max(...contacts), sideAspects:seat%2?tiles.map(tile=>(edge(tile.quad,0,3)+edge(tile.quad,1,2))/(edge(tile.quad,0,1)+edge(tile.quad,2,3))):[], clientWidth: river.clientWidth, clientHeight: river.clientHeight,
         modelAspects:tiles.map(tile=>{const q=onTable(tile.quad);return edge(q,0,1)/edge(q,0,3);}),
         tableWidths:tiles.map(tile=>edge(onTable(tile.quad),0,1)),
         tableHeights:tiles.map(tile=>edge(onTable(tile.quad),0,3)),
@@ -119,8 +122,11 @@ async function measure(page, screen, scenario) {
       wall: collect('#wall-tail .wall-piece:not(.is-empty)'), compass: collect('.table-center'),
       tools: collect('.top-tools > *,.wallet-pill,.wall-pill,.laizi-summary'),
     };
-    const overlaps = { river: [] };
-    for (let a = 0; a < tiles.length; a++) for (let b = a + 1; b < tiles.length; b++) if (hit(tiles[a], tiles[b])) overlaps.river.push(`${tiles[a].id}/${tiles[b].id}`);
+    const overlaps = { river: [], rectangles:[] };
+    for (let a = 0; a < tiles.length; a++) for (let b = a + 1; b < tiles.length; b++) {
+      if (hit(tiles[a], tiles[b])) overlaps.river.push(`${tiles[a].id}/${tiles[b].id}`);
+      if(Math.min(tiles[a].right,tiles[b].right)-Math.max(tiles[a].left,tiles[b].left)>.5&&Math.min(tiles[a].bottom,tiles[b].bottom)-Math.max(tiles[a].top,tiles[b].top)>.5)overlaps.rectangles.push(`${tiles[a].id}/${tiles[b].id}`);
+    }
     for (const [kind, nodes] of Object.entries(obstacles)) {
       overlaps[kind] = [];
       for (const tile of tiles) for (const node of nodes) if (hit(tile, node)) overlaps[kind].push(`${tile.id}/${node.id}`);
@@ -149,14 +155,14 @@ async function measure(page, screen, scenario) {
       handRiverRatio: firstHand && firstRiver ? parseFloat(getComputedStyle(firstRiver).width) / parseFloat(getComputedStyle(firstHand).width) : null,
       publicCounts: [0, 1, 2, 3].map(seat => ({ seat, groups: document.querySelectorAll(`#melds-${seat} .meld-group`).length, tiles: document.querySelectorAll(`#melds-${seat} .tile`).length })),
     };
-  });
+  },['bottom','right','top','left'].map(side=>Array.from({length:capacity},(_,index)=>riverCell(index,side))));
   const detail = { screen, scenario };
   const inside = (box, outer) => box.left >= outer.left - .8 && box.right <= outer.right + .8 && box.top >= outer.top - .8 && box.bottom <= outer.bottom + .8;
   const viewport = { left: 0, top: 0, right: screen.width, bottom: screen.height };
   check(data.stage.width + 1 >= data.stage.height * 16 / 9, 'single landscape canvas stays at least 16:9', detail);
   check(Math.abs(data.stage.width - screen.width) <= 1 && Math.abs(data.stage.height - Math.min(screen.height, screen.width * 9 / 16)) <= 1, 'canvas fills landscape viewport and centers in taller windows', { ...detail, stage: data.stage });
   check(data.rivers.every(river => river.tiles.length === capacity), 'all 36 display river tiles render without truncation', { ...detail, counts: data.rivers.map(river => river.tiles.length) });
-  check(data.rivers.every(river=>river.gap==='0px' && river.maxJointGap<.25), 'all river tiles touch adjacent cells without artificial gaps', {...detail,joints:data.rivers.map(river=>({seat:river.seat,gap:river.gap,max:river.maxJointGap}))});
+  check(data.rivers.every(river=>river.rowGap==='0px'&&parseFloat(river.columnGap)>0&&river.explicitCells&&river.columns===(river.seat%2?4:9)&&river.rows===(river.seat%2?9:4)), 'explicit rotated cells match riverCell with a narrow projection clearance and no implicit tracks', {...detail,grids:data.rivers.map(({seat,columns,rows,explicitCells,gap})=>({seat,columns,rows,explicitCells,gap}))});
   check(data.rivers.filter(river=>river.seat%2).every(river=>river.modelAspects.every(ratio=>Math.abs(ratio/(5/7)-1)<.02)), 'side tiles retain their original model proportions in the common table plane', {...detail,ratios:data.rivers.filter(river=>river.seat%2).map(river=>river.modelAspects)});
   const widths=data.rivers.flatMap(river=>river.tableWidths),heights=data.rivers.flatMap(river=>river.tableHeights);
   check(Math.max(...widths)/Math.min(...widths)<1.002&&Math.max(...heights)/Math.min(...heights)<1.002, 'all four rivers use identical tile size on the actual table, with natural perspective only', {...detail,widthRange:[Math.min(...widths),Math.max(...widths)],heightRange:[Math.min(...heights),Math.max(...heights)]});
@@ -180,6 +186,27 @@ async function measure(page, screen, scenario) {
   await page.screenshot({ path: filename }); report.screenshots.push(filename);
   report.measurements.push({ screen, scenario, ...data });
 }
+async function singleLayer(page,screen,count) {
+  await page.setViewportSize({width:screen.width,height:screen.height});
+  await page.evaluate(count=>{const game=window.mahjongGame;game.players.forEach((player,seat)=>{player.discards=Array.from({length:count},(_,index)=>(seat*9+index)%34);});game.lastDiscard=null;game.pendingDiscard=null;game.actionNotice=null;game.phase={kind:'discard',seat:0};window.renderMahjong();},count);
+  await frames(page);
+  const result=await page.evaluate(expected=>{
+    const all=[],grids=[0,1,2,3].map(seat=>{
+      const river=document.querySelector('#river-'+seat),style=getComputedStyle(river),columns=style.gridTemplateColumns.split(/\s+/).map(parseFloat),rows=style.gridTemplateRows.split(/\s+/).map(parseFloat),gap=parseFloat(style.columnGap),tiles=[...river.querySelectorAll('.tile')];
+      const cells=tiles.map((tile,index)=>{const cell=expected[seat][index],r=tile.getBoundingClientRect();all.push({seat,index,left:r.left,right:r.right,top:r.top,bottom:r.bottom});return {column:+tile.style.gridColumn,row:+tile.style.gridRow,error:Math.max(Math.abs(tile.offsetLeft+tile.offsetWidth/2-((cell.column-1)*(columns[0]+gap)+columns[0]/2)),Math.abs(tile.offsetTop+tile.offsetHeight/2-((cell.row-1)*rows[0]+rows[0]/2)))};});
+      return {seat,count:tiles.length,expected:window.mahjongGame.players[seat].discards.length,columns:columns.length,rows:rows.length,cells};
+    }),overlaps=[];
+    for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i],b=all[j],w=Math.min(a.right,b.right)-Math.max(a.left,b.left),h=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);if(w>.5&&h>.5)overlaps.push({a:[a.seat,a.index],b:[b.seat,b.index],w,h});}
+    return {grids,overlaps,copies:document.querySelectorAll('#discard-focus .tile').length};
+  },['bottom','right','top','left'].map(side=>Array.from({length:count},(_,index)=>riverCell(index,side))));
+  const detail={screen,count};
+  check(result.grids.every(g=>g.count===count&&g.count===g.expected),'one real DOM tile per authoritative discard at every river count',{...detail,grids:result.grids});
+  check(result.grids.every(g=>g.columns===(g.seat%2?4:9)&&g.rows===(g.seat%2?9:4)&&g.cells.every(c=>c.column>=1&&c.column<=g.columns&&c.row>=1&&c.row<=g.rows&&c.error<.8)),'all cards occupy the measured explicit track centres, without implicit tracks',{...detail,grids:result.grids});
+  check(result.overlaps.length===0,'rotated visual rectangles have zero overlap within 0.5px tolerance',{...detail,overlaps:result.overlaps});
+  check(result.copies===0,'focus never duplicates a river face',detail);
+  report.singleLayer.push({...detail,...result});
+}
+
 async function stability(page, screen, seat) {
   await page.setViewportSize({ width: screen.width, height: screen.height }); await frames(page);
   const result = await page.evaluate(async ({ capacity, seat }) => {
@@ -194,8 +221,10 @@ async function stability(page, screen, seat) {
     window.renderMahjong();
     await Promise.all(document.querySelector('#discard-focus').getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
     const expanded = !document.querySelector('#discard-focus').hidden;
-    const focusRect = document.querySelector('#discard-focus .tile').getBoundingClientRect();
-    const focusQuad = window.visualGeometry.quad(document.querySelector('#discard-focus .tile'));
+    const focusRect = document.querySelector('#discard-focus').getBoundingClientRect();
+    const focusQuad = window.visualGeometry.quad(document.querySelector('#discard-focus'));
+    const copies=document.querySelectorAll('#discard-focus .tile').length;
+    const marked=document.querySelectorAll('.river .is-discard-focus').length;
     const focusAspect = focusRect.width / focusRect.height;
     const targetRect = document.querySelector(`#river-${seat}`).children[index].getBoundingClientRect();
     const targetAspect = targetRect.width / targetRect.height;
@@ -211,9 +240,10 @@ async function stability(page, screen, seat) {
     await Promise.all([...document.querySelectorAll('.discard-flight')].flatMap(node => node.getAnimations()).map(animation => animation.finished.catch(() => {})));
     await new Promise(resolve => requestAnimationFrame(resolve));
     const after = rects();
-    return { before, after, unchangedNodes, expanded, focusAspect, targetAspect, focusTargetError, focusNeighborOverlaps, focusHidden: document.querySelector('#discard-focus').hidden, flights: document.querySelectorAll('.discard-flight').length, lastCount: document.querySelector(`#river-${seat}`).querySelectorAll('.tile').length };
+    return { before, after, unchangedNodes, expanded, copies, marked, focusAspect, targetAspect, focusTargetError, focusNeighborOverlaps, focusHidden: document.querySelector('#discard-focus').hidden, flights: document.querySelectorAll('.discard-flight').length, lastCount: document.querySelector(`#river-${seat}`).querySelectorAll('.tile').length };
   }, { capacity, seat });
   check(result.unchangedNodes, 'unchanged render preserves river DOM nodes', { screen, seat });
+  check(result.copies===0&&result.marked===1,'focus only marks one original river tile and never creates a face copy',{screen,seat,copies:result.copies,marked:result.marked});
   check(result.expanded && result.focusHidden && result.flights === 0, 'latest river tile highlights at its original size then disappears in place', { screen, seat, expanded: result.expanded, hidden: result.focusHidden, flights: result.flights });
   check(result.focusNeighborOverlaps.length === 0, 'fixed-size latest tile does not cover neighboring river tiles', { screen, seat, overlaps: result.focusNeighborOverlaps });
   check(result.focusTargetError<.8 && Math.abs(result.focusAspect / result.targetAspect - 1) < .05, 'dense-river focus preserves all four real tile corners and their table perspective', {screen,seat,error:result.focusTargetError,aspect:result.focusAspect,targetAspect:result.targetAspect});
@@ -239,6 +269,7 @@ try {
     }
     for (const screen of screens.filter(screen => (screen.device === 'phone') === mobile)) {
       await applyFixture(page, fixtures[0][1]);
+      for(const count of [0,1,9,27,36])await singleLayer(page,screen,count);
       for (const seat of [0, 1, 2, 3]) await stability(page, screen, seat);
     }
   }

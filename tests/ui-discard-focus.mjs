@@ -9,6 +9,7 @@ import { MahjongGame, isSpecialGangTile } from '../engine.js';
 import { assertInvariants, collectPhysicalTiles } from '../src/domain/invariants.js';
 import { actionFixture, scattered } from './pizi-fixtures.mjs';
 import {installVisualGeometry} from './browser-geometry.mjs';
+import {riverCell} from '../src/ui/river-layout.js';
 
 // Keep browser dependencies outside the zero-dependency application.
 let playwright;
@@ -43,6 +44,16 @@ async function frames(page) { await page.evaluate(() => new Promise(resolve => r
 async function sync(room) {
   await Promise.all(pages.map(page => until(() => page.evaluate(version => window.mahjongRoom?.room?.version >= version && !window.mahjongRoom.busy && window.mahjongRoom.status === 'connected', room.version), 'four connected SSE renders')));
   await Promise.all(pages.map(frames));
+  await assertRiverSlots(room,true);
+}
+async function assertRiverSlots(room,skipOpening=false) {
+  for(const [viewer,page]of pages.entries()){
+    if(skipOpening&&await page.evaluate(()=>document.querySelector('#game').classList.contains('is-opening-deal')||!document.querySelector('#dice-intro').hidden))continue;
+    const actual=await page.evaluate(()=>[0,1,2,3].map(seat=>[...document.querySelectorAll(`#river-${seat} .tile`)].map(tile=>({type:Number(tile.querySelector('use').getAttribute('href').split('-').at(-1)),column:Number(tile.style.gridColumn),row:Number(tile.style.gridRow)}))));
+    const expected=['bottom','right','top','left'].map((side,relative)=>room.game.players[(viewer+relative)%4].discards.map((type,index)=>({type,...riverCell(index,side)})));
+    assert.deepEqual(actual,expected,'every live/claimed/compacted river has one real card in each chronological explicit cell');
+    assert.equal(await page.locator('#discard-focus .tile').count(),0,'live snapshots never create a focus face copy');
+  }
 }
 async function dismissOverlays() {
   for (const page of pages) {
@@ -132,7 +143,7 @@ async function focusRows() {
 async function focusGeometry(page) {
   return page.evaluate(() => {
     const holder = document.querySelector('#discard-focus'), player = Number(holder.dataset.player);
-    const focus = holder.querySelector('.tile'), original = document.querySelector(`#river-${player} .last-discard`);
+    const focus = holder, original = document.querySelector(`#river-${player} .is-discard-focus`);
     if (holder.hidden || !focus || !original) return null;
     const box = element => {
       const rect = element.getBoundingClientRect();
@@ -163,7 +174,8 @@ async function expanded(from, tile, label) {
     assert.equal(rows[viewer].player, (from - viewer + 4) % 4, `${label}: relative player ${viewer}`);
     assert.equal(rows[viewer].tile, tile, `${label}: correct tile ${viewer}`);
     assert.ok(rows[viewer].key, `${label}: stable discard identity ${viewer}`);
-    assert.equal(rows[viewer].tileCount, 1, `${label}: one visual highlighted tile ${viewer}`);
+    assert.equal(rows[viewer].tileCount, 0, `${label}: no duplicate tile in focus anchor ${viewer}`);
+    assert.equal(await pages[viewer].locator('.river .is-discard-focus').count(),1,`${label}: exactly one real tile highlighted`);
     assert.equal(rows[viewer].pointerEvents, 'none', `${label}: overlay does not block controls`);
     await assertLocalFocus(pages[viewer], `${label}: viewer ${viewer}`);
   }
@@ -171,6 +183,7 @@ async function expanded(from, tile, label) {
 }
 async function settled(label) {
   await until(async () => (await focusRows()).every(row => row.hidden), `${label}: all views return tile to river`);
+  for(const page of pages)assert.equal(await page.locator('.river .is-discard-focus').count(),0,'retirement removes the real-tile glow');
 }
 async function discard(room, from, tile) {
   const page = pages[from], version = room.version;
@@ -183,7 +196,9 @@ async function discard(room, from, tile) {
   await sync(room);
   physical(room.game);
   assert.deepEqual(room.game.lastDiscard, { from, tile, index: room.game.players[from].discards.length - 1 });
-  return expanded(from, tile, 'real browser discard');
+  const shown=await expanded(from, tile, 'real browser discard');
+  await assertRiverSlots(room);
+  return shown;
 }
 async function operation(room, actor, kind) {
   const version = room.version, page = pages[actor];
@@ -385,7 +400,7 @@ async function geometry(room, names) {
           return { player, angle: angle(tile), box: rect(river), tile: tileBox, logicalTileWidth: tileBox.width, logicalTileHeight: tileBox.height, slot: rect(slot), count: tiles.length, columns: style.gridTemplateColumns.split(/\s+/).length, tileReachable: tiles.some(reachable) };
         }),
         handReachable: [...document.querySelectorAll('#hand button[aria-disabled="false"]')].some(reachable),
-        focus: rect(document.querySelector('#discard-focus .tile')),
+        focus: rect(document.querySelector('#discard-focus')),
         focusPointerEvents: getComputedStyle(document.querySelector('#discard-focus')).pointerEvents,
         pointerUnchanged,pointerSamples:points.length,
       };
@@ -461,10 +476,6 @@ try {
   console.log(JSON.stringify({ passed: true, browser: report.browser, checks: report.checks, geometryViewports: report.geometry.length, screenshots: report.screenshots, report: path.join(output, 'ui-discard-focus.json') }, null, 2));
 } catch (error) {
   report.failure = error.stack;
-  if (pages[0] && !pages[0].isClosed()) {
-    const screenshot = path.join(output, 'ui-discard-focus-failure.png');
-    await pages[0].screenshot({ path: screenshot }).catch(() => {}); report.screenshots.push(screenshot);
-  }
   throw error;
 } finally {
   writeFileSync(path.join(output, 'ui-discard-focus.json'), JSON.stringify(report, null, 2));

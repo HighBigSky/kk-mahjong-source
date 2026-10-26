@@ -174,8 +174,9 @@ html.in-game #game.is-landscape {
   cursor:pointer;
   --river-columns:var(--river-long-count);
   --river-rows:var(--river-short-count);
-  --river-gap:0px;
-  --river-zone-width:calc(var(--river-columns) * var(--tile-face-width));
+  /* 投影后牌的包围盒比平面格位略宽，留窄横缝，避免相邻可视矩形交叠。 */
+  --river-gap:calc(var(--tile-face-width) * .08);
+  --river-zone-width:calc(var(--river-columns) * var(--tile-face-width) + (var(--river-columns) - 1) * var(--river-gap));
   --river-zone-height:calc(var(--river-rows) * var(--tile-face-height));
   --river-cell-width-factor:1;
   --river-cell-height-factor:calc(5 / 7);
@@ -185,7 +186,9 @@ html.in-game #game.is-landscape {
   grid-template-columns:repeat(var(--river-columns),calc(var(--river-tile-width) / var(--river-cell-width-factor)));
   grid-template-rows:repeat(var(--river-rows),calc(var(--river-tile-width) / var(--river-cell-height-factor)));
   grid-auto-rows:0;
-  gap:var(--river-gap);
+  grid-auto-columns:0;
+  column-gap:var(--river-gap);
+  row-gap:0;
   min-width:0;
   min-height:0;
   max-height:none;
@@ -210,7 +213,7 @@ html.in-game #game.is-landscape {
   transform:rotate(var(--river-tile-turn));
   transform-origin:center;
 }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:var(--river-short-count); --river-rows:var(--river-long-count); --river-zone-width:calc(var(--river-columns) * var(--tile-face-height)); --river-zone-height:calc(var(--river-rows) * var(--tile-face-width)); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:var(--river-short-count); --river-rows:var(--river-long-count); --river-gap:calc(var(--tile-face-width) * .12); --river-zone-width:calc(var(--river-columns) * var(--tile-face-height) + (var(--river-columns) - 1) * var(--river-gap)); --river-zone-height:calc(var(--river-rows) * var(--tile-face-width)); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
 #game.is-landscape .table .river-left { left:calc(var(--table-unit) * 8); --river-tile-turn:90deg; }
 #game.is-landscape .table .river-right { right:calc(var(--table-unit) * 8); --river-tile-turn:-90deg; }
 /* 左右牌河保留各家朝向，布局层只对整个区域等比摆放。 */
@@ -485,7 +488,7 @@ html.in-game #game.is-landscape {
 }
 #game.is-landscape .table .opponent-rack-top { width:var(--rack-run-length); height:var(--rack-band-depth); right:auto; }
 #game.is-landscape .table .opponent-rack-left,
-#game.is-landscape .table .opponent-rack-right { width:var(--rack-band-depth); height:var(--rack-run-length); bottom:auto; }
+#game.is-landscape .table .opponent-rack-right { --rack-run-length:calc(var(--tile-face-width) * 20 + var(--public-tile-gap) * 19); width:var(--rack-band-depth); height:var(--rack-run-length); bottom:auto; }
 #game.is-landscape .table .opponent-rack .bot-melds { display:contents; }
 #game.is-landscape .table .river {
   transform:var(--opponent-view,none);
@@ -560,7 +563,7 @@ html.in-game #game.is-landscape {
 .is-landscape .seat-top .opponent-state { font-size:calc(var(--ui-unit) * 1.8); }
 .is-landscape .player-seat .opponent-name { font-size:calc(var(--ui-unit) * 2.45); }
 .is-landscape .player-seat .opponent-score { color:#f1d27d; }
-.is-landscape .room-meta { top:13%; left:2%; width:23%; opacity:.7; font-size:calc(var(--ui-unit) * 2.1); flex-direction:column; align-items:flex-start; gap:0; }
+.is-landscape .room-meta { top:13%; left:2%; width:min(23%,calc((var(--stage-width) - var(--board-height)) / 2 - var(--stage-width) * .02)); opacity:.7; font-size:calc(var(--ui-unit) * 2.1); flex-direction:column; align-items:flex-start; gap:0; }
 
 /* 本家保持正视；前沿留出副露换行空间，手牌在自身可用区域居中。 */
 .is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { left:50%; width:var(--rack-width); bottom:2%; transform:translateX(-50%); }
@@ -618,8 +621,8 @@ html.in-game #game.is-landscape {
 .is-landscape .hand-zone.has-melds .hand { justify-content:center; padding-left:calc(var(--ui-unit) * .6 + var(--hand-gap) * 4); }
 .is-landscape .turn-message,.is-landscape .last-event { right:auto; }
 /* 远端牌列内移后，回合与出牌文字放入左侧信息带，避免压住对家牌墙。 */
-.is-landscape .turn-message { top:20%; left:2%; width:20%; font-size:calc(var(--ui-unit) * 2.2); line-height:1.2; }
-.is-landscape .last-event { top:25%; left:2%; width:20%; font-size:calc(var(--ui-unit) * 1.8); line-height:1.2; max-height:2.4em; overflow:hidden; }
+.is-landscape .turn-message { top:20%; left:2%; width:min(20%,calc((var(--stage-width) - var(--board-height)) / 2 - var(--stage-width) * .02)); font-size:calc(var(--ui-unit) * 2.2); line-height:1.2; }
+.is-landscape .last-event { top:25%; left:2%; width:min(20%,calc((var(--stage-width) - var(--board-height)) / 2 - var(--stage-width) * .02)); font-size:calc(var(--ui-unit) * 1.8); line-height:1.2; max-height:2.4em; overflow:hidden; }
 .is-landscape .action-zone { top:auto; bottom:19%; left:auto; right:2%; width:min(calc(var(--ui-unit) * 24),calc(var(--stage-width) * .105)); transform:none; z-index:5; }
 .is-landscape .action-buttons { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:calc(var(--ui-unit) * 1.3); }
 .is-landscape .action-button { height:calc(var(--ui-unit) * 8.5); gap:0; }
@@ -679,17 +682,9 @@ html.in-game #game.is-landscape {
   pointer-events:none;
   user-select:none;
 }
-.is-landscape .discard-focus-tile { display:block; width:100%; height:100%; }
-#game.is-landscape .discard-focus .tile {
-  width:100%;
-  height:100%;
-  pointer-events:none;
-}
-#game.is-landscape .discard-focus .tile { transform:none; transition:none; animation:none; margin:0; outline:1px solid #ffdb81; box-shadow:var(--tile-model-contact-shadow),0 0 calc(var(--table-unit) * .7) #ffe4a34d; }
 
-/* 牌河、出牌聚焦与回落动画沿用手牌材质；厚度收在牌体内，不改变格子和朝向。 */
-#game.is-landscape .table .river .tile,
-#game.is-landscape .discard-focus .tile {
+/* 牌河实牌沿用统一材质；高亮只改变实牌的描边与光晕。 */
+#game.is-landscape .table .river .tile {
   --tile-depth:var(--tile-model-river-depth);
   border:var(--tile-model-bevel) solid var(--tile-border);
   border-right-color:var(--tile-border-side);
@@ -697,10 +692,9 @@ html.in-game #game.is-landscape {
   border-radius:calc(var(--tile-face-width) * .08);
 }
 #game.is-landscape .table .river .tile { box-shadow:var(--tile-model-contact-shadow); }
-#game.is-landscape .table .river .tile::before,
-#game.is-landscape .discard-focus .tile::before { border-width:var(--tile-model-bevel); }
-#game.is-landscape .table .river .tile svg,
-#game.is-landscape .discard-focus .tile svg { shape-rendering:geometricPrecision; filter:none; }
+#game.is-landscape .table .river .tile.is-discard-focus { outline:1px solid #ffdb81; box-shadow:var(--tile-model-contact-shadow),0 0 calc(var(--table-unit) * .7) #ffe4a34d; }
+#game.is-landscape .table .river .tile::before { border-width:var(--tile-model-bevel); }
+#game.is-landscape .table .river .tile svg { shape-rendering:geometricPrecision; filter:none; }
 
 /* Selected tiles keep the pointer target and get immediate, steady light. */
 #game.is-landscape .hand .tile { transition:transform 80ms,box-shadow 80ms; }

@@ -570,17 +570,20 @@ function positionDiscardFocus() {
   if (!focusedDiscard) return;
   const target = discardRiverTile(focusedDiscard);
   if (target !== discardFocusTarget) {
+    discardFocusTarget?.classList.remove('is-discard-focus');
     discardFocusLayout.disconnect();
     discardFocusTarget = target;
     if (target) discardFocusLayout.observe(target);
   }
   const plane = target && tilePlane(target, $('#game'));
-  if (!plane) { $('#discard-focus').hidden = true; queueDiscardFocusLayout(); return; }
+  if (!plane) { target?.classList.remove('is-discard-focus'); $('#discard-focus').hidden = true; queueDiscardFocusLayout(); return; }
   const {width,height,matrix} = plane;
   const holder = $('#discard-focus');
   if (holder.parentElement !== $('#game')) $('#game').append(holder);
   // 每次按实牌四角定位并恢复显隐；同牌、重复快照和窗口重排也不能跳过。
   holder.style.cssText = `left:0;top:0;width:${width}px;height:${height}px;transform-origin:0 0;transform:${planeCSS(matrix)}`;
+  // 仅给牌河中的实牌描边；空锚点保留读屏和定位语义，不再绘制第二张牌。
+  target.classList.add('is-discard-focus');
   holder.hidden = false;
 }
 
@@ -600,6 +603,7 @@ function settleDiscardFocus() {
   discardFocusFrame = null;
   focusedDiscard = null;
   discardFocusLayout.disconnect();
+  discardFocusTarget?.classList.remove('is-discard-focus');
   discardFocusTarget = null;
   // 只撤去原地描边；不复制、不缩放，也不向已被吃碰杠胡取走的格位飞回。
   $('#discard-focus').hidden = true;
@@ -617,7 +621,6 @@ function renderDiscardFocus() {
   holder.dataset.key = focus.key;
   holder.dataset.player = String(focus.from);
   holder.dataset.tile = String(focus.tile);
-  setHTMLIfChanged($('#discard-focus-tile'), tile(focus.tile));
   holder.setAttribute('aria-label', `${displayNames[focus.from]}打出${tileName(focus.tile)}`);
   dismissDiceIntro();
   positionDiscardFocus();
