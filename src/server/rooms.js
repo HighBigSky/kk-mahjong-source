@@ -469,7 +469,11 @@ export class RoomService {
         else if (added !== undefined) action = {kind:'gang', player, tile:added, mode:'added'};
         else {
           const index = chooseDiscard(game.players[player].hand, game.players[player].melds, game._visibleTiles(), game.wildTile, game.indicatorTile);
-          if (index < 0) { game._finishDraw('牌墙已空，杠牌无法补摸，本局流局'); this._changed(room); return; }
+          // 与本地人机相同：无普通出牌候选即流局，并广播结算、取消后续定时器。
+          if (index < 0) {
+            game._finishDraw(game.players[player].hand.includes(game.wildTile) ? '人机没有可打出的普通牌，本局流局' : '牌墙已空，杠牌无法补摸，本局流局');
+            this._changed(room); return;
+          }
           action = {kind:'discard', player, index};
         }
       }

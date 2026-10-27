@@ -259,7 +259,7 @@ test('legacy ordinary meld APIs cannot upgrade an indicator peng into an added k
 test('discard hints and shanten never treat a retained indicator as a legal discard or completed hand', () => {
   assert.equal(chooseDiscard([PIZI], [], [], PIZI + 1, PIZI), -1);
   assert.equal(chooseDiscard([RED_DRAGON, PIZI], [], [], PIZI + 1, PIZI), -1);
-  assert.equal(chooseDiscard([RED_DRAGON, PIZI, PIZI + 1], [], [], PIZI + 1, PIZI), 2);
+  assert.equal(chooseDiscard([RED_DRAGON, PIZI, PIZI + 1], [], [], PIZI + 1, PIZI), -1);
   const hand = [...ordinary.slice(0, 12), PIZI, PIZI];
   assert.equal(calculateShanten(hand, 0, PIZI + 1, PIZI), 8);
   for (const wild of [null, PIZI + 1]) {

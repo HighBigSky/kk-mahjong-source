@@ -14,7 +14,8 @@ export const authorizedWallChanges = Object.freeze([
   'Only ordinary wins after chi, peng, exposed or added kong are limited to one concealed wildcard; concealed and single-tile special kongs do not open the hand.',
   '2026-10-23 authorized exception: only a matching wall-tail replacement self draw waives the opened ordinary wildcard cap; ordinary draw and claim restrictions, shape and scoring remain unchanged.',
   'An ordinary hand without chi, peng, exposed or added kong may win only by self draw; seven pairs, all triplets, all numbered 2/5/8 tiles, and all honors may still claim a winning discard while closed.',
-  'AI and hints evaluate actual public groups, all four big-win distances, and legal ready draws; held red/indicator tiles are never ready, and opened hands may discard surplus wildcards. The frozen natural-shape scoring gate and all scoring values stay unchanged.',
+  'AI and hints evaluate actual public groups, all four big-win distances, and legal ready draws; held red/indicator tiles are never ready. The frozen natural-shape scoring gate and all scoring values stay unchanged.',
+  '2026-10-27 authorized AI-only policy: never discard a wildcard, including after opening, multiple wildcards, and replacement draws; no ordinary candidate ends the AI turn as a drawn round. Human discard legality is unchanged.',
   '2026-10-20 authorized scoring: single red/indicator gangs charge each other player 10 immediately; replacement self-draw adds 10; ordinary discard wins charge one player one share, big wins charge all three; drawn rounds retain gang deltas.',
   '2026-10-21 authorized claim restriction: wild tiles cannot be claimed by chi/peng or consumed as concealed chi partners; red and indicator claim restrictions stay in force.',
 ]);
@@ -313,8 +314,12 @@ replaceOnce('isWinning([...remaining, draw], meldCount, wildTile)',
   'draw !== 31 && draw !== indicatorTile && isWinning([...remaining, draw], melds, wildTile, indicatorTile)',
   'discard ready-copy count considers only legal draws and actual meld context');
 replaceOnce('const keepWilds = validTile(wildTile) && hand.some(tile => tile !== 31 && tile !== indicatorTile && tile !== wildTile);',
-  'const keepWilds = validTile(wildTile) && (!oracleMeldContext(melds).opened || own[wildTile] <= 1) && hand.some(tile => tile !== 31 && tile !== indicatorTile && tile !== wildTile);',
-  'opened hands may discard surplus wildcards');
+  'const keepWilds = validTile(wildTile);',
+  'AI always keeps wildcards, regardless of melds and alternatives');
+// 仅适配新授权的人机策略；冻结文件、真人出牌入口、胡牌搜索与计分比对保持原样。
+replaceOnce("if (discard < 0) {\n      this._finishDraw(this.players[this.current].hand.includes(this.indicatorTile) ? '牌墙已空，红中或皮子无法补杠，本局流局' : '牌墙已空，红中无法补杠，本局流局');",
+  "if (discard < 0) {\n      this._finishDraw(this.players[this.current].hand.includes(this.wildTile) ? '人机没有可打出的普通牌，本局流局' : this.players[this.current].hand.includes(this.indicatorTile) ? '牌墙已空，红中或皮子无法补杠，本局流局' : '牌墙已空，红中无法补杠，本局流局');",
+  'AI blocked by held wildcards uses a draw reason without claiming the wall is empty');
 replaceOnce('calculateShanten(seat.hand, seat.melds.length, this.wildTile, this.indicatorTile);',
   'calculateShanten(seat.hand, seat.melds, this.wildTile, this.indicatorTile);', 'bot claim distance includes actual prior melds');
 replaceOnce('calculateShanten(remaining, melds.length, this.wildTile, this.indicatorTile);',

@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isWinning, chooseDiscard, MahjongGame } from '../engine.js';
+import { assertInvariants } from '../src/domain/invariants.js';
+import { actionFixture } from './pizi-fixtures.mjs';
+import { blockedBotFixture, blockedBotClaimFixture } from './bot-fixtures.mjs';
 
 const standardHand = [0, 1, 2, 3, 4, 5, 9, 10, 11, 27, 27, 27, 19, 19];
 const quietHand = [3, 5, 7, 12, 14, 16, 21, 23, 25, 28, 30, 32, 33];
@@ -387,4 +390,78 @@ test('seeded AI rounds finish without stalls or creating or losing physical tile
     assert.deepEqual(game.players.map(player => player.hand.length), [13, 14, 13, 13]);
     assertTileConservation(game);
   }
+});
+
+test('AI keeps every wildcard after opening, consistently picks an ordinary tile, and leaves inputs intact', () => {
+  const melds=[{kind:'chi',tiles:[0,1,2],from:3,concealed:false}];
+  const hand=[27,27,31,33,3,5,7,12,14,21,25],before=structuredClone({hand,melds});
+  const indices=Array.from({length:20},()=>chooseDiscard(hand,melds,[4,9,18],27,33));
+  assert.ok(indices.every(index=>index===indices[0]&&index>=0));
+  assert.ok(![27,31,33].includes(hand[indices[0]]));
+  assert.deepEqual({hand,melds},before);
+  for(const special of [[27],[27,27],[27,31,33],[27,27,31,33],[]])assert.equal(chooseDiscard(special,melds,[],27,33),-1);
+  assert.equal(chooseDiscard([27,27,31,33,5],melds,[],27,33),4);
+});
+
+test('local AI ends an unplayable turn once with or without remaining wall tiles', () => {
+  for(const exhausted of [false,true]) {
+    const game=blockedBotFixture({exhausted}),scores=game.players.map(p=>p.score);
+    assert.equal(chooseDiscard(game.players[1].hand,game.players[1].melds,[],game.wildTile,game.indicatorTile),-1);
+    assert.equal(game.advanceAI(),true);
+    assert.equal(game.phase.kind,'ended');assert.equal(game.result.kind,'draw');
+    assert.match(game.result.reason,/人机没有可打出的普通牌/);
+    assert.deepEqual(game.players[1].discards,[]);assert.deepEqual(game.players.map(p=>p.score),scores);
+    assertInvariants(game);
+    const settled=JSON.stringify(game);assert.equal(game.advanceAI(),false);assert.equal(JSON.stringify(game),settled);
+  }
+});
+
+test('bot chi and peng simulations decline claims that would leave only wildcards to discard', () => {
+  for(const kind of ['chi','peng']) {
+    const game=blockedBotClaimFixture(kind),actions=game.getActions(1),before=JSON.stringify(game);
+    assert.ok(kind==='chi'?actions.chi.length>0:actions.peng);
+    assert.equal(actions.hu,false);
+    assert.deepEqual(game._botClaim(1,actions),{action:'pass'});
+    assert.equal(JSON.stringify(game),before);assertInvariants(game);
+  }
+});
+
+test('human wildcard discards remain legal independently of the AI candidate filter', () => {
+  const game=actionFixture({hand:[0,2,4,6,8,10,12,14,16,18,20,22,27,27]});
+  assert.equal(game.discard(0,game.players[0].hand.indexOf(game.wildTile)),true);
+  assertInvariants(game);
+});
+
+test('200 fixed-seed optional-mode AI rounds never put a wildcard into any river', t => {
+  let totalActions=0,openedMultiWildTurns=0,replacementTurns=0;
+  for(let seed=0;seed<200;seed++) {
+    const game=new MahjongGame({seed:`no-wild-discard-${seed}`,laizi:true});
+    for(let step=0;game.phase.kind!=='ended'&&step<1500;step++) {
+      const actions=game.getActions(0);
+      if(game.phase.kind==='discard') {
+        const seat=game.players[game.current];
+        if(seat.melds.length&&seat.hand.filter(tile=>tile===game.wildTile).length>=2)openedMultiWildTurns++;
+        if(game.lastDraw?.replacement)replacementTurns++;
+      }
+      if(game.phase.kind==='claim'&&actions.pass)assert.equal(actions.hu?game.claim(0,'hu'):game.pass(0),true);
+      else if(game.phase.kind==='discard'&&game.current===0) {
+        // 仅测试代理座位 0；其余三家始终使用真实 advanceAI()，四家共享同一候选过滤。
+        if(actions.hu)assert.equal(game.claim(0,'hu'),true);
+        else if(actions.redGang)assert.equal(game.claim(0,'redGang'),true);
+        else if(actions.piziGang)assert.equal(game.claim(0,'piziGang'),true);
+        else {
+          const index=chooseDiscard(game.players[0].hand,game.players[0].melds,game._visibleTiles(),game.wildTile,game.indicatorTile);
+          if(index<0)game._finishDraw('测试代理无普通牌可打');
+          else assert.equal(game.discard(0,index),true);
+        }
+      } else assert.equal(game.advanceAI(),true,`seed ${seed}, action ${step}`);
+      assertInvariants(game);
+      assert.ok(game.players.every(p=>!p.discards.includes(game.wildTile)),`seed ${seed}, action ${step}: no wildcard in any river`);
+      totalActions++;
+    }
+    assert.equal(game.phase.kind,'ended',`seed ${seed} must finish`);assert.ok(game.result);
+    assert.equal(game.players.reduce((sum,p)=>sum+p.score,0),4000);
+  }
+  assert.ok(openedMultiWildTurns>0);assert.ok(replacementTurns>0);
+  t.diagnostic(`200 seeded rounds, ${totalActions} actions, ${openedMultiWildTurns} opened multi-wild turns, ${replacementTurns} replacement turns; four rivers contain no wildcards.`);
 });

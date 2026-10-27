@@ -76,7 +76,7 @@ test('red discards are rejected without state changes for every seat', () => {
   }
 });
 
-test('discard hints never select red and distinguish a legal wildcard discard from no legal tile', () => {
+test('AI discards keep red and wild tiles, returning -1 when no ordinary tile remains', () => {
   for (const wild of [null, 32, RED]) {
     for (const hand of [[RED], Array(4).fill(RED)]) {
       assert.equal(chooseDiscard(hand, [], [], wild), -1);
@@ -84,13 +84,13 @@ test('discard hints never select red and distinguish a legal wildcard discard fr
     for (const hand of [[RED, 32], [...scattered, RED], [RED, RED, 32, 32]]) {
       const original = [...hand];
       const index = chooseDiscard(hand, [], [], wild);
-      assert.ok(index >= 0);
-      assert.notEqual(hand[index], RED);
+      if(hand.every(tile=>tile===RED||tile===wild))assert.equal(index,-1);
+      else {assert.ok(index>=0);assert.notEqual(hand[index],RED);assert.notEqual(hand[index],wild);}
       assert.deepEqual(hand, original);
     }
   }
-  assert.equal(chooseDiscard([RED, 32], [], [], 32), 1,
-    'the wildcard is a legal discard when its only alternative is a red dragon');
+  assert.equal(chooseDiscard([RED, 32], [], [], 32), -1,
+    'the AI keeps the wildcard even when its only alternative is a red dragon');
 });
 
 test('an injected red discard cannot grant Hu, peng, or an ordinary exposed kong', () => {

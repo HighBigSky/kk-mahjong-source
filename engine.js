@@ -328,7 +328,7 @@ function handShape(hand) {
   return value;
 }
 
-/** Returns a legal discard index, or -1 when no discard is possible.
+/** Returns an AI discard index, keeping all wildcards, or -1 if no ordinary tile remains.
  * @param {readonly TileCode[]} hand @param {readonly MeldLike[]|number} [melds]
  * @param {readonly TileCode[]} [visible] @param {TileCode|null} [wildTile] @param {TileCode|null} [indicatorTile]
  * @returns {number}
@@ -343,12 +343,10 @@ export function chooseDiscard(hand, melds = [], visible = [], wildTile = null, i
   let bestDistance = Infinity;
   let bestValue = -Infinity;
   const visited = new Set();
-  const keepWilds = isTileCode(wildTile) && (!hasOpenedMeld(melds) || own[wildTile] <= 1) &&
-    hand.some(tile => !isSpecialGangTile(tile, indicatorTile) && tile !== wildTile);
   for (let index = 0; index < hand.length; index++) {
     const tile = hand[index];
-    if (isSpecialGangTile(tile, indicatorTile)) continue;
-    if (keepWilds && tile === wildTile) continue;
+    // 人机始终保留癞子，开口/多癞子/补牌都不例外；真人出牌限制仍由 discard() 决定。
+    if (isSpecialGangTile(tile, indicatorTile) || tile === wildTile) continue;
     if (visited.has(tile)) continue;
     visited.add(tile);
     const remaining = hand.filter((_, position) => position !== index);
@@ -932,7 +930,9 @@ export class MahjongGame {
     if (added !== undefined) return this.claim(player, 'addedGang', added);
     const discard = chooseDiscard(this.players[player].hand, this.players[player].melds, this._visibleTiles(), this.wildTile, this.indicatorTile);
     if (discard < 0) {
-      this._finishDraw(this._blockedSpecialGangReason(this.players[player].hand));
+      // 只剩特殊牌或癞子时结束本局，不能空转；此时牌墙未必已空。
+      const hand = this.players[player].hand;
+      this._finishDraw(hand.includes(this.wildTile) ? '人机没有可打出的普通牌，本局流局' : this._blockedSpecialGangReason(hand));
       return true;
     }
     return this.discard(player, discard);

@@ -5,6 +5,8 @@ import { RoomService } from '../src/server/rooms.js';
 import { createServer } from '../server.js';
 import { MahjongGame, chooseDiscard } from '../engine.js';
 import { assertInvariants } from '../src/domain/invariants.js';
+import { blockedBotFixture } from './bot-fixtures.mjs';
+import { actionFixture } from './pizi-fixtures.mjs';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function eventually(predicate, message, timeout = 5000) {
@@ -19,7 +21,13 @@ class Stream extends EventEmitter {
   writableEnded = false;
   writableLength = 0;
   writeHead() {}
-  write() { return true; }
+  states = [];
+  write(chunk) {
+    // 保存服务端实际写入 SSE 的快照，覆盖暗手隐藏后的联网展示路径。
+    const match=/^event: state\ndata: (.+)\n\n$/.exec(String(chunk));
+    if(match)this.states.push(JSON.parse(match[1]));
+    return true;
+  }
   end() { if (!this.writableEnded) { this.writableEnded = true; this.emit('close'); } }
   destroy() { this.destroyed = true; this.end(); }
 }
@@ -115,6 +123,7 @@ for (const humans of [1, 2]) test(`${humans} human(s) and ${4 - humans} bots fin
       assert.ok(commands < 600, 'game must make progress');
       assert.equal(oracle.applyAction(player, action), true);
       assertInvariants(game);
+      assert.ok(game.players.every(seat=>!seat.discards.includes(game.wildTile)), 'no human proxy or bot discards a wildcard');
       assert.deepEqual(game.events, oracle.events, `events after command ${commands}`);
       assert.deepEqual(game.players.map(seat => seat.score), oracle.players.map(seat => seat.score));
     }
@@ -134,7 +143,54 @@ for (const humans of [1, 2]) test(`${humans} human(s) and ${4 - humans} bots fin
   assert.deepEqual(game.result, oracle.result);
   assertInvariants(game);
   assert.equal(h.room.botTimer, null);
+  for(const stream of h.streams) {
+    assert.ok(stream.states.length>10,'a complete round is observed through real SSE state frames');
+    for(const {state} of stream.states)if(state) {
+      assert.ok(state.players.every(seat=>!seat.discards.includes(state.wildTile)),'all four SSE rivers are wildcard-free');
+      if(state.phase.kind!=='ended')assert.ok(state.players.slice(1).every(seat=>seat.hand.every(tile=>tile===null)),'SSE masks opponents, while authoritative bots still receive real hands');
+    }
+    assert.equal(stream.states.at(-1).state.phase.kind,'ended');
+  }
   t.diagnostic(`${humans} human(s): ${commands} commands, ${botCommands} bot commands, ${game.events.length} events matched the unchanged engine; all 136 tiles conserved at every action.`);
+});
+
+test('server bots broadcast one draw and cancel scheduling when no ordinary discard remains', async t => {
+  for(const exhausted of [false,true]) {
+    const h=roomHarness(t);h.start();h.service._cancelBot(h.room);
+    const game=h.room.game=blockedBotFixture({exhausted,names:h.room.seats.map(seat=>seat.name)});
+    const before=h.streams[0].states.length;
+    assert.equal(chooseDiscard(game.players[1].hand,game.players[1].melds,[],game.wildTile,game.indicatorTile),-1);
+    h.service._changed(h.room);
+    await eventually(()=>game.phase.kind==='ended','blocked bot finishes a draw');
+    assert.equal(game.result.kind,'draw');assert.match(game.result.reason,/人机没有可打出的普通牌/);
+    assert.equal(h.room.botTimer,null);assertInvariants(game);
+    const states=h.streams[0].states.slice(before);
+    assert.equal(states.filter(s=>s.state.phase.kind==='ended').length,1,'exactly one ended SSE snapshot');
+    assert.equal(states.at(-1).state.result.kind,'draw');
+    const version=h.room.version,settled=JSON.stringify(game);await delay(15);
+    assert.equal(h.room.version,version);assert.equal(JSON.stringify(game),settled);
+  }
+});
+
+test('server bot with an opened hand and two wildcards discards an ordinary tile behind masked SSE hands', async t => {
+  const h=roomHarness(t);h.start();h.service._cancelBot(h.room);
+  const game=h.room.game=actionFixture({seat:1,names:h.room.seats.map(s=>s.name),
+    hand:[27,27,3,5,7,12,14,16,21,23,25],melds:[{kind:'chi',tiles:[0,1,2],from:0,concealed:false}]});
+  let discards=0;const apply=game.applyAction.bind(game);
+  game.applyAction=(player,action)=>{
+    if(player===1&&action.kind==='discard') {
+      assert.equal(game.players[1].hand.filter(tile=>tile===game.wildTile).length,2);
+      assert.notEqual(game.players[1].hand[action.index],game.wildTile);discards++;
+    }
+    return apply(player,action);
+  };
+  h.service._changed(h.room);
+  await eventually(()=>discards>0,'opened bot discards an ordinary tile');
+  h.service._cancelBot(h.room);assert.equal(discards,1);assertInvariants(game);
+  const state=h.streams[0].states.at(-1).state;
+  assert.ok(state.players[1].hand.every(tile=>tile===null));
+  assert.equal(state.players[1].discards.length,1);
+  assert.ok(state.players.every(player=>!player.discards.includes(state.wildTile)));
 });
 
 test('bot claims follow discard distance and wait for eligible human responses with hu priority intact', async t => {
