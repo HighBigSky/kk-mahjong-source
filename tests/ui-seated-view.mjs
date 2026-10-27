@@ -174,7 +174,8 @@ async function geometry(page) {
     });
     const nearStacks=[...document.querySelectorAll('.wall-stack[data-side="bottom"]')],first=centre(nearStacks[0]),last=centre(nearStacks.at(-1));
     const ownWallCenterError=Math.abs((first.x+last.x)/2-.5)*width;
-    const ringErrors=edgeAlignment.map(g=>Math.abs(g.depth+(g.kind==='river'?(g.side==='top'?layout.farRadius:layout.radius):g.kind==='wall'?(g.side==='top'?layout.farWallRadius:g.side==='bottom'?layout.wallRadius:layout.sideWallRadius):g.side==='top'?layout.farHandRadius:layout.handRadius))*width);
+    const microGap=parseFloat(getComputedStyle(document.querySelector('#river-0')).columnGap);
+    const ringErrors=edgeAlignment.map(g=>Math.abs(g.depth+(g.kind==='river'?(g.side==='top'?layout.farRadius:layout.radius+(['left','right'].includes(g.side)?microGap*layout.sideGapClearance/width:0)):g.kind==='wall'?(g.side==='top'?layout.farWallRadius:g.side==='bottom'?layout.wallRadius:layout.sideWallRadius):g.side==='top'?layout.farHandRadius:layout.handRadius))*width);
     const compass=centre(document.querySelector('.table-center')),ownRiver=centre(document.querySelector('#river-0'));
     const tableCentreError=Math.hypot(compass.x-.5,compass.y-.5)*width;
     const ownLaneErrors=[Math.hypot(ownRiver.x-.5,ownRiver.y-(.5+layout.nearRadius))*width,Math.hypot((first.x+last.x)/2-.5,(first.y+last.y)/2-(.5+layout.wallRadius))*width];
@@ -239,6 +240,7 @@ async function geometry(page) {
 }
 
 async function screenshot(page, size, scenario) {
+  if(process.env.KK_UI_SCREENSHOTS==='0')return;
   const filename = path.join(output, `seated-view-${size.width}x${size.height}-${scenario}.png`);
   await page.screenshot({ path: filename });
   report.screenshots.push(filename);

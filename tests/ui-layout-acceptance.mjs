@@ -105,6 +105,8 @@ async function measure(page, screen, scenario) {
       const contact = (a,b) => Math.min(...a.quad.flatMap(p=>b.quad.map(q=>Math.hypot(p.x-q.x,p.y-q.y))));
       const contacts = tiles.flatMap((tile,index)=>[index % columns < columns-1 ? tiles[index+1] : null,tiles[index+columns]].filter(Boolean).map(other=>contact(tile,other)));
       const edge = (q,a,b) => Math.hypot(q[a].x-q[b].x,q[a].y-q[b].y);
+      const cells=tiles.map((tile,index)=>({...tile,...expectedCells[seat][index]})),horizontal=[],vertical=[];
+      for(const a of cells)for(const b of cells){if(a.row===b.row&&b.column===a.column+1)horizontal.push(b.left-a.right);if(a.column===b.column&&b.row===a.row+1)vertical.push(b.top-a.bottom);}
       return {
         seat, tiles, box: box(river), gap:getComputedStyle(river).gap, rowGap:getComputedStyle(river).rowGap, columnGap:getComputedStyle(river).columnGap,
         columns:getComputedStyle(river).gridTemplateColumns.split(/\s+/).length, rows:getComputedStyle(river).gridTemplateRows.split(/\s+/).length,
@@ -114,6 +116,7 @@ async function measure(page, screen, scenario) {
         tableWidths:tiles.map(tile=>edge(onTable(tile.quad),0,1)),
         tableHeights:tiles.map(tile=>edge(onTable(tile.quad),0,3)),
         scrollWidth: river.scrollWidth, scrollHeight: river.scrollHeight, overflow: getComputedStyle(river).overflow,
+        screenGaps:[...horizontal,...vertical],handGap:parseFloat(getComputedStyle(document.querySelector('#hand')).columnGap),
       };
     });
     const tiles = rivers.flatMap(river => river.tiles.map((tile, index) => ({ ...tile, id: `${river.seat}:${index}` })));
@@ -163,7 +166,8 @@ async function measure(page, screen, scenario) {
   check(data.stage.width + 1 >= data.stage.height * 16 / 9, 'single landscape canvas stays at least 16:9', detail);
   check(Math.abs(data.stage.width - screen.width) <= 1 && Math.abs(data.stage.height - Math.min(screen.height, screen.width * 9 / 16)) <= 1, 'canvas fills landscape viewport and centers in taller windows', { ...detail, stage: data.stage });
   check(data.rivers.every(river => river.tiles.length === capacity), 'all 36 display river tiles render without truncation', { ...detail, counts: data.rivers.map(river => river.tiles.length) });
-  check(data.rivers.every(river=>river.rowGap==='0px'&&parseFloat(river.columnGap)>0&&river.explicitCells&&river.columns===(river.seat%2?4:9)&&river.rows===(river.seat%2?9:4)), 'explicit rotated cells match riverCell with a narrow projection clearance and no implicit tracks', {...detail,grids:data.rivers.map(({seat,columns,rows,explicitCells,gap})=>({seat,columns,rows,explicitCells,gap}))});
+  check(data.rivers.every(river=>river.rowGap===river.columnGap&&parseFloat(river.columnGap)===river.handGap&&river.explicitCells&&river.columns===(river.seat%2?4:9)&&river.rows===(river.seat%2?9:4)), 'all explicit tracks use the hand micro-gap with projection compensation and no implicit tracks', {...detail,grids:data.rivers.map(({seat,columns,rows,explicitCells,gap})=>({seat,columns,rows,explicitCells,gap}))});
+  check(data.rivers.every(river=>river.screenGaps.every(gap=>gap>=1&&gap<=2&&Math.abs(gap-river.handGap)<.35)), 'both axes of every projected river have 1-2px gaps consistent with the hand', {...detail,ranges:data.rivers.map(r=>({seat:r.seat,min:Math.min(...r.screenGaps),max:Math.max(...r.screenGaps),hand:r.handGap}))});
   check(data.rivers.filter(river=>river.seat%2).every(river=>river.modelAspects.every(ratio=>Math.abs(ratio/(5/7)-1)<.02)), 'side tiles retain their original model proportions in the common table plane', {...detail,ratios:data.rivers.filter(river=>river.seat%2).map(river=>river.modelAspects)});
   const widths=data.rivers.flatMap(river=>river.tableWidths),heights=data.rivers.flatMap(river=>river.tableHeights);
   check(Math.max(...widths)/Math.min(...widths)<1.002&&Math.max(...heights)/Math.min(...heights)<1.002, 'all four rivers use identical tile size on the actual table, with natural perspective only', {...detail,widthRange:[Math.min(...widths),Math.max(...widths)],heightRange:[Math.min(...heights),Math.max(...heights)]});
@@ -194,7 +198,7 @@ async function singleLayer(page,screen,count) {
   const result=await page.evaluate(expected=>{
     const all=[],grids=[0,1,2,3].map(seat=>{
       const river=document.querySelector('#river-'+seat),style=getComputedStyle(river),columns=style.gridTemplateColumns.split(/\s+/).map(parseFloat),rows=style.gridTemplateRows.split(/\s+/).map(parseFloat),gap=parseFloat(style.columnGap),tiles=[...river.querySelectorAll('.tile')];
-      const cells=tiles.map((tile,index)=>{const cell=expected[seat][index],r=tile.getBoundingClientRect();all.push({seat,index,left:r.left,right:r.right,top:r.top,bottom:r.bottom});return {column:+tile.style.gridColumn,row:+tile.style.gridRow,error:Math.max(Math.abs(tile.offsetLeft+tile.offsetWidth/2-((cell.column-1)*(columns[0]+gap)+columns[0]/2)),Math.abs(tile.offsetTop+tile.offsetHeight/2-((cell.row-1)*rows[0]+rows[0]/2)))};});
+      const cells=tiles.map((tile,index)=>{const cell=expected[seat][index],r=tile.getBoundingClientRect(),s=getComputedStyle(tile),start=(tracks,n)=>tracks.slice(0,n).reduce((sum,value)=>sum+value,0)+n*gap;all.push({seat,index,left:r.left,right:r.right,top:r.top,bottom:r.bottom});return {column:+tile.style.gridColumn,row:+tile.style.gridRow,error:Math.max(Math.abs(tile.offsetLeft-start(columns,cell.column-1)-parseFloat(s.marginLeft)),Math.abs(tile.offsetTop-start(rows,cell.row-1)-parseFloat(s.marginTop)))};});
       return {seat,count:tiles.length,expected:window.mahjongGame.players[seat].discards.length,columns:columns.length,rows:rows.length,cells};
     }),overlaps=[];
     for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const a=all[i],b=all[j],w=Math.min(a.right,b.right)-Math.max(a.left,b.left),h=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);if(w>.5&&h>.5)overlaps.push({a:[a.seat,a.index],b:[b.seat,b.index],w,h});}

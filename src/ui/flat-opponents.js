@@ -1,4 +1,5 @@
 import {RIVER_LAYOUT,riverCell} from './river-layout.js';
+import {riverSpacing} from './river-spacing.js';
 
 const multiply = (a,b) => Array.from({length:9},(_,i)=>
   a[Math.floor(i/3)*3]*b[i%3]+a[Math.floor(i/3)*3+1]*b[3+i%3]+a[Math.floor(i/3)*3+2]*b[6+i%3]);
@@ -42,7 +43,7 @@ export const planeCSS = n => `matrix3d(${[n[0],n[3],0,n[6],n[1],n[4],0,n[7],0,0,
 
 // 只变换现有公开 DOM，不复制牌面、不读取暗牌，不改变 136 个槽位、排序或游戏状态。
 export function createFlatOpponentView(stage) {
-  const runs=new Map(),cache=new WeakMap();
+  const runs=new Map(),cache=new WeakMap(),spacingCache=new WeakMap();
   stage.style.setProperty('--river-long-count',String(RIVER_LAYOUT.columns));
   stage.style.setProperty('--river-short-count',String(RIVER_LAYOUT.rows));
   return function layout() {
@@ -64,8 +65,6 @@ export function createFlatOpponentView(stage) {
     const groups=[...stage.querySelectorAll('.opponent-rack,.river'),...runs.values()];
     for(const node of groups) {
       if(!node.isConnected||!node.getClientRects().length)continue;
-      const style=getComputedStyle(node),width=parseFloat(style.width),height=parseFloat(style.height);
-      if(!(width>0&&height>0))continue;
       const side=node.dataset.side||({'rack-1':'right','rack-2':'top','rack-3':'left','river-0':'bottom','river-1':'right','river-2':'top','river-3':'left'}[node.id]);
       const kind=node.classList.contains('flat-wall-run')?'wall':node.classList.contains('river')?'river':'hand';
       if(kind==='river')for(const [index,tile] of [...node.children].entries()) {
@@ -80,6 +79,27 @@ export function createFlatOpponentView(stage) {
         :side==='top'?RIVER_LAYOUT.farHandRadius:RIVER_LAYOUT.handRadius;
       const direction={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]}[side];
       const aligned={x:anchor.x+direction[0]*frameWidth*radius,y:anchor.y+direction[1]*frameHeight*radius};
+      if(kind==='river') {
+        const gap=parseFloat(getComputedStyle(node).columnGap);
+        aligned.x+=direction[0]*gap*RIVER_LAYOUT.sideGapClearance;
+        const spacingKey=`${frameWidth}:${frameHeight}:${tablePlane.join(':')}:${gap}:${side}`;
+        if(spacingCache.get(node)!==spacingKey) {
+          const probe=document.createElement('span');probe.className='tile';
+          probe.style.cssText='position:absolute;pointer-events:none';
+          node.append(probe);const measured=getComputedStyle(probe),w=parseFloat(measured.width),h=parseFloat(measured.height);probe.remove();
+          const sideways=side==='left'||side==='right';
+          node.style.setProperty('--river-cell-width',`${sideways?h:w}px`);
+          node.style.setProperty('--river-cell-height',`${sideways?w:h}px`);
+          const spacing=riverSpacing(tablePlane,aligned,sideways?h:w,sideways?w:h,sideways?RIVER_LAYOUT.rows:RIVER_LAYOUT.columns,sideways?RIVER_LAYOUT.columns:RIVER_LAYOUT.rows,gap);
+          node.style.setProperty('--river-column-spacing',`${spacing.columnSpacing}px`);
+          node.style.setProperty('--river-row-spacing',`${spacing.rowSpacing}px`);
+          node.style.setProperty('--river-column-tracks',spacing.columns.map(value=>`${value}px`).join(' '));
+          node.style.setProperty('--river-row-tracks',spacing.rows.map(value=>`${value}px`).join(' '));
+          spacingCache.set(node,spacingKey);
+        }
+      }
+      const style=getComputedStyle(node),width=parseFloat(style.width),height=parseFloat(style.height);
+      if(!(width>0&&height>0))continue;
       // CSS 已统一真实牌宽；此处只平移到桌面锚点，不按牌区或座位再次缩放。
       const key=`${stageBox.width}:${stageBox.height}:${width}:${height}:${aligned.x}:${aligned.y}`;
       if(cache.get(node)===key)continue;

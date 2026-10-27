@@ -4,9 +4,12 @@ const rows = 4;
 export const RIVER_LAYOUT = Object.freeze({
   columns, rows, capacity:columns * rows,
   // 牌宽只由 CSS 的 --tile-face-width 决定；这里仅定义格位与同心区域。
+  // 轨道末端微缝由 river-spacing 按共享目标间距补偿透视，不改变索引和 36 格容量。
   radius:.24,
   nearRadius:.24,
   farRadius:.23,
+  // 左右牌河随微缝向外留出交界余量，避免满 36 格时与上方牌河角部相接。
+  sideGapClearance:.5,
   wallRadius:.355,
   farWallRadius:.343,
   sideWallRadius:.355,

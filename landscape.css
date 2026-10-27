@@ -172,30 +172,33 @@ html.in-game #game.is-landscape {
   position:absolute;
   display:grid;
   cursor:pointer;
+  background:var(--tile-gap-ground);
   --river-columns:var(--river-long-count);
   --river-rows:var(--river-short-count);
-  /* 投影后牌的包围盒比平面格位略宽，留窄横缝，避免相邻可视矩形交叠。 */
-  --river-gap:calc(var(--tile-face-width) * .08);
-  --river-zone-width:calc(var(--river-columns) * var(--tile-face-width) + (var(--river-columns) - 1) * var(--river-gap));
-  --river-zone-height:calc(var(--river-rows) * var(--tile-face-height));
+  /* 与手牌共用屏幕微缝；透视补偿只改变轨道余量，不改变牌宽与朝向。 */
+  --river-gap:var(--tile-micro-gap);
+  --river-zone-width:calc(var(--river-columns) * var(--river-cell-width) + (var(--river-columns) - 1) * var(--river-column-spacing,var(--river-gap)));
+  --river-zone-height:calc(var(--river-rows) * var(--river-cell-height) + (var(--river-rows) - 1) * var(--river-row-spacing,var(--river-gap)));
   --river-cell-width-factor:1;
   --river-cell-height-factor:calc(5 / 7);
   --river-tile-width:var(--tile-face-width);
   --river-tile-turn:0deg;
+  --river-cell-width:calc(var(--river-tile-width) / var(--river-cell-width-factor));
+  --river-cell-height:calc(var(--river-tile-width) / var(--river-cell-height-factor));
   container-type:size;
-  grid-template-columns:repeat(var(--river-columns),calc(var(--river-tile-width) / var(--river-cell-width-factor)));
-  grid-template-rows:repeat(var(--river-rows),calc(var(--river-tile-width) / var(--river-cell-height-factor)));
+  grid-template-columns:var(--river-column-tracks,repeat(var(--river-columns),calc(var(--river-tile-width) / var(--river-cell-width-factor))));
+  grid-template-rows:var(--river-row-tracks,repeat(var(--river-rows),calc(var(--river-tile-width) / var(--river-cell-height-factor))));
   grid-auto-rows:0;
   grid-auto-columns:0;
   column-gap:var(--river-gap);
-  row-gap:0;
+  row-gap:var(--river-gap);
   min-width:0;
   min-height:0;
   max-height:none;
   overflow:visible;
   padding:0;
   place-content:center;
-  place-items:center;
+  place-items:start;
 }
 /* 每家固定 36 格（9×4）；格子从统一牌宽推导，容量变化不缩放牌面。 */
 #game.is-landscape .table .river-top,#game.is-landscape .table .river-bottom { left:31%; width:var(--river-zone-width); height:var(--river-zone-height); }
@@ -212,8 +215,11 @@ html.in-game #game.is-landscape {
   border-radius:calc(var(--table-unit) * .14);
   transform:rotate(var(--river-tile-turn));
   transform-origin:center;
+  /* 左右家按旋转后的实体外框对齐轨道起点，余量始终留在右/下缝隙。 */
+  margin-left:calc((var(--river-cell-width) - var(--river-tile-width)) / 2);
+  margin-top:calc((var(--river-cell-height) - var(--river-tile-width) * 7 / 5) / 2);
 }
-#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:var(--river-short-count); --river-rows:var(--river-long-count); --river-gap:calc(var(--tile-face-width) * .12); --river-zone-width:calc(var(--river-columns) * var(--tile-face-height) + (var(--river-columns) - 1) * var(--river-gap)); --river-zone-height:calc(var(--river-rows) * var(--tile-face-width)); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
+#game.is-landscape .table .river-left,#game.is-landscape .table .river-right { --river-columns:var(--river-short-count); --river-rows:var(--river-long-count); --river-cell-width-factor:calc(5 / 7); --river-cell-height-factor:1; top:calc(var(--table-unit) * 26); transform:none; width:var(--river-zone-width); height:var(--river-zone-height); }
 #game.is-landscape .table .river-left { left:calc(var(--table-unit) * 8); --river-tile-turn:90deg; }
 #game.is-landscape .table .river-right { right:calc(var(--table-unit) * 8); --river-tile-turn:-90deg; }
 /* 左右牌河保留各家朝向，布局层只对整个区域等比摆放。 */
@@ -360,6 +366,9 @@ html.in-game #game.is-landscape {
   /* 桌上实牌基准；本家手牌在自身容器内独立放大，不带动其它牌区。 */
   --tile-face-width:calc(var(--table-frame-size) * .03);
   --tile-face-height:calc(var(--tile-face-width) * 7 / 5);
+  --tile-micro-gap:clamp(1px,calc(var(--ui-unit) * .25),2px);
+  /* 牌缝不单独涂色：同一绒布透底，深浅由既有 --tile-model-contact-shadow 接地阴影形成。 */
+  --tile-gap-ground:transparent;
   --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
   --rack-width:calc(var(--stage-width) * .66);
@@ -611,7 +620,7 @@ html.in-game #game.is-landscape {
   gap:0;
   align-items:end;
 }
-.is-landscape .hand { --hand-gap:clamp(1px,calc(var(--ui-unit) * .25),2px); grid-area:1 / 1; justify-self:center; width:var(--hand-space); flex:none; flex-wrap:nowrap; justify-content:center; height:calc(var(--hand-height) + var(--ui-unit) * 2); gap:var(--hand-gap); padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * .6) 0; overflow:visible; }
+.is-landscape .hand { --hand-gap:var(--tile-micro-gap); background:var(--tile-gap-ground); grid-area:1 / 1; justify-self:center; width:var(--hand-space); flex:none; flex-wrap:nowrap; justify-content:center; height:calc(var(--hand-height) + var(--ui-unit) * 2); gap:var(--hand-gap); padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * .6) 0; overflow:visible; }
 .is-landscape .hand::before { display:none; }
 .is-landscape .hand .tile { flex-shrink:0; }
 .is-landscape .hand .tile.drawn:first-child { margin-left:0; }
