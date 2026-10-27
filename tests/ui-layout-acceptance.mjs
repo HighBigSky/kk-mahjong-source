@@ -10,6 +10,7 @@ import { maximumPublicFixture, maximumSpecialHandFixture } from './pizi-fixtures
 import { installVisualGeometry } from './browser-geometry.mjs';
 import { RIVER_LAYOUT, riverCell } from '../src/ui/river-layout.js';
 import { checkHandSizes } from './hand-size-checks.mjs';
+import { checkHandSides } from './hand-side-checks.mjs';
 
 let playwright;
 try { playwright = createRequire(import.meta.url)('playwright'); }
@@ -25,7 +26,7 @@ const screens = [
 ];
 const output = path.resolve('output'); mkdirSync(output, { recursive: true });
 const report = {
-  passed: false, browser: '', capacity, screens, measurements: [], singleLayer:[], handSizes:[], stability: [], screenshots: [], errors: [], failures: [],
+  passed: false, browser: '', capacity, screens, measurements: [], singleLayer:[], handSizes:[], handSides:[], stability: [], screenshots: [], errors: [], failures: [],
   fixtureNote: 'Rooms are created and started by real HTTP/SSE browser interaction. Each seat is assigned 36 visual discards. Four simultaneous maximum rivers and maximum racks are intentionally impossible combined tile allocations used only to stress presentation capacity; no rules or protocol are changed.',
 };
 const service = new RoomService({ botDelayMs: 60000, disconnectGraceMs: 100 });
@@ -280,6 +281,7 @@ try {
     for (const screen of screens.filter(screen => (screen.device === 'phone') === mobile)) {
       await applyFixture(page, fixtures[0][1]);
       report.handSizes.push(await checkHandSizes(page, screen));
+      report.handSides.push(await checkHandSides(page, screen));
     }
   }
   check(report.errors.length === 0, 'browser has no page or console errors', { errors: report.errors });

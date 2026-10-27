@@ -23,8 +23,8 @@
   --tile-joint-highlight: #fff8e8;
   --tile-joint-light: #edf4df;
   --tile-joint-green: #cbe8ca;
-  /* 正面朝上的牌是整块象牙料，侧壁同为骨色，只有牌背是绿色。
-     参照腾讯棋牌：象牙牌面 + 骨色侧壁 + 深色外轮廓，绿色只留给暗牌。 */
+  /* 正面朝上的牌是整块象牙料，通用侧壁同为骨色；本家最右两张露侧在局部规则中处理。
+     象牙牌面 + 骨色侧壁 + 深色外轮廓，暗牌及本家最右两张露侧使用树脂绿。 */
   --tile-bone-light: #fffdf6;
   --tile-bone: #f1e7d0;
   --tile-bone-mid: #dccaa9;
@@ -203,29 +203,30 @@
 .hand .tile {
   --tile-model-grade: hand;
   --tile-depth: var(--tile-model-hand-depth);
-  --tile-side: min(5px, calc(var(--tile-depth) * .55));
-  /* 关键修正：牌面贴左上后，右侧多出来的宽度就是一整条实体侧壁。
-     此前这里是 0px，右侧露出的是象牙色牌面，整排手牌因此看起来像平卡。 */
-  --tile-model-body-side: calc(100% - var(--hand-face-width));
+  /* 立牌正视：普通牌不留右侧壁；底部厚度、接地阴影及上浮处理维持原样。 */
+  --tile-side: 0px;
+  --tile-model-body-side: 0px;
+  --tile-model-left-exposed: 0px;
+  --tile-model-right-exposed: 0px;
+  --hand-visible-side: 0px;
+  --hand-side-gloss: none;
+  --hand-side-paint: none;
   --hand-bevel: var(--tile-model-inset);
-  /* 牌面按 5:7 反推宽度；底部 1px 描边先扣除再算，避免牌面被拉高。 */
-  --hand-face-width: calc((var(--hand-height, 9.4cqw) - 1px - var(--tile-depth) - var(--hand-bevel)) * 5 / 7);
+  --hand-face-width: calc(100% - var(--hand-visible-side));
   /* 手牌离视线最近，落影比其它牌区更重：贴地 AO、主投影、远柔影一起下拉，
      牌子像被压在桌面上，而不是贴着一张纸。 */
   --tile-model-contact-shadow:
     calc(var(--tile-model-unit) * .1) calc(var(--tile-model-unit) * .16) calc(var(--tile-model-unit) * .08) #02120bf2,
     calc(var(--tile-model-unit) * .2) calc(var(--tile-model-unit) * .5) calc(var(--tile-model-unit) * .5) #02150eb3,
     calc(var(--tile-model-unit) * .45) calc(var(--tile-model-unit) * 1) calc(var(--tile-model-unit) * 1.3) #021a1159;
-  /* 手牌正面朝上：只有右侧和底部露出骨色侧壁，外轮廓也只在这两侧收炭黑；
-     左、上两侧由牌面自身的炭黑倒角充当边缘，避免出现两条平行黑线。 */
+  /* 正面倒角自行收边，不再叠加统一右缘描边，避免露侧时出现双线。 */
   border: 0;
-  border-right: 1px solid #241d16;
   border-bottom: 1px solid #17120d;
   border-radius: var(--tile-hand-radius);
   transition: transform .14s, background .14s, box-shadow .14s;
 }
 .hand .tile::before {
-  /* 牌面不居中：左、上贴边，右、下让出侧壁厚度，形成“象牙面板盖在骨色牌体上”的视角。 */
+  /* 仅最后两张为右侧面让位；其余正面铺至右缘，SVG 仍按原 viewBox 等比绘制。 */
   inset: var(--hand-bevel) auto var(--tile-depth) 0;
   width: var(--hand-face-width);
   transform: none;
@@ -239,8 +240,19 @@
   transform: none;
   border-radius: inherit;
 }
-.hand .tile:first-child { --tile-model-left-exposed: var(--tile-side); }
-.hand .tile.drawn { --tile-model-right-exposed: var(--tile-side); }
+.hand .tile::after {
+  /* 保留整张牌的圆角光影画布，实际侧面绘制宽度为 0 或 1–2px，不增大牌框和热区。 */
+  inset: 0;
+  background:
+    var(--hand-side-gloss) right / var(--hand-visible-side) 100% no-repeat,
+    var(--hand-side-paint) right / var(--hand-visible-side) 100% no-repeat;
+}
+.hand .tile:nth-last-child(-n+2) {
+  /* 按 DOM 视觉顺序取最后两张，待定牌也计入；同一变量保证两条侧面等宽且高光一致。 */
+  --hand-visible-side: clamp(1px, calc(var(--hand-width, 6.18cqw) * .04), 2px);
+  --hand-side-gloss: linear-gradient(90deg, #fff8e8aa 0%, #fff8e800 38%);
+  --hand-side-paint: linear-gradient(180deg, var(--tile-resin-light), var(--tile-resin) 55%, var(--tile-resin-dark));
+}
 .hand .tile:not(:disabled):hover {
   --tile-face: var(--tile-face-hover);
   background: var(--tile-body);
