@@ -363,10 +363,16 @@ html.in-game #game.is-landscape {
   --table-view-distance:calc(var(--board-height) * 2);
   --table-view-tilt:46deg;
   --rack-width:calc(var(--stage-width) * .66);
-  --public-tile-width:var(--tile-face-width);
-  --public-tile-height:var(--tile-face-height);
-  --self-public-tile-width:var(--tile-face-width);
-  --self-public-tile-height:var(--tile-face-height);
+  /* 13 张是公开区的排版容量基准，不是规则上的实牌上限。
+     普通杠保留第 4 张并补牌，单张杠也补牌：最多 4×4 + 4红中 + 4痞 + 4癞 = 28 张。
+     痞子明牌未取走时最多 27 张；身份重合只会减少。超出一行的牌在公开区内换行。 */
+  --public-row-capacity:13;
+  --public-capacity-width:calc(var(--stage-width) * .38);
+  --public-capacity-height:calc(var(--stage-height) * .06);
+  --public-tile-width:min(var(--tile-face-width),calc((var(--public-capacity-width) - (var(--public-row-capacity) - 1) * var(--public-group-gap)) / var(--public-row-capacity)),calc(var(--public-capacity-height) * 5 / 7));
+  --public-tile-height:calc(var(--public-tile-width) * 7 / 5);
+  --self-public-tile-width:var(--public-tile-width);
+  --self-public-tile-height:var(--public-tile-height);
   --wall-piece-width:var(--tile-face-width);
   --wall-piece-height:var(--tile-face-height);
   background:
@@ -593,12 +599,11 @@ html.in-game #game.is-landscape {
 .hint-details select { width:100%; min-width:0; margin-top:calc(var(--ui-unit) * .5); border:0; border-top:1px solid #b89d6155; background:#f3e7bf; color:#79522b; font-size:max(9px,calc(var(--ui-unit) * 1.9)); }
 /* 单张杠沿用普通副露的牌体尺寸与朝向，不再交换宽高或单独横转牌面。 */
 .is-landscape .hand-zone .player-rack {
-  --public-reserve:0px;
-  /* 仅回收手牌对称预留中的空白，副露继续使用原来的预留与牌体尺寸。 */
-  --hand-space:calc(var(--rack-width) - var(--public-reserve) * 1.7);
+  /* 手牌宽高只取舞台尺寸；公开区只能使用剩余空间，不能反向挤小手牌。 */
+  --hand-space:var(--rack-width);
   --hand-scale:2.2;
   /* 14 张约占内容宽度九成；另留原有的水平 padding 与新摸牌间隔。 */
-  --hand-width:min(calc(var(--tile-face-width) * var(--hand-scale)),calc((var(--hand-space) - var(--ui-unit) * 2.7) * .9 / 14));
+  --hand-width:min(calc(var(--tile-face-width) * var(--hand-scale)),calc((var(--rack-width) - var(--ui-unit) * 2.7) * .9 / 14));
   --hand-height:calc(var(--hand-width) * 7 / 5);
   position:relative;
   display:grid;
@@ -610,15 +615,8 @@ html.in-game #game.is-landscape {
 .is-landscape .hand::before { display:none; }
 .is-landscape .hand .tile { flex-shrink:0; }
 .is-landscape .hand .tile.drawn:first-child { margin-left:0; }
-.is-landscape .hand-zone .player-rack .my-melds { position:absolute; left:0; bottom:0; width:var(--public-reserve); max-width:none; height:auto; min-height:0; row-gap:calc(var(--ui-unit) * .5); }
-.is-landscape .hand-zone.has-melds .player-rack {
-  display:grid;
-  flex-direction:row;
-  gap:0;
-  --public-reserve:min(calc(var(--rack-width) * .28),calc((var(--special-count) * 5 + var(--meld-count) * 19) * var(--ui-unit)));
-}
-/* 细缝增加总宽后，副露侧补少量内边距，避免极限单牌杠挤到首张手牌。 */
-.is-landscape .hand-zone.has-melds .hand { justify-content:center; padding-left:calc(var(--ui-unit) * .6 + var(--hand-gap) * 4); }
+/* 独立的前沿定位平面，不占手牌布局宽度；按容量整组排放，先用左侧空白绒布。 */
+.is-landscape .hand-zone .player-rack .my-melds { position:absolute; left:calc((var(--rack-width) - var(--stage-width)) / 2); bottom:0; width:var(--stage-width); max-width:none; height:calc(var(--stage-height) * .25); min-height:0; padding:0; row-gap:calc(var(--ui-unit) * .5); }
 .is-landscape .turn-message,.is-landscape .last-event { right:auto; }
 /* 远端牌列内移后，回合与出牌文字放入左侧信息带，避免压住对家牌墙。 */
 .is-landscape .turn-message { top:20%; left:2%; width:min(20%,calc((var(--stage-width) - var(--board-height)) / 2 - var(--stage-width) * .02)); font-size:calc(var(--ui-unit) * 2.2); line-height:1.2; }

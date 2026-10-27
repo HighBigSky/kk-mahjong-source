@@ -23,6 +23,7 @@ const contexts = [];
 const pages = [];
 const output = path.resolve('output'); mkdirSync(output, {recursive:true});
 const report = {passed:false, errors:[], checks:[], actions:[], viewports:[], screenshots:[], observerChecks:0, fixtureNote:'Action fixtures allocate four real copies of every tile. Commands following each fixture are genuine browser/HTTP/SSE actions; fixtures are not represented as naturally dealt complete rounds.'};
+const handDimensions = new Map();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const redact = text => text.replace(/[a-f0-9]{48}/g, '[redacted]');
 async function waitFor(test, label, timeout = 8000) {
@@ -65,6 +66,8 @@ async function assertAllPublic(room, label) {
       hiddenHands:window.mahjongGame.players.slice(1).every(player => player.hand.every(code => code === null)),
       handCount:document.querySelectorAll('#hand button').length,
       wallCount:window.mahjongGame.wall.length,
+      handSize:(()=>{const style=getComputedStyle(document.querySelector('#hand button'));return [style.width,style.height];})(),
+      viewport:[innerWidth,innerHeight],
     }));
     const expected = Array.from({length:4}, (_, relative) => expectedGroups(room.game.players[(viewer + relative) % 4]));
     assert.deepEqual(actual.groups, expected, `${label}: viewer ${viewer} sees every actual public tile at the correct relative seat`);
@@ -75,6 +78,9 @@ async function assertAllPublic(room, label) {
     assert.equal(actual.hiddenHands, true);
     assert.equal(actual.handCount, room.game.players[viewer].hand.length);
     assert.equal(actual.wallCount, room.game.wall.length);
+    const sizeKey=`${viewer}:${actual.viewport.join('x')}`;
+    if(!handDimensions.has(sizeKey))handDimensions.set(sizeKey,actual.handSize);
+    assert.deepEqual(actual.handSize,handDimensions.get(sizeKey),`${label}: real actions never resize the local hand`);
     report.observerChecks++;
   }
 }
@@ -111,6 +117,7 @@ async function clickCommand(room, seat, action) {
   }
 }
 async function screenshot(page, filename) {
+  if (process.env.KK_UI_SCREENSHOTS === '0') return;
   const destination = path.join(output, filename); await page.screenshot({path:destination}); report.screenshots.push(destination);
 }
 
@@ -130,6 +137,7 @@ try {
   for (const page of pages) await page.locator('#room-dialog:not([open])').waitFor({state:'attached'});
   const names = room.seats.map(seat => seat.name);
   await publish(room, actionFixture({names}));
+  await assertAllPublic(room, 'before any public action');
   for (const kind of ['redGang', 'piziGang']) {
     const tail = room.game.wall[0]; const wallCount = room.game.wall.length;
     await clickCommand(room, 0, {kind});

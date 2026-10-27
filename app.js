@@ -885,8 +885,6 @@ function render() {
     melds.setAttribute('aria-label', `${displayNames[player]}已公开的吃碰杠牌，单张杠${gangCount}张，${PLAY_TEXT.wildGang}${wildCount}张，普通副露${seat.melds.length}组`);
     const rack = $(`#rack-${player}`);
     rack.classList.toggle('has-melds', publicGroups.length > 0);
-    rack.style.setProperty('--meld-count', seat.melds.length);
-    rack.style.setProperty('--special-count', seat.redGangs.length + piziGangs.length);
     $(`#score-${player}`).textContent = seat.score.toLocaleString('zh-CN');
     $(`#dealer-${player}`).hidden = !active || game.dealer !== player;
     const redBadge = $(`#red-gangs-${player}`);

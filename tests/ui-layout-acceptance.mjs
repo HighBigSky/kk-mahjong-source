@@ -9,6 +9,7 @@ import { MahjongGame } from '../engine.js';
 import { maximumPublicFixture, maximumSpecialHandFixture } from './pizi-fixtures.mjs';
 import { installVisualGeometry } from './browser-geometry.mjs';
 import { RIVER_LAYOUT, riverCell } from '../src/ui/river-layout.js';
+import { checkHandSizes } from './hand-size-checks.mjs';
 
 let playwright;
 try { playwright = createRequire(import.meta.url)('playwright'); }
@@ -24,7 +25,7 @@ const screens = [
 ];
 const output = path.resolve('output'); mkdirSync(output, { recursive: true });
 const report = {
-  passed: false, browser: '', capacity, screens, measurements: [], singleLayer:[], stability: [], screenshots: [], errors: [], failures: [],
+  passed: false, browser: '', capacity, screens, measurements: [], singleLayer:[], handSizes:[], stability: [], screenshots: [], errors: [], failures: [],
   fixtureNote: 'Rooms are created and started by real HTTP/SSE browser interaction. Each seat is assigned 36 visual discards. Four simultaneous maximum rivers and maximum racks are intentionally impossible combined tile allocations used only to stress presentation capacity; no rules or protocol are changed.',
 };
 const service = new RoomService({ botDelayMs: 60000, disconnectGraceMs: 100 });
@@ -183,7 +184,7 @@ async function measure(page, screen, scenario) {
     }
   }
   const filename = path.join(output, `layout-acceptance-${screen.device}-${scenario}-${screen.width}x${screen.height}.png`);
-  await page.screenshot({ path: filename }); report.screenshots.push(filename);
+  if (process.env.KK_UI_SCREENSHOTS !== '0') { await page.screenshot({ path: filename }); report.screenshots.push(filename); }
   report.measurements.push({ screen, scenario, ...data });
 }
 async function singleLayer(page,screen,count) {
@@ -271,6 +272,10 @@ try {
       await applyFixture(page, fixtures[0][1]);
       for(const count of [0,1,9,27,36])await singleLayer(page,screen,count);
       for (const seat of [0, 1, 2, 3]) await stability(page, screen, seat);
+    }
+    for (const screen of screens.filter(screen => (screen.device === 'phone') === mobile)) {
+      await applyFixture(page, fixtures[0][1]);
+      report.handSizes.push(await checkHandSizes(page, screen));
     }
   }
   check(report.errors.length === 0, 'browser has no page or console errors', { errors: report.errors });

@@ -59,41 +59,6 @@ export function createFlatOpponentView(stage) {
     const tablePlane=projection(table,parseFloat(tableStyle.width),parseFloat(tableStyle.height),stageBox);
     if(!tablePlane)return;
     const left=parseFloat(surface.left),top=parseFloat(surface.top),frameWidth=parseFloat(surface.width),frameHeight=parseFloat(surface.height);
-    const localPublic=stage.querySelector('.my-melds');
-    if(localPublic&&!localPublic.hidden) {
-      // 正视副露随手牌上移后，按真实绒布左边界内收，不能贴到木框或影响手牌中心。
-      localPublic.style.transform='none';
-      localPublic.style.width='';
-      // 副露可用宽度以实牌左缘为界；不扩大手牌预留量，避免少牌时副露向上堆到牌墙。
-      const handTiles=[...stage.querySelectorAll('#hand button')];
-      let handLimit=Infinity;
-      if(handTiles.length) {
-        const publicBox=localPublic.getBoundingClientRect();
-        const handLeft=Math.min(...handTiles.map(tile=>tile.getBoundingClientRect().left));
-        const gap=parseFloat(getComputedStyle(localPublic).columnGap)||0;
-        handLimit=Math.max(0,handLeft-publicBox.left);
-        // 第四张明示痞子也能杠出，副露预留不能越过实牌左缘；容量不足时按组换行。
-        localPublic.style.width=`${Math.min(handLimit,Math.max(publicBox.width,handLimit-gap))}px`;
-      }
-      const far=project(tablePlane,left+frameWidth*.055,top+frameHeight*.055);
-      const near=project(tablePlane,left+frameWidth*.055,top+frameHeight*.945);
-      let inset=0;
-      // 绒布边界内收后仍须避开手牌；按组数收敛，通常一次即可，无牌宽缩放。
-      for(let pass=0;pass<=localPublic.children.length;pass++) {
-        inset=0;
-        for(const tile of localPublic.querySelectorAll('.tile')) {
-          const box=tile.getBoundingClientRect();
-          for(const y of [box.top-stageBox.top,box.bottom-stageBox.top]) {
-            const edge=far.x+(y-far.y)*(near.x-far.x)/(near.y-far.y);
-            inset=Math.max(inset,edge+1-(box.left-stageBox.left));
-          }
-        }
-        const width=parseFloat(getComputedStyle(localPublic).width),limit=Math.max(0,handLimit-inset);
-        if(width<=limit+.01)break;
-        localPublic.style.width=`${limit}px`;
-      }
-      localPublic.style.transform=`translateX(${inset}px)`;
-    }
     // 原方桌仍作布局坐标；桌框装饰的放大不能改变牌区中心或手牌位置。
     const anchor={x:left+frameWidth/2,y:top+frameHeight/2};
     const groups=[...stage.querySelectorAll('.opponent-rack,.river'),...runs.values()];
@@ -132,6 +97,47 @@ export function createFlatOpponentView(stage) {
       const n=m.map(value=>value/m[8]);
       node.style.setProperty('--opponent-view',planeCSS(n));
       cache.set(node,key);
+    }
+    const localPublic=stage.querySelector('.my-melds');
+    if(localPublic&&!localPublic.hidden) {
+      // 正视公开区独立排放；只使用固定尺寸手牌之外的空位，不回写手牌宽高。
+      const stageStyle=getComputedStyle(stage),publicStyle=getComputedStyle(localPublic);
+      const zoom=Number(stageStyle.getPropertyValue('--table-frame-zoom'));
+      const trim=parseFloat(surface.clipPath.replace('inset(','').split(' ')[1])/frameWidth;
+      const paintedPoint=(x,y)=>project(tablePlane,left+frameWidth/2+(x-.5)*frameWidth*zoom,top+frameHeight/2+(y-.5)*frameHeight*zoom);
+      const farLeft=paintedPoint(trim+.055,.055),nearLeft=paintedPoint(trim+.055,.945);
+      const farRight=paintedPoint(1-trim-.055,.055),nearRight=paintedPoint(1-trim-.055,.945);
+      const edge=(a,b,y)=>stageBox.left+a.x+(y-stageBox.top-a.y)*(b.x-a.x)/(b.y-a.y);
+      const box=localPublic.getBoundingClientRect(),gap=parseFloat(publicStyle.columnGap),rowGap=parseFloat(publicStyle.rowGap);
+      const capacity=Number(stageStyle.getPropertyValue('--public-row-capacity'));
+      const obstacles=[...stage.querySelectorAll('#hand button,.player-seat,.action-zone:not([hidden]),#play-assist:not([hidden]),#hint-details:not([hidden]),.river .tile,#wall-tail .wall-piece:not(.is-empty),.opponent-rack .tile,.opponent-rack .back')]
+        .filter(node=>node.getClientRects().length&&getComputedStyle(node).visibility!=='hidden')
+        .map(node=>node.getBoundingClientRect());
+      const groups=[...localPublic.children];
+      for(const group of groups) { group.style.position='absolute';group.style.left='0px';group.style.top='0px'; }
+      const sizes=groups.map(group=>group.getBoundingClientRect());
+      const rowHeight=Math.max(...sizes.map(size=>size.height))+rowGap;
+      const rows=[];
+      for(const [index,group] of groups.entries()) {
+        const size=sizes[index],count=group.querySelectorAll('.tile').length;
+        // 从近侧向上换行，保留组内顺序；末行较短，可避开前方牌墙。
+        for(let row=0;row*rowHeight+size.height<=box.height+.1;row++) {
+          if((rows[row]||0)+count>capacity)continue;
+          const bottom=box.bottom-row*rowHeight,top=bottom-size.height;
+          let x=Math.max(edge(farLeft,nearLeft,top),edge(farLeft,nearLeft,bottom),stageBox.left)+1;
+          const limit=Math.min(edge(farRight,nearRight,top),edge(farRight,nearRight,bottom),stageBox.right)-1;
+          // 只移动公开牌，按实测矩形跳过手牌、牌墙、玩家信息与按钮热区。
+          while(x+size.width<=limit) {
+            const collision=obstacles.find(other=>Math.min(x+size.width,other.right)-Math.max(x,other.left)>0&&Math.min(bottom,other.bottom)-Math.max(top,other.top)>0);
+            if(collision) { x=collision.right+gap;continue; }
+            group.style.left=`${x-box.left}px`;group.style.top=`${top-box.top}px`;
+            obstacles.push({left:x-gap,right:x+size.width+gap,top:top-rowGap,bottom:bottom+rowGap});
+            rows[row]=(rows[row]||0)+count;
+            break;
+          }
+          if(x+size.width<=limit)break;
+        }
+      }
     }
   };
 }
