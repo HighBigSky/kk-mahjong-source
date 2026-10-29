@@ -6,6 +6,27 @@ const metricCache=new WeakMap();
 const used=value=>Math.round(value*64)/64;
 const clean=value=>Math.abs(value)<1e-8?0:Number(value.toFixed(6));
 
+// 只在真实牌缝的矩形内绘制背景，不改牌形、热区或选中状态；待定牌的宽间隔不涂满。
+function paintHandSeams(hand) {
+  if(!hand)return;
+  const nodes=[...hand.children].filter(node=>node.matches('.tile'));
+  const style=getComputedStyle(hand),rect=hand.getBoundingClientRect();
+  const sx=rect.width/used(parseFloat(style.width)),sy=rect.height/used(parseFloat(style.height));
+  const images=[],positions=[],sizes=[];
+  if(sx>0&&sy>0)for(let index=1;index<nodes.length;index++){
+    if(nodes[index].classList.contains('drawn'))continue;
+    const left=nodes[index-1].getBoundingClientRect(),right=nodes[index].getBoundingClientRect();
+    const gap=(right.left-left.right)/sx;
+    if(!(gap>0&&gap<=1))continue;
+    const height=Math.min(parseFloat(getComputedStyle(nodes[index-1]).height),parseFloat(getComputedStyle(nodes[index]).height));
+    // 两边各退一个浏览器布局量子，避免计算样式的小数序列化误差越过牌缘。
+    const guard=1/64,x=(left.right-rect.left)/sx+guard,y=rect.height/sy-parseFloat(style.paddingBottom)-height;
+    images.push('var(--hand-seam-paint)');positions.push(`${clean(x)}px ${clean(y)}px`);sizes.push(`${clean(gap-guard*2)}px ${clean(height)}px`);
+  }
+  for(const [name,value]of Object.entries({'--hand-seam-images':images.join(',')||'none','--hand-seam-positions':positions.join(',')||'0 0','--hand-seam-sizes':sizes.join(',')||'auto'}))
+    if(hand.style.getPropertyValue(name)!==value)hand.style.setProperty(name,value);
+}
+
 // 牌体只旋转了 SVG 时不补偿材质；以整牌真实 transform 为准。
 export function syncTileMetric(node,box=null) {
   if(!node.matches('.tile,.back')||node.closest('#opening-deal'))return;
@@ -25,7 +46,9 @@ export function syncTileMetric(node,box=null) {
 }
 
 export function observeTileMetrics(root) {
-  const resize=new ResizeObserver(entries=>{for(const entry of entries){const box=entry.borderBoxSize?.[0]||entry.borderBoxSize;syncTileMetric(entry.target,box?{width:box.inlineSize,height:box.blockSize}:null);}});
+  const hand=root.querySelector('.hand');
+  const resize=new ResizeObserver(entries=>{let handChanged=false;for(const entry of entries){const box=entry.borderBoxSize?.[0]||entry.borderBoxSize;syncTileMetric(entry.target,box?{width:box.inlineSize,height:box.blockSize}:null);if(entry.target===hand||entry.target.parentElement===hand)handChanged=true;}if(handChanged)paintHandSeams(hand);});
+  if(hand)resize.observe(hand);
   const cards=node=>node.nodeType===1?[...(node.matches('.tile,.back')?[node]:[]),...node.querySelectorAll('.tile,.back')]:[];
   const watch=node=>{if(!node.closest('#opening-deal')){resize.observe(node);syncTileMetric(node);}};
   for(const node of cards(root))watch(node);
@@ -35,8 +58,10 @@ export function observeTileMetrics(root) {
       for(const node of record.addedNodes)for(const card of cards(node))watch(card);
     }else if(record.target.matches('.tile,.back'))watch(record.target);
     else if(record.target===root&&String(record.oldValue).split(/\s+/).includes('is-landscape')!==root.classList.contains('is-landscape'))for(const node of cards(root))watch(node);
+    if(records.some(record=>record.target===hand||hand?.contains(record.target)))paintHandSeams(hand);
   });
   mutations.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class'],attributeOldValue:true});
+  paintHandSeams(hand);
   return {disconnect(){resize.disconnect();mutations.disconnect();}};
 }
 // Blink 的 used 宽高以 1/64px 布局，但计算样式字符串只保留四位小数。

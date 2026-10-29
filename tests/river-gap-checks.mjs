@@ -30,14 +30,14 @@ export function assertRiverGaps(data,count,baseline) {
   assert.deepEqual(data.overlaps,[]);assert.equal(data.copies,0);
   assert.equal(data.hand.wrap,'nowrap');assert.equal(data.hand.hit,true);assert.equal(data.hand.tiles.length,14);
   assert.deepEqual(data.hand.size,baseline.hand,'hand dimensions remain unchanged');
-  assert.ok(data.hand.gap>=1&&data.hand.gap<=2);assert.equal(data.hand.underlay,'rgba(0, 0, 0, 0)');
+  assert.ok(data.hand.gap>=.5&&data.hand.gap<=1);assert.equal(data.hand.underlay,'rgba(0, 0, 0, 0)');
   assert.ok(data.hand.gaps.every(g=>Math.abs(g-data.hand.gap)<.03));
   assert.ok(data.hand.tiles.every(t=>t.left>=data.hand.box.left-.5&&t.right<=data.hand.box.right+.5));
   for(const river of data.rivers) {
     assert.equal(river.tiles.length,count);assert.equal(river.columns,river.seat%2?4:9);assert.equal(river.rows,river.seat%2?9:4);
-    assert.deepEqual(river.gap,[data.hand.gap,data.hand.gap]);assert.equal(river.underlay,data.hand.underlay);
+    assert.ok(river.gap.every(g=>g>=1&&g<=2));assert.equal(river.gap[0],river.gap[1]);assert.equal(river.underlay,data.hand.underlay);
     assert.ok(river.widthError<.15&&river.heightError<.15,`zone includes both axes of compensated spacing ${JSON.stringify({seat:river.seat,width:river.widthError,height:river.heightError})}`);
-    assert.ok([...river.horizontal,...river.vertical].every(g=>g>=1&&g<=2&&Math.abs(g-data.hand.gap)<.35),'actual projected gaps are 1-2px, within .35px of hand');
+    assert.ok([...river.horizontal,...river.vertical].every(g=>g>=1&&g<=2&&Math.abs(g-river.gap[0])<.35),'projected river gaps retain their own 1-2px rule');
     assert.ok(river.tiles.every(t=>t.cellError<.8&&t.column>=1&&t.column<=river.columns&&t.row>=1&&t.row<=river.rows));
     for(const tile of river.tiles) {
       assert.deepEqual(tile.model,baseline.river,'no river tile shrinks or stretches');

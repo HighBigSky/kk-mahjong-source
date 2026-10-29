@@ -616,7 +616,7 @@ html.in-game #game.is-landscape {
   gap:0;
   align-items:end;
 }
-.is-landscape .hand { --hand-gap:var(--tile-micro-gap); background:var(--tile-gap-ground); grid-area:1 / 1; justify-self:center; width:var(--hand-space); flex:none; flex-wrap:nowrap; justify-content:center; height:calc(var(--hand-height) + var(--ui-unit) * 2); gap:var(--hand-gap); padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * .6) 0; overflow:visible; }
+.is-landscape .hand { --hand-gap:clamp(.5px,calc(var(--ui-unit) * .125),1px); background:var(--tile-gap-ground); grid-area:1 / 1; justify-self:center; width:var(--hand-space); flex:none; flex-wrap:nowrap; justify-content:center; height:calc(var(--hand-height) + var(--ui-unit) * 2); gap:var(--hand-gap); padding:calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * .6) 0; overflow:visible; }
 .is-landscape .hand::before { display:none; }
 .is-landscape .hand .tile { flex-shrink:0; }
 .is-landscape .hand .tile.drawn:first-child { margin-left:0; }

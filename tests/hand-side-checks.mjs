@@ -51,11 +51,12 @@ export async function checkHandSides(page,size) {
     });
     const label=JSON.stringify({size,scenario:scenario.name});
     assert.equal(data.tiles.length,scenario.count,label);assert.equal(data.wrap,'nowrap',label);
+    assert.ok(parseFloat(data.gap)>=.5&&parseFloat(data.gap)<=1,label);
     const first=data.tiles[0],baseline=results[0];
     if(baseline){assert.equal(first.width,baseline.width,label);assert.equal(first.height,baseline.height,label);assert.equal(data.gap,baseline.gap,label);assert.equal(first.radius,baseline.radius,label);}
     assert.ok(Math.abs(parseFloat(first.width)/parseFloat(first.height)-5/7)<.001,label);
     assert.ok(data.tiles.every((t,i)=>t.left>=data.box.left-.5&&t.right<=data.box.right+.5&&(!i||t.left>data.tiles[i-1].left)),label);
-    for(const gap of data.gaps){assert.ok(gap.width>0,label);if(!gap.drawn)assert.ok(Math.abs(gap.width-parseFloat(data.gap))<.05,label);assert.equal(gap.covered,false,JSON.stringify({label,gap}));}
+    for(const gap of data.gaps){assert.ok(gap.width>0,label);if(!gap.drawn){assert.ok(gap.width>=.5&&gap.width<=1,label);assert.ok(Math.abs(gap.width-parseFloat(data.gap))<.05,label);}assert.equal(gap.covered,false,JSON.stringify({label,gap}));}
     for(const [index,tile]of data.tiles.entries()) {
       assert.equal(tile.width,first.width,label);assert.equal(tile.height,first.height,label);
       assert.equal(tile.rightBorder,'0px',label);assert.equal(tile.side,'0px',label);assert.equal(tile.bodySide,'0px',label);

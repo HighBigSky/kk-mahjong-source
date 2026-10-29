@@ -14,7 +14,7 @@ const service=new RoomService({botDelayMs:600000}),server=createServer({roomServ
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const context=await browser.newContext({viewport:{width:640,height:360},reducedMotion:'reduce'});
 await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('fixed viewport'))});});
-const BASELINE='f3a0e06';
+const BASELINE='f588507';
 const sheets=['tiles-depth.css','landscape.css','styles.css','seats-layout.css','wall-layout.css'];
 for(const file of sheets)await context.route(`**/${file}?material-baseline=*`,route=>route.fulfill({body:execFileSync('git',['show',`${BASELINE}:${file}`]),contentType:'text/css'}));
 const page=await context.newPage(),report={passed:false,errors:[],cases:[],screenshots:0,note:`Client display fixtures only. Dialog and animation examples reuse existing markup classes; no product DOM or game actions are added. Geometry is compared to ${BASELINE}; no screenshot pixel sampling.`};
@@ -28,8 +28,13 @@ async function sheet(baseline) {
 }
 async function checkPair(size,area,read) {
   const pair=[];for(const baseline of [true,false]){await sheet(baseline);pair.push(await read(baseline));}
-  const shapes=rows=>Object.fromEntries(Object.entries(rows).map(([name,data])=>[name,data.map(row=>Object.fromEntries(Object.entries(row.shape).filter(([key])=>key!=='radius'&&(area!=='animation'||key!=='svg'&&key!=='borderWidths'))))]));
-  assert.deepEqual(shapes(pair[1]),shapes(pair[0]),`${JSON.stringify(size)} ${area} dimensions, gaps, transforms and SVG sizes; radius follows the previously requested 9% rule`);
+  const shapes=rows=>Object.fromEntries(Object.entries(rows).map(([name,data])=>[name,data.map(row=>{
+    const shape=Object.fromEntries(Object.entries(row.shape).filter(([key])=>area!=='animation'||key!=='svg'&&key!=='borderWidths'));
+    // 仅本家牌缝变窄，逐张横坐标随居中重新分布；牌宽高、圆角和其它牌区保持基线。
+    return name==='hand'?{...shape,gap:null,rect:[null,...shape.rect.slice(1)]}:shape;
+  })]));
+  assert.deepEqual(shapes(pair[1]),shapes(pair[0]),`${JSON.stringify(size)} ${area} dimensions, radii, orientations and non-hand gaps unchanged`);
+  if(pair[0].hand){const center=data=>(data[0].shape.rect[0]+data.at(-1).shape.rect[0]+data.at(-1).shape.rect[2])/2;assert.ok(Math.abs(center(pair[0].hand)-center(pair[1].hand))<.05,'hand row remains centered');}
   report.cases.push({size,area,tiles:Object.values(pair[1]).reduce((n,a)=>n+a.length,0),groups:Object.fromEntries(Object.entries(pair[1]).map(([name,data])=>[name,{count:data.length,grade:data[0].grade,strength:data[0].strength,thickness:data[0].thickness,contactAlpha:data[0].ground[0].alpha,width:data[0].shape.width,height:data[0].shape.height,light:data[0].light,shadow:data[0].shadow,topSizes:data[0].topSizes}]))});
 }
 try {

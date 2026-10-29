@@ -178,7 +178,20 @@
   outline-offset: .12cqw;
 }
 
-.hand { --hand-gap: 1px; position: relative; isolation: isolate; gap: var(--hand-gap); }
+.hand { --hand-gap: .75px; --hand-seam-paint:linear-gradient(90deg, #020c09a6, #0f251c66 50%, #020c09a6); position: relative; isolation: isolate; gap: var(--hand-gap); }
+/* 暗缝独立画在整排背后：边缘暗、中心稍亮，宽度最多 1px。
+   每段位置/尺寸来自实测牌框，不能用重复周期估算，以免亚像素误差累计到邻牌。 */
+.hand::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--hand-seam-images, none);
+  background-position: var(--hand-seam-positions, 0 0);
+  background-size: var(--hand-seam-sizes, auto);
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: -1;
+}
 .hand::before {
   content: "";
   position: absolute;
