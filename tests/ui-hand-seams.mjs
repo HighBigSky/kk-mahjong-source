@@ -12,7 +12,7 @@ const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-prima
 const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});server.listen(0,'127.0.0.1');await once(server,'listening');
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const base=process.env.KK_UI_TARGET_URL||`http://127.0.0.1:${server.address().port}`;
-const report={passed:false,baseline:'f588507',cases:[],errors:[],testRoomsLeft:0,screenshots:0,note:'Browser geometry and CSS paint-bound proof, no screenshot or pixel sampling; isolated local display fixtures.'};
+const report={passed:false,baseline:'c89e461',cases:[],errors:[],testRoomsLeft:0,screenshots:0,note:'Browser geometry and CSS paint-bound proof, no screenshot or pixel sampling; isolated local display fixtures. Asymmetric corner and edge-shadow profiles are verified by tile-material-checks.'};
 const contexts=[];mkdirSync('output',{recursive:true});
 const frames=page=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
 async function sheet(page,baseline){
@@ -35,7 +35,7 @@ try{
     const context=await browser.newContext({viewport:size,deviceScaleFactor:size.width<1000?2:1,hasTouch:size.width<1000,reducedMotion:'reduce'});contexts.push(context);
     await context.addInitScript(installVisualGeometry);
     await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('fixed viewport'))});});
-    for(const file of ['tiles-depth.css','landscape.css'])await context.route(`**/${file}?hand-seams-baseline=*`,route=>route.fulfill({body:execFileSync('git',['show',`f588507:${file}`]),contentType:'text/css'}));
+    for(const file of ['tiles-depth.css','landscape.css'])await context.route(`**/${file}?hand-seams-baseline=*`,route=>route.fulfill({body:execFileSync('git',['show',`c89e461:${file}`]),contentType:'text/css'}));
     const page=await context.newPage(),cdp=await context.newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});page.on('pageerror',error=>report.errors.push(error.message));
     try{
       await page.goto(base,{waitUntil:'networkidle'});await page.locator('#room-name').fill('紧凑手牌无截图验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
@@ -46,8 +46,11 @@ try{
       for(const mode of [{count:14},{count:13},{count:11,meld:true},{count:14,drawn:true},{count:11,meld:true,drawn:true},{count:1,drawn:true},{count:0}]){
         await page.evaluate(mode=>{const g=window.mahjongGame,p=g.players[0];p.hand=Array.from({length:mode.count},(_,i)=>i);p.redGangs=[];p.piziGangs=[];p.melds=mode.meld?[{kind:'peng',tiles:[20,20,20],from:1,concealed:false}]:[];g.players.forEach(player=>player.discards=[8]);g.lastDraw=mode.drawn?{player:0,index:mode.count-1,tile:p.hand.at(-1),replacement:true}:null;g.lastDiscard=null;g.pendingDiscard=null;g.actionNotice=null;g.phase={kind:'discard',seat:0};g.current=0;g.events=['手牌暗缝展示夹具'];window.renderMahjong();},mode);
         const pair=[];for(const baseline of [true,false]){await sheet(page,baseline);pair.push(await read(page));}
-        const [before,after]=pair;assert.deepEqual(after.box,before.box,'hand container unchanged');assert.deepEqual(after.other,before.other,'other tile models unchanged');
-        assert.deepEqual(after.cards.map(c=>[c.shape,c.material]),before.cards.map(c=>[c.shape,c.material]),'card dimensions, radius, visible planes, shading and interaction paint unchanged');
+        const [before,after]=pair;assert.deepEqual(after.box,before.box,'hand container unchanged');
+        const other=rows=>rows.map(row=>row.filter((_,i)=>i!==2&&i!==3));assert.deepEqual(other(after.other),other(before.other),'other tile dimensions and positions unchanged');
+        // 新的非对称圆角与边缘内影另有全牌区断言；这里继续严格守住牌面、可见面及几何。
+        const unchanged=rows=>rows.map(c=>[c.shape.filter((_,i)=>i!==2),c.material.filter((_,i)=>![1,3,4,6,7].includes(i))]);
+        assert.deepEqual(unchanged(after.cards),unchanged(before.cards),'card dimensions, plane paints, SVG and controls unchanged');
         assert.ok(after.gap>=.5&&after.gap<=1);assert.equal(after.wrap,'nowrap');assert.ok(after.scroll<=after.client+1);
         const ordinary=[],drawn=[];
         after.cards.forEach((card,i)=>{assert.ok(card.rect.x>=after.box.x-.5&&card.rect.right<=after.box.right+.5);if(!i)return;const gap=card.rect.x-after.cards[i-1].rect.right;if(card.drawn){drawn.push(gap);assert.ok(Math.abs(gap-(before.cards[i].rect.x-before.cards[i-1].rect.right))<.05,'drawn spacer unchanged');}else {assert.ok(gap>=.5&&gap<=1,JSON.stringify({size,mode,index:i,gap,cssGap:after.gap,left:after.cards[i-1].rect,right:card.rect}));ordinary.push({left:after.cards[i-1].rect.right,right:card.rect.x,width:gap});}});

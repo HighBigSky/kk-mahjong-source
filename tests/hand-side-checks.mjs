@@ -29,7 +29,7 @@ export async function checkHandSides(page,size) {
       const hand=document.querySelector('#hand'),rect=n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
       // 按 CSS 函数括号分层，不能把 rgba() 内的逗号当作另一层材质。
       const splitPaint=value=>{let depth=0,start=0;const layers=[];for(let i=0;i<value.length;i++){if(value[i]==='(')depth++;else if(value[i]===')')depth--;else if(value[i]===','&&depth===0){layers.push(value.slice(start,i).trim());start=i+1;}}layers.push(value.slice(start).trim());return layers;};
-      const shadows=value=>splitPaint(value).map(layer=>({inset:layer.includes('inset'),px:[...layer.matchAll(/(-?[\d.]+)px/g)].map(m=>Number(m[1]))}));
+      const shadows=value=>splitPaint(value).map(layer=>({inset:layer.includes('inset'),px:[...layer.matchAll(/(-?(?:\d*\.?\d+)(?:e[+-]?\d+)?)px/g)].map(m=>Number(m[1]))}));
       const nodes=[...hand.children];
       // Chromium 命中测试有约 1px 的探测容差；微缝覆盖必须按浮点牌框判断，不能据此误报重叠。
       const gaps=nodes.slice(0,-1).map((n,i)=>{const a=n.getBoundingClientRect(),b=nodes[i+1].getBoundingClientRect(),x=(a.right+b.left)/2,y=(Math.max(a.top,b.top)+Math.min(a.bottom,b.bottom))/2;return {width:b.left-a.right,drawn:nodes[i+1].classList.contains('drawn'),covered:nodes.some(tile=>{const r=tile.getBoundingClientRect();return x>=r.left&&x<r.right&&y>=r.top&&y<r.bottom;})};});
@@ -39,7 +39,7 @@ export async function checkHandSides(page,size) {
         coatRadius:after.borderRadius,coatInset:[after.top,after.right,after.bottom,after.left],coatBorder:after.borderWidth,
         faceBorder:before.borderBottomWidth,faceBackground:before.backgroundImage,svgBottomGap:n.getBoundingClientRect().bottom-svg.getBoundingClientRect().bottom,
         bodyDepth:s.getPropertyValue('--tile-depth').trim(),
-        bevelOuter:Math.abs(shadows(before.boxShadow)[5].px[0]),bevelInner:Number((shadows(before.boxShadow)[7].px[3]-Math.abs(shadows(before.boxShadow)[5].px[0])).toFixed(4)),
+        bevelOuter:Math.abs(shadows(before.boxShadow)[5].px[0]),bevelInner:Number((shadows(before.boxShadow)[7].px[3]-shadows(before.boxShadow)[7].px[0]-Math.abs(shadows(before.boxShadow)[5].px[0])).toFixed(4)),
         faceShadows:shadows(before.boxShadow),faceLayerKinds:faceLayers.map(layer=>layer.split('(')[0]),
         glazeAlphas:[...faceLayers.find(layer=>layer.startsWith('linear-gradient')).matchAll(/rgba\([^()]*,\s*([\d.]+)\)/g)].map(m=>Number(m[1])),
         materialRadials:faceLayers.filter(layer=>layer.startsWith('radial-gradient')).length,

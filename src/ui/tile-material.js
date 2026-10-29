@@ -6,6 +6,13 @@ const metricCache=new WeakMap();
 const used=value=>Math.round(value*64)/64;
 const clean=value=>Math.abs(value)<1e-8?0:Number(value.toFixed(6));
 
+// CSS 四角顺序为左上、右上、右下、左下；按整牌旋转后的视觉左右选硬边。
+export function tileCornerSides(width,height,angle) {
+  const t=angle*Math.PI/180,c=Math.cos(t),s=Math.sin(t);
+  return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>c*x*width-s*y*height<0?'hard':'soft');
+}
+const cornerRadius=sides=>sides.map(side=>`var(--tile-model-radius-${side})`).join(' ');
+
 // 只在真实牌缝的矩形内绘制背景，不改牌形、热区或选中状态；待定牌的宽间隔不涂满。
 function paintHandSeams(hand) {
   if(!hand)return;
@@ -33,7 +40,9 @@ export function syncTileMetric(node,box=null) {
   const style=getComputedStyle(node),width=used(box?.width??parseFloat(style.width)),height=used(box?.height??parseFloat(style.height));
   if(!(width>0&&height>0))return;
   const matrix=style.transform==='none'?null:new DOMMatrix(style.transform);
-  const angle=clean(matrix?Math.atan2(matrix.b,matrix.a)*180/Math.PI:0),key=`${width}:${height}:${angle}`;
+  const angle=clean(matrix?Math.atan2(matrix.b,matrix.a)*180/Math.PI:0),svg=node.querySelector('svg'),ss=svg&&getComputedStyle(svg);
+  // 显隐或牌面单独旋转后，牌框可能没变；SVG 的尺寸/角度也必须参与材质缓存。
+  const key=`${width}:${height}:${angle}:${ss?.width}:${ss?.height}:${ss?.transform}`;
   if(metricCache.get(node)===key)return;
   metricCache.set(node,key);
   const t=angle*Math.PI/180,c=Math.cos(t),s=Math.sin(t),inverse=(x,y)=>[clean(c*x+s*y),clean(-s*x+c*y)];
@@ -41,8 +50,16 @@ export function syncTileMetric(node,box=null) {
   const point=(x,y)=>{const [px,py]=inverse((x-.5)*globalWidth,(y-.5)*globalHeight);return[clean((.5+px/width)*100),clean((.5+py/height)*100)];};
   const shine=point(.82,.08),grain=point(.18,.88);
   const values={'--tile-model-width':`${Math.min(width,height)}px`,'--tile-model-turn':`${angle}deg`,'--tile-model-light-x':lx,'--tile-model-light-y':ly,'--tile-model-occlusion-x':ox,'--tile-model-occlusion-y':oy,'--tile-model-shine-x':`${shine[0]}%`,'--tile-model-shine-y':`${shine[1]}%`,'--tile-model-grain-x':`${grain[0]}%`,'--tile-model-grain-y':`${grain[1]}%`,'--tile-model-top-paint':s+c>0?'var(--tile-model-plane-lit)':'var(--tile-model-plane-shade)'};
+  const sides=tileCornerSides(width,height,angle);
+  for(const [index,corner]of ['tl','tr','br','bl'].entries())values[`--tile-model-corner-${corner}`]=`var(--tile-model-radius-${sides[index]})`;
+  values['--tile-model-axis-x']=ox;values['--tile-model-axis-y']=oy;
+  const [downX,downY]=inverse(0,1);values['--tile-model-down-x']=downX;values['--tile-model-down-y']=downY;
   for(const prefix of ['shadow','main','soft']){values[`--tile-model-${prefix}-x`]=lx;values[`--tile-model-${prefix}-y`]=ly;}
   for(const [name,value]of Object.entries(values))node.style.setProperty(name,String(value));
+  if(svg){const sm=ss.transform==='none'?null:new DOMMatrix(ss.transform),turn=sm?Math.atan2(sm.b,sm.a)*180/Math.PI:0;
+    // 内部 SVG 另有旋转时，只补偿其圆角，不改图案、朝向或凹陷阴影。
+    node.style.setProperty('--tile-model-svg-radius',cornerRadius(tileCornerSides(parseFloat(ss.width),parseFloat(ss.height),angle+turn)));
+  }
 }
 
 export function observeTileMetrics(root) {
