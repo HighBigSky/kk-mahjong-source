@@ -200,6 +200,7 @@ function assertPublicWall(state, game) {
 }
 
 async function screenshot(page, name) {
+  if (process.env.KK_UI_SCREENSHOTS === '0') return;
   const filename = path.join(output, name);
   await page.screenshot({path:filename});
   report.screenshots.push(filename);

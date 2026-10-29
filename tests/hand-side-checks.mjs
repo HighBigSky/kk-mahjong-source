@@ -39,7 +39,7 @@ export async function checkHandSides(page,size) {
         coatRadius:after.borderRadius,coatInset:[after.top,after.right,after.bottom,after.left],coatBorder:after.borderWidth,
         faceBorder:before.borderBottomWidth,faceBackground:before.backgroundImage,svgBottomGap:n.getBoundingClientRect().bottom-svg.getBoundingClientRect().bottom,
         bodyDepth:s.getPropertyValue('--tile-depth').trim(),
-        bevelOuter:parseFloat(s.getPropertyValue('--hand-bevel-outer')),bevelInner:parseFloat(s.getPropertyValue('--hand-bevel-inner')),
+        bevelOuter:Math.abs(shadows(before.boxShadow)[1].px[0]),bevelInner:Number((shadows(before.boxShadow)[3].px[3]-Math.abs(shadows(before.boxShadow)[1].px[0])).toFixed(4)),
         faceShadows:shadows(before.boxShadow),faceLayerKinds:faceLayers.map(layer=>layer.split('(')[0]),
         glazeAlphas:[...faceLayers[0].matchAll(/rgba\([^()]*,\s*([\d.]+)\)/g)].map(m=>Number(m[1])),
         materialRadials:faceLayers.filter(layer=>layer.startsWith('radial-gradient')).length,

@@ -96,7 +96,7 @@ try {
     service._changed(room);
     await page.waitForFunction(version=>window.mahjongRoom.room.version>=version,room.version);
     assert.equal(await page.evaluate(()=>window.__firstDealCard===document.querySelector('.deal-flight')),true,'重复快照不得重新创建动画');
-    await page.screenshot({path:`output/opening-deal-${size.touch?'phone':'pc'}-flying.png`});
+    if(process.env.KK_UI_SCREENSHOTS!=='0')await page.screenshot({path:`output/opening-deal-${size.touch?'phone':'pc'}-flying.png`});
     await idle(page); await frames(page);
     assert.equal(JSON.stringify(room.game),before,'动画不得修改服务端状态'); assertInvariants(room.game);
     assert.equal(requests.length,0,'发牌期间点击或 Enter 不得发送游戏操作');
@@ -105,7 +105,7 @@ try {
     const positions=await page.evaluate(()=>[...document.querySelectorAll('#hand button')].map(node=>{const b=node.getBoundingClientRect();return [b.left,b.top,b.width,b.height];}));
     await frames(page);
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('#hand button')].map(node=>{const b=node.getBoundingClientRect();return [b.left,b.top,b.width,b.height];})),positions);
-    await page.screenshot({path:`output/opening-deal-${size.touch?'phone':'pc'}-finished.png`});
+    if(process.env.KK_UI_SCREENSHOTS!=='0')await page.screenshot({path:`output/opening-deal-${size.touch?'phone':'pc'}-finished.png`});
     report.cases.push({size,opening:data,landingError,serverUnchanged:true,noInput:true,stableFinish:true});
 
     // 刷新相同开局不补播，避免服务器响应与 SSE/重连重复触发。
