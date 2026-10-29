@@ -12,8 +12,9 @@ const service=new RoomService({botDelayMs:600000}),server=createServer({roomServ
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const context=await browser.newContext({viewport:{width:640,height:360},reducedMotion:'reduce'});
 await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('fixed viewport'))});});
-await context.route('**/tiles-depth.css?material-baseline=*',route=>route.fulfill({body:execFileSync('git',['show','44fa3ac:tiles-depth.css']),contentType:'text/css'}));
-const page=await context.newPage(),report={passed:false,errors:[],cases:[],screenshots:0,note:'Client display fixtures only. Dialog and animation examples reuse existing markup classes; no product DOM or game actions are added. Geometry is compared to ca63e68; no screenshot pixel sampling.'};
+const BASELINE='44fa3ac';
+await context.route('**/tiles-depth.css?material-baseline=*',route=>route.fulfill({body:execFileSync('git',['show',`${BASELINE}:tiles-depth.css`]),contentType:'text/css'}));
+const page=await context.newPage(),report={passed:false,errors:[],cases:[],screenshots:0,note:`Client display fixtures only. Dialog and animation examples reuse existing markup classes; no product DOM or game actions are added. Geometry is compared to ${BASELINE}; no screenshot pixel sampling.`};
 const targetURL=process.env.KK_UI_TARGET_URL||`http://127.0.0.1:${server.address().port}`;
 const cdp=await context.newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});
 page.on('pageerror',e=>report.errors.push(e.message));mkdirSync('output',{recursive:true});
