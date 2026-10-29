@@ -56,10 +56,10 @@
   color:#fff2bd;
 }
 
-/* 皮子用青绿底：与红中的「红」、癞子的「癞」一眼分开，也和副露区的「皮」标记同色。 */
+/* 所有「痞」共用深绿底与同系亮绿边；「红」「癞」保留各自配色。 */
 .pizi-marker {
   background:#25604a;
-  border-color:#cfe0a8;
+  border-color:#5f9d7d;
   color:#f2f7d8;
 }
 

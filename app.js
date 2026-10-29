@@ -397,9 +397,8 @@ function specialTile(type) {
 // 「只能单张杠出」的提示留给 title 与提示文字。
 function specialMarker(type) {
   if (!specialTile(type)) return wildMarker(type);
-  return type === RED_DRAGON && type !== game.indicatorTile
-    ? '<span class="red-kong-marker" aria-hidden="true">痞</span>'
-    : '<span class="pizi-marker" aria-hidden="true">痞</span>';
+  // 红中也显示「痞」时统一使用痞角标；红色样式只留给真正显示「红」的角标。
+  return '<span class="pizi-marker" aria-hidden="true">痞</span>';
 }
 
 function heldSpecialName() {
