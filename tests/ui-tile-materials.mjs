@@ -24,7 +24,9 @@ const cdp=await context.newCDPSession(page);await cdp.send('Network.enable');awa
 page.on('pageerror',e=>report.errors.push(e.message));mkdirSync('output',{recursive:true});
 const frames=()=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
 async function sheet(baseline) {
-  await page.evaluate(({baseline,sheets})=>Promise.all(sheets.map(file=>new Promise((resolve,reject)=>{const link=[...document.querySelectorAll('link[rel=stylesheet]')].find(n=>n.href.includes('/'+file));link.onload=resolve;link.onerror=reject;link.href='/'+file+'?material-'+(baseline?'baseline':'current')+'='+Date.now();}))),{baseline,sheets});await frames();
+  await page.evaluate(({baseline,sheets})=>Promise.all(sheets.map(file=>new Promise((resolve,reject)=>{const link=[...document.querySelectorAll('link[rel=stylesheet]')].find(n=>n.href.includes('/'+file));link.onload=resolve;link.onerror=reject;link.href='/'+file+'?material-'+(baseline?'baseline':'current')+'='+Date.now();}))),{baseline,sheets});
+  // 多表重载期间可触发中间布局；全部加载后走现有resize入口，重算副露避让再测量。
+  await page.evaluate(()=>window.dispatchEvent(new Event('resize')));await frames();
 }
 async function checkPair(size,area,read) {
   const pair=[];for(const baseline of [true,false]){await sheet(baseline);pair.push(await read(baseline));}
