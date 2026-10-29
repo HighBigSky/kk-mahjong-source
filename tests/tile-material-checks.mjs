@@ -37,14 +37,14 @@ export async function materialSnapshot(page,selector,validate=true) {
   });
   assert.ok(rows.length,`material area exists: ${selector}`);
   if(validate)for(const row of rows) {
-    assert.equal(row.version,'resin-v6',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
-    const soft=row.modelWidth*.09,hard=0;
-    const corners=(width,height,angle)=>{const t=angle*Math.PI/180;return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>Math.cos(t)*x*width-Math.sin(t)*y*height<0?hard:soft);};
-    assert.deepEqual([row.corners[0],row.corners[3]],[0,0],`${selector} tile-local left corners are square at ${row.angle}deg`);
-    assert.ok([row.corners[1],row.corners[2]].every(v=>Math.abs(v-soft)<.0001),`${selector} original local right corners retained`);
+    assert.equal(row.version,'resin-v7',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
+    const physicalWidth=Math.min(parseFloat(row.shape.width),parseFloat(row.shape.height)),radius=physicalWidth*.09;
+    assert.ok(Math.abs(row.modelWidth-physicalWidth)<.0001,`${selector} radius is based on the actual physical tile width`);
+    assert.ok(row.corners.every(v=>v>0&&Math.abs(v-radius)<.0001),`${selector} all four corners share the same radius at ${row.angle}deg`);
+    assert.ok(row.corners.every(v=>v/physicalWidth<=.12),`${selector} rounded rectangle radius stays within 12% of physical tile width`);
     assert.deepEqual(row.coatCorners,row.corners,`${selector} top and side coating follows all four frame corners`);
-    assert.ok(row.faceCorners.every((v,i)=>Math.abs(v-(row.back?Math.max(0,row.corners[i]-row.backInset):row.corners[i]))<.0001),`${selector} face bevel or inset back frame follows square-left profile`);
-    if(row.svgCorners)assert.ok(row.svgCorners.every((v,i)=>Math.abs(v-corners(parseFloat(row.shape.svg[0]),parseFloat(row.shape.svg[1]),row.svgAngle)[i])<.0001),`${selector} internal SVG corners match the tile frame independently of whole-tile rotation`);
+    assert.ok(row.faceCorners.every((v,i)=>Math.abs(v-(row.back?Math.max(0,row.corners[i]-row.backInset):row.corners[i]))<.0001),`${selector} face bevel or inset back frame follows the same four-corner profile`);
+    if(row.svgCorners)assert.ok(row.svgCorners.every(v=>Math.abs(v-radius)<.0001),`${selector} internal SVG keeps the same four rounded corners independently of rotation`);
     assert.deepEqual([row.thickness,row.strength],({hand:[4,1],meld:[3,.8],wall:[2,.6],river:[1,.4]})[row.grade],`${selector} only four shared tiers`);
     assert.ok(row.bevel.length>=4&&row.bevel.every(shadow=>shadow.inset),selector);
     assert.equal((row.paint.match(/radial-gradient/g)||[]).length,2,selector);
