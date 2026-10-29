@@ -216,11 +216,22 @@
   --hand-side-paint: none;
   --hand-face-width: calc(100% - var(--hand-visible-side));
   --tile-face: linear-gradient(215deg, #fffef6, var(--tile-ivory) 54%, #e8dfc9);
-  /* 釉面只在右上给很弱的反光，下沿轻微压暗，不叠加强白光遮住牌字。 */
+  /* 斜向釉面峰值 20/255（低于 8%）；两层径向色差模拟象牙树脂的轻微不均。
+     材质始终在透明牌字 SVG 下方，不给图案本身加滤镜或白色蒙层。 */
   --tile-gloss:
-    radial-gradient(100% 85% at 82% 8%, #ffffff24, #ffffff00 62%),
+    linear-gradient(215deg, #ffffff00 12%, #ffffff14 32%, #ffffff00 56%),
+    radial-gradient(120% 100% at 82% 8%, #fff7dd0a, #fff7dd00 65%),
+    radial-gradient(130% 110% at 18% 88%, #a4957a06, #a4957a00 70%),
     linear-gradient(180deg, #6f5c3d00 64%, #6f5c3d0a);
-  --tile-model-face-shadow: inset -.5px .5px .7px #fffdf480, inset .4px -.6px .8px #766c5430;
+  --hand-bevel-outer: 1px;
+  --hand-bevel-inner: .65px;
+  /* 外圈右上亮、左下暗；内圈在外圈下方铺开，只露出 .65px 的柔亮次级倒角。
+     全部是原正面圆角内的光影，不新增边框或挤压 SVG。 */
+  --tile-model-face-shadow:
+    inset -1px 1px 0 #fffdf4c2,
+    inset 1px -1px 0 #786e5747,
+    inset 0 0 0 calc(var(--hand-bevel-outer) + var(--hand-bevel-inner)) #fff9e854;
+  --hand-edge-contact-shadow: inset 1px 0 1px #221e1747;
   /* 右上受光，三层接地阴影落向左下；不再借底部实体面表达接地。 */
   --tile-model-contact-shadow:
     calc(var(--tile-model-unit) * -.1) calc(var(--tile-model-unit) * .16) calc(var(--tile-model-unit) * .08) #02120bf2,
@@ -235,7 +246,8 @@
   inset: var(--hand-top-depth) auto 0 0;
   width: var(--hand-face-width);
   border: 0;
-  box-shadow: var(--tile-model-face-shadow);
+  /* 左邻牌的遮蔽仅落在本张左缘；缝隙继续透出桌面与原有接地阴影，不铺树脂色。 */
+  box-shadow: var(--hand-edge-contact-shadow), var(--tile-model-face-shadow);
   transform: none;
 }
 .hand .tile svg {
