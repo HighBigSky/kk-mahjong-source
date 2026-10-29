@@ -220,6 +220,9 @@ async function stability(page, screen, seat) {
       const r = tile.getBoundingClientRect(); return [r.left, r.top, r.width, r.height];
     });
     const before = rects(); const nodes = [...document.querySelectorAll('.river .tile')];
+    // 首次把该格位标为最新出牌时，渲染器可能替换节点；每阶段重新定位，不能测脱离 DOM 的旧牌。
+    const material=()=>{const style=getComputedStyle(document.querySelector(`#river-${seat}`).children[capacity-1]);return JSON.stringify(['--tile-model-version','--tile-model-thickness','--tile-model-strength','--tile-gloss','--tile-model-face-grain','--tile-model-transmission','--tile-model-face-shadow','--tile-model-contact-shadow'].map(name=>style.getPropertyValue(name)));};
+    const materialBefore=material();
     for (let render = 0; render < 10; render++) window.renderMahjong();
     const unchangedNodes = nodes.every((node, index) => document.querySelectorAll('.river .tile')[index] === node);
     const game = window.mahjongGame; const index = capacity - 1; const tile = game.players[seat].discards[index];
@@ -227,6 +230,7 @@ async function stability(page, screen, seat) {
     window.renderMahjong();
     await Promise.all(document.querySelector('#discard-focus').getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
     const expanded = !document.querySelector('#discard-focus').hidden;
+    const materialDuring=material();
     const focusRect = document.querySelector('#discard-focus').getBoundingClientRect();
     const focusQuad = window.visualGeometry.quad(document.querySelector('#discard-focus'));
     const copies=document.querySelectorAll('#discard-focus .tile').length;
@@ -246,9 +250,10 @@ async function stability(page, screen, seat) {
     await Promise.all([...document.querySelectorAll('.discard-flight')].flatMap(node => node.getAnimations()).map(animation => animation.finished.catch(() => {})));
     await new Promise(resolve => requestAnimationFrame(resolve));
     const after = rects();
-    return { before, after, unchangedNodes, expanded, copies, marked, focusAspect, targetAspect, focusTargetError, focusNeighborOverlaps, focusHidden: document.querySelector('#discard-focus').hidden, flights: document.querySelectorAll('.discard-flight').length, lastCount: document.querySelector(`#river-${seat}`).querySelectorAll('.tile').length };
+    return { before, after, unchangedNodes, materialStable:materialBefore===materialDuring&&materialBefore===material(), expanded, copies, marked, focusAspect, targetAspect, focusTargetError, focusNeighborOverlaps, focusHidden: document.querySelector('#discard-focus').hidden, flights: document.querySelectorAll('.discard-flight').length, lastCount: document.querySelector(`#river-${seat}`).querySelectorAll('.tile').length };
   }, { capacity, seat });
   check(result.unchangedNodes, 'unchanged render preserves river DOM nodes', { screen, seat });
+  check(result.materialStable,'discard focus reuses the same static grain, thickness, glaze and shadows',{screen,seat});
   check(result.copies===0&&result.marked===1,'focus only marks one original river tile and never creates a face copy',{screen,seat,copies:result.copies,marked:result.marked});
   check(result.expanded && result.focusHidden && result.flights === 0, 'latest river tile highlights at its original size then disappears in place', { screen, seat, expanded: result.expanded, hidden: result.focusHidden, flights: result.flights });
   check(result.focusNeighborOverlaps.length === 0, 'fixed-size latest tile does not cover neighboring river tiles', { screen, seat, overlaps: result.focusNeighborOverlaps });

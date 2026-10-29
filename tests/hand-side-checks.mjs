@@ -39,9 +39,9 @@ export async function checkHandSides(page,size) {
         coatRadius:after.borderRadius,coatInset:[after.top,after.right,after.bottom,after.left],coatBorder:after.borderWidth,
         faceBorder:before.borderBottomWidth,faceBackground:before.backgroundImage,svgBottomGap:n.getBoundingClientRect().bottom-svg.getBoundingClientRect().bottom,
         bodyDepth:s.getPropertyValue('--tile-depth').trim(),
-        bevelOuter:Math.abs(shadows(before.boxShadow)[1].px[0]),bevelInner:Number((shadows(before.boxShadow)[3].px[3]-Math.abs(shadows(before.boxShadow)[1].px[0])).toFixed(4)),
+        bevelOuter:Math.abs(shadows(before.boxShadow)[2].px[0]),bevelInner:Number((shadows(before.boxShadow)[4].px[3]-Math.abs(shadows(before.boxShadow)[2].px[0])).toFixed(4)),
         faceShadows:shadows(before.boxShadow),faceLayerKinds:faceLayers.map(layer=>layer.split('(')[0]),
-        glazeAlphas:[...faceLayers[0].matchAll(/rgba\([^()]*,\s*([\d.]+)\)/g)].map(m=>Number(m[1])),
+        glazeAlphas:[...faceLayers.find(layer=>layer.startsWith('linear-gradient')).matchAll(/rgba\([^()]*,\s*([\d.]+)\)/g)].map(m=>Number(m[1])),
         materialRadials:faceLayers.filter(layer=>layer.startsWith('radial-gradient')).length,
         groundLayers:splitPaint(s.getPropertyValue('--tile-model-contact-shadow')).length,
         coatShadows:shadows(after.boxShadow),filters:[s,before,after,getComputedStyle(svg)].flatMap(style=>[style.filter,style.backdropFilter]),
@@ -66,9 +66,10 @@ export async function checkHandSides(page,size) {
       assert.match(tile.paint,/linear-gradient\(rgb\(255, 254, 249\)/,label);
       assert.match(tile.faceBackground,/at 82% 8%/,'glaze light comes from the upper right');
       assert.equal(tile.bevelOuter,1,label);assert.ok(tile.bevelInner>0&&tile.bevelInner<=1,label);
-      assert.deepEqual(tile.faceShadows,[{inset:true,px:[1,0,1,0]},{inset:true,px:[-1,1,0,0]},{inset:true,px:[1,-1,0,0]},{inset:true,px:[0,0,0,tile.bevelOuter+tile.bevelInner]}],'1px contact shadow, directional outer bevel and secondary inner bevel');
+      assert.deepEqual(tile.faceShadows,[{inset:true,px:[0,0,0,1]},{inset:true,px:[1,0,1,0]},{inset:true,px:[-1,1,0,0]},{inset:true,px:[1,-1,0,0]},{inset:true,px:[0,0,0,tile.bevelOuter+tile.bevelInner]}],'integer-pixel transmission, contact shadow and dual bevel');
       assert.equal(tile.faceLayerKinds.filter(kind=>kind==='linear-gradient').length,3,label);assert.equal(tile.materialRadials,2,label);
-      assert.ok(tile.faceLayerKinds.every(kind=>kind==='linear-gradient'||kind==='radial-gradient'),label);
+      assert.ok(tile.faceLayerKinds.includes('repeating-linear-gradient'),'fine resin grain');
+      assert.ok(tile.faceLayerKinds.every(kind=>kind==='linear-gradient'||kind==='radial-gradient'||kind==='repeating-linear-gradient'),label);
       assert.ok(tile.glazeAlphas.length>0&&Math.max(...tile.glazeAlphas)<=.08,'diagonal glaze never exceeds 8%');
       assert.equal(tile.groundLayers,3,'three ground shadow layers are retained');
       assert.ok(tile.coatShadows.every(shadow=>shadow.inset),'green side paint and its shadows stay inside the rounded tile');
@@ -89,7 +90,7 @@ export async function checkHandSides(page,size) {
       const restored=await page.evaluate(async index=>{const n=document.querySelectorAll('#hand button')[index];await Promise.all(n.getAnimations().map(a=>a.finished.catch(()=>{})));const s=getComputedStyle(n);return {width:s.width,height:s.height,outline:s.outlineWidth,outlineStyle:s.outlineStyle,transform:s.transform,side:getComputedStyle(n,'::after').backgroundSize};},scenario.index);
       assert.equal(restored.width,first.width);assert.equal(restored.height,first.height);assert.equal(restored.outline,normal.outline);assert.equal(restored.outlineStyle,normal.outlineStyle);assert.equal(restored.transform,normal.transform);assert.equal(restored.side,normal.side);
     }
-    results.push({name:scenario.name,width:first.width,height:first.height,gap:data.gap,radius:first.radius,count:scenario.count,topDepths:data.tiles.map(t=>t.topDepth),bottomInsets:data.tiles.map(t=>t.bottomDepth),maxSvgBottomGap:Math.max(...data.tiles.map(t=>Math.abs(t.svgBottomGap))),painted:data.tiles.map((t,i)=>t.sideSizes[0]>0?i:null).filter(i=>i!==null),sideWidths:data.tiles.slice(-2).map(t=>t.sideSizes[0]),drawn:data.tiles.at(-1).drawn,outline:scenario.state||null,bevel:{outer:first.bevelOuter,inner:first.bevelInner},contact:first.faceShadows[0],glazeAlpha:Math.max(...first.glazeAlphas),materialRadials:first.materialRadials,gapCoverage:data.gaps.map(g=>g.covered),filters:first.filters});
+    results.push({name:scenario.name,width:first.width,height:first.height,gap:data.gap,radius:first.radius,count:scenario.count,topDepths:data.tiles.map(t=>t.topDepth),bottomInsets:data.tiles.map(t=>t.bottomDepth),maxSvgBottomGap:Math.max(...data.tiles.map(t=>Math.abs(t.svgBottomGap))),painted:data.tiles.map((t,i)=>t.sideSizes[0]>0?i:null).filter(i=>i!==null),sideWidths:data.tiles.slice(-2).map(t=>t.sideSizes[0]),drawn:data.tiles.at(-1).drawn,outline:scenario.state||null,bevel:{outer:first.bevelOuter,inner:first.bevelInner},contact:first.faceShadows[1],glazeAlpha:Math.max(...first.glazeAlphas),materialRadials:first.materialRadials,gapCoverage:data.gaps.map(g=>g.covered),filters:first.filters});
   }
   return {size,cases:results};
 }

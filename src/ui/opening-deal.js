@@ -1,4 +1,5 @@
 import { tilePlane, planeCSS } from './flat-opponents.js';
+import { captureTileMaterial, applyTileMaterial } from './tile-material.js';
 
 // 开局发牌只重放公开的数量与牌背；真实手牌、牌墙、顺序和回合始终以服务端为准。
 export const DEAL_TEXT = Object.freeze({progress:'正在发牌…', layer:'开局发牌动画'});
@@ -107,22 +108,26 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
     // 先一次性读取所有落点，再插入动画节点，避免每张牌读写交替导致布局抖动。
     const destinations = targets.map(nodes=>nodes.map(node=>{
       const box=rect(node),rack=node.closest('.opponent-rack');
-      if(!rack)return{node,box,angle:0};
+      const material=captureTileMaterial(node);
+      if(!rack)return{node,box,angle:0,material};
       const plane=tilePlane(node,stage);
       if(!plane)throw new Error('Missing deal destination plane');
-      return{node,plane,box:{left:0,top:0,width:plane.width,height:plane.height}};
+      return{node,plane,material,box:{left:0,top:0,width:plane.width,height:plane.height}};
     }));
     const sourceBoxes = sources.map(rect);
     const sourcePlanes = sources.map(node=>tilePlane(node,stage));
+    const wallTemplate=stage.querySelector('.wall-piece.back:not(.is-next-piece):not(.is-head-piece)');
+    const wallMaterial=wallTemplate?captureTileMaterial(wallTemplate):null;
     if (sourceBoxes.some(box=>box.width <= 0 || box.height <= 0) || destinations.flat().some(({box})=>box.width <= 0 || box.height <= 0)) { finish(); return; }
     phase = 'running'; layer.dataset.phase = phase; layer.hidden = false;
     const flights = [], fragment = document.createDocumentFragment();
     let offset = 0;
     for (const [batchIndex, batch] of batches.entries()) for (const [inBatch, index] of batch.indexes.entries()) {
-      const {node, box, plane} = destinations[batch.player][index], sourcePlane=sourcePlanes[offset],source = sourceBoxes[offset++];
+      const {node, box, plane, material} = destinations[batch.player][index], sourcePlane=sourcePlanes[offset],source = sourceBoxes[offset++];
       const delay = batchIndex*BATCH_INTERVAL+inBatch*12;
       const wallBack = document.createElement('span');
       wallBack.className = 'deal-source back';
+      if(wallMaterial)applyTileMaterial(wallBack,wallMaterial,false);
       Object.assign(wallBack.style,{left:`${source.left}px`,top:`${source.top}px`,width:`${source.width}px`,height:`${source.height}px`});
       const flight = document.createElement('div');
       flight.className = 'deal-flight'; flight.dataset.player = String(batch.player); flight.dataset.batch = String(batchIndex); flight.dataset.count = String(batch.indexes.length); flight.dataset.source = String(state.slots[offset-1]);
@@ -133,9 +138,12 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
       for (const child of [face,...face.querySelectorAll('[id]')]) child.removeAttribute('id');
       face.removeAttribute('data-index'); face.removeAttribute('title'); face.setAttribute('tabindex','-1');
       if ('disabled' in face) face.disabled = true;
+      // 捕获在写 DOM 前批量完成，复制静态牌真实的材质、分档及两个伪元素，落位不切模型。
+      applyTileMaterial(face,material);
       flight.append(face);
       if (batch.player === 0) {
         const cover = document.createElement('span'); cover.className = 'deal-cover back'; flight.append(cover);
+        if(wallMaterial)applyTileMaterial(cover,wallMaterial,false);
         animate(cover,[{opacity:1,offset:0},{opacity:1,offset:.65},{opacity:0,offset:1}],{duration:FLIGHT_DURATION,delay,fill:'both'});
       }
       const dx = source.left-box.left+(batch.player===0?0:(source.width-box.width)/2);

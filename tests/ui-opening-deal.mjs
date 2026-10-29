@@ -44,14 +44,18 @@ async function startFlight(page) {
   await page.waitForFunction(()=>document.querySelector('#opening-deal').dataset.phase==='running');
 }
 async function metadata(page) {
-  return page.evaluate(()=>{
+  return page.evaluate(async()=>{
+    const {captureTileMaterial}=await import('/src/ui/tile-material.js');
+    const key=material=>JSON.stringify({...material,custom:Object.fromEntries(Object.entries(material.custom).sort(([a],[b])=>a.localeCompare(b)))});
     const flights=[...document.querySelectorAll('.deal-flight')];
+    const differences=(a,b,prefix='')=>Object.keys({...a,...b}).flatMap(name=>{const x=a?.[name],y=b?.[name],path=prefix+name;return x&&y&&typeof x==='object'&&typeof y==='object'?differences(x,y,path+'.'):x===y?[]:[{path,flight:String(x).slice(0,220),target:String(y).slice(0,220)}];});
+    window.__dealMaterialRecords=flights.map(flight=>{const seat=Number(flight.dataset.player),index=Number(flight.dataset.handIndex),target=document.querySelectorAll(seat?`#backs-${seat} .back`:'#hand button')[index],face=flight.querySelector('.deal-face'),a=captureTileMaterial(face),b=captureTileMaterial(target);return {seat,index,key:key(b),same:key(a)===key(b),differences:differences(a,b)};});
     const groups=Array.from({length:17},(_,batch)=>{
       const cards=flights.filter(node=>Number(node.dataset.batch)===batch);
       return {count:cards.length,player:Number(cards[0]?.dataset.player),declaredCount:Number(cards[0]?.dataset.count)};
     });
     const stage=document.querySelector('#game').getBoundingClientRect();
-    return {count:flights.length,groups,sources:flights.map(node=>Number(node.dataset.source)),
+    return {count:flights.length,groups,sources:flights.map(node=>Number(node.dataset.source)),materialsMatch:window.__dealMaterialRecords.map(record=>record.same),materialDifferences:window.__dealMaterialRecords.filter(record=>!record.same).slice(0,4).map(({seat,index,differences})=>({seat,index,differences})),
       opponentsFaces:document.querySelectorAll('.deal-flight:not([data-player="0"]) svg').length,
       localFaces:document.querySelectorAll('.deal-flight[data-player="0"] svg').length,
       images:document.querySelectorAll('#opening-deal img').length,
@@ -70,6 +74,7 @@ function assertBatches(data,dealer) {
   }
   assert.equal(data.opponentsFaces,0); assert.equal(data.localFaces,dealer===0?14:13); assert.equal(data.images,0);
   assert.equal(data.handVisibility,'hidden'); assert.equal(data.enabled,0);
+  assert.ok(data.materialsMatch.every(Boolean),'all 53 flying cards copy their landing target material and thickness: '+JSON.stringify(data.materialDifferences));
   assert.ok(data.destinations.every(box=>box.left>=-.5&&box.top>=-.5&&box.left+box.width<=data.stage.width+.5&&box.top+box.height<=data.stage.height+.5));
 }
 try {
@@ -98,6 +103,8 @@ try {
     assert.equal(await page.evaluate(()=>window.__firstDealCard===document.querySelector('.deal-flight')),true,'重复快照不得重新创建动画');
     if(process.env.KK_UI_SCREENSHOTS!=='0')await page.screenshot({path:`output/opening-deal-${size.touch?'phone':'pc'}-flying.png`});
     await idle(page); await frames(page);
+    const unchangedMaterials=await page.evaluate(async()=>{const {captureTileMaterial}=await import('/src/ui/tile-material.js');const key=material=>JSON.stringify({...material,custom:Object.fromEntries(Object.entries(material.custom).sort(([a],[b])=>a.localeCompare(b)))});const differences=(a,b,prefix='')=>Object.keys({...a,...b}).flatMap(name=>{const x=a?.[name],y=b?.[name],path=prefix+name;return x&&y&&typeof x==='object'&&typeof y==='object'?differences(x,y,path+'.'):x===y?[]:[{path,after:String(x).slice(0,180),before:String(y).slice(0,180)}];});return window.__dealMaterialRecords.map(({seat,index,key:before})=>{const after=captureTileMaterial(document.querySelectorAll(seat?`#backs-${seat} .back`:'#hand button')[index]);return {seat,index,same:key(after)===before,differences:differences(after,JSON.parse(before))};});});
+    assert.ok(unchangedMaterials.every(row=>row.same),'landing keeps the same material, texture, bevel, visible sides and thickness: '+JSON.stringify(unchangedMaterials.filter(row=>!row.same).slice(0,4)));
     assert.equal(JSON.stringify(room.game),before,'动画不得修改服务端状态'); assertInvariants(room.game);
     assert.equal(requests.length,0,'发牌期间点击或 Enter 不得发送游戏操作');
     assert.equal(await page.locator('#hand button:enabled').count(),14);

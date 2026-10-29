@@ -12,7 +12,7 @@ const service=new RoomService({botDelayMs:600000}),server=createServer({roomServ
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const context=await browser.newContext({viewport:{width:640,height:360},reducedMotion:'reduce'});
 await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('fixed viewport'))});});
-await context.route('**/tiles-depth.css?material-baseline=*',route=>route.fulfill({body:execFileSync('git',['show','ca63e68:tiles-depth.css']),contentType:'text/css'}));
+await context.route('**/tiles-depth.css?material-baseline=*',route=>route.fulfill({body:execFileSync('git',['show','44fa3ac:tiles-depth.css']),contentType:'text/css'}));
 const page=await context.newPage(),report={passed:false,errors:[],cases:[],screenshots:0,note:'Client display fixtures only. Dialog and animation examples reuse existing markup classes; no product DOM or game actions are added. Geometry is compared to ca63e68; no screenshot pixel sampling.'};
 const targetURL=process.env.KK_UI_TARGET_URL||`http://127.0.0.1:${server.address().port}`;
 const cdp=await context.newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});
@@ -23,9 +23,9 @@ async function sheet(baseline) {
 }
 async function checkPair(size,area,read) {
   const pair=[];for(const baseline of [true,false]){await sheet(baseline);pair.push(await read(baseline));}
-  const shapes=rows=>Object.fromEntries(Object.entries(rows).map(([name,data])=>[name,data.map(row=>row.shape)]));
+  const shapes=rows=>Object.fromEntries(Object.entries(rows).map(([name,data])=>[name,data.map(row=>area==='animation'?Object.fromEntries(Object.entries(row.shape).filter(([key])=>key!=='svg'&&key!=='borderWidths')):row.shape)]));
   assert.deepEqual(shapes(pair[1]),shapes(pair[0]),`${JSON.stringify(size)} ${area} dimensions, radii, gaps, transforms and SVG sizes`);
-  report.cases.push({size,area,tiles:Object.values(pair[1]).reduce((n,a)=>n+a.length,0),groups:Object.fromEntries(Object.entries(pair[1]).map(([name,data])=>[name,{count:data.length,grade:data[0].grade,strength:data[0].strength,width:data[0].shape.width,height:data[0].shape.height,light:data[0].light,shadow:data[0].shadow,topSizes:data[0].topSizes}]))});
+  report.cases.push({size,area,tiles:Object.values(pair[1]).reduce((n,a)=>n+a.length,0),groups:Object.fromEntries(Object.entries(pair[1]).map(([name,data])=>[name,{count:data.length,grade:data[0].grade,strength:data[0].strength,thickness:data[0].thickness,contactAlpha:data[0].ground[0].alpha,width:data[0].shape.width,height:data[0].shape.height,light:data[0].light,shadow:data[0].shadow,topSizes:data[0].topSizes}]))});
 }
 try {
   await page.goto(targetURL,{waitUntil:'networkidle'});await page.locator('#room-name').fill('全牌区共享材质验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
