@@ -202,50 +202,60 @@
 }
 .hand .tile {
   --tile-model-grade: hand;
-  --tile-depth: var(--tile-model-hand-depth);
-  /* 立牌正视：普通牌不留右侧壁；底部厚度、接地阴影及上浮处理维持原样。 */
+  /* 右上方看立牌：只看顶面和最右两张的侧面，不能把通用底面厚度带入手牌。 */
+  --tile-depth: 0px;
   --tile-side: 0px;
   --tile-model-body-side: 0px;
   --tile-model-left-exposed: 0px;
   --tile-model-right-exposed: 0px;
+  --tile-body: var(--tile-face);
+  --hand-top-depth: clamp(1px, calc(var(--hand-width, 6.18cqw) * .04), 2px);
+  --hand-top-paint: linear-gradient(180deg, #fffef9, #f6f0e5 48%, #ded9cd);
   --hand-visible-side: 0px;
   --hand-side-gloss: none;
   --hand-side-paint: none;
-  --hand-bevel: var(--tile-model-inset);
   --hand-face-width: calc(100% - var(--hand-visible-side));
-  /* 手牌离视线最近，落影比其它牌区更重：贴地 AO、主投影、远柔影一起下拉，
-     牌子像被压在桌面上，而不是贴着一张纸。 */
+  --tile-face: linear-gradient(215deg, #fffef6, var(--tile-ivory) 54%, #e8dfc9);
+  /* 釉面只在右上给很弱的反光，下沿轻微压暗，不叠加强白光遮住牌字。 */
+  --tile-gloss:
+    radial-gradient(100% 85% at 82% 8%, #ffffff24, #ffffff00 62%),
+    linear-gradient(180deg, #6f5c3d00 64%, #6f5c3d0a);
+  --tile-model-face-shadow: inset -.5px .5px .7px #fffdf480, inset .4px -.6px .8px #766c5430;
+  /* 右上受光，三层接地阴影落向左下；不再借底部实体面表达接地。 */
   --tile-model-contact-shadow:
-    calc(var(--tile-model-unit) * .1) calc(var(--tile-model-unit) * .16) calc(var(--tile-model-unit) * .08) #02120bf2,
-    calc(var(--tile-model-unit) * .2) calc(var(--tile-model-unit) * .5) calc(var(--tile-model-unit) * .5) #02150eb3,
-    calc(var(--tile-model-unit) * .45) calc(var(--tile-model-unit) * 1) calc(var(--tile-model-unit) * 1.3) #021a1159;
-  /* 正面倒角自行收边，不再叠加统一右缘描边，避免露侧时出现双线。 */
+    calc(var(--tile-model-unit) * -.1) calc(var(--tile-model-unit) * .16) calc(var(--tile-model-unit) * .08) #02120bf2,
+    calc(var(--tile-model-unit) * -.2) calc(var(--tile-model-unit) * .5) calc(var(--tile-model-unit) * .5) #02150eb3,
+    calc(var(--tile-model-unit) * -.45) calc(var(--tile-model-unit) * 1) calc(var(--tile-model-unit) * 1.3) #021a1159;
   border: 0;
-  border-bottom: 1px solid #17120d;
   border-radius: var(--tile-hand-radius);
   transition: transform .14s, background .14s, box-shadow .14s;
 }
 .hand .tile::before {
-  /* 仅最后两张为右侧面让位；其余正面铺至右缘，SVG 仍按原 viewBox 等比绘制。 */
-  inset: var(--hand-bevel) auto var(--tile-depth) 0;
+  /* 顶部窄面独立占位，正面与 SVG 均铺到底部；牌字仍按原 viewBox 等比绘制。 */
+  inset: var(--hand-top-depth) auto 0 0;
   width: var(--hand-face-width);
+  border: 0;
+  box-shadow: var(--tile-model-face-shadow);
   transform: none;
 }
 .hand .tile svg {
   position: absolute;
-  top: var(--hand-bevel);
+  top: var(--hand-top-depth);
   left: 0;
   width: var(--hand-face-width);
-  height: calc(100% - var(--tile-depth) - var(--hand-bevel));
+  height: calc(100% - var(--hand-top-depth));
   transform: none;
   border-radius: inherit;
 }
 .hand .tile::after {
-  /* 保留整张牌的圆角光影画布，实际侧面绘制宽度为 0 或 1–2px，不增大牌框和热区。 */
+  /* 顶面与侧面共用完整圆角画布及连续内高光，转角没有两个面各自收边的双线。
+     所有实体面在原牌框内部绘制，不增大尺寸或点击范围。 */
   inset: 0;
   background:
+    var(--hand-top-paint) top / 100% var(--hand-top-depth) no-repeat,
     var(--hand-side-gloss) right / var(--hand-visible-side) 100% no-repeat,
     var(--hand-side-paint) right / var(--hand-visible-side) 100% no-repeat;
+  box-shadow: inset -.5px .5px .6px #fffdf4b0;
 }
 .hand .tile:nth-last-child(-n+2) {
   /* 按 DOM 视觉顺序取最后两张，待定牌也计入；同一变量保证两条侧面等宽且高光一致。 */
