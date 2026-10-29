@@ -6,8 +6,8 @@ const metricCache=new WeakMap();
 const used=value=>Math.round(value*64)/64;
 const clean=value=>Math.abs(value)<1e-8?0:Number(value.toFixed(6));
 
-// CSS 四角顺序为左上、右上、右下、左下；按整牌旋转后的视觉左右选硬边。
-export function tileCornerSides(width,height,angle) {
+// CSS 四角顺序为左上、右上、右下、左下；牌框固定左方右圆，只反补内部 SVG 的旋转。
+export function tileCornerSides(width,height,angle=0) {
   const t=angle*Math.PI/180,c=Math.cos(t),s=Math.sin(t);
   return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>c*x*width-s*y*height<0?'hard':'soft');
 }
@@ -50,7 +50,8 @@ export function syncTileMetric(node,box=null) {
   const point=(x,y)=>{const [px,py]=inverse((x-.5)*globalWidth,(y-.5)*globalHeight);return[clean((.5+px/width)*100),clean((.5+py/height)*100)];};
   const shine=point(.82,.08),grain=point(.18,.88);
   const values={'--tile-model-width':`${Math.min(width,height)}px`,'--tile-model-turn':`${angle}deg`,'--tile-model-light-x':lx,'--tile-model-light-y':ly,'--tile-model-occlusion-x':ox,'--tile-model-occlusion-y':oy,'--tile-model-shine-x':`${shine[0]}%`,'--tile-model-shine-y':`${shine[1]}%`,'--tile-model-grain-x':`${grain[0]}%`,'--tile-model-grain-y':`${grain[1]}%`,'--tile-model-top-paint':s+c>0?'var(--tile-model-plane-lit)':'var(--tile-model-plane-shade)'};
-  const sides=tileCornerSides(width,height,angle);
+  // 轮廓跟随牌自身旋转，不能像光源一样反旋转成屏幕左方右圆。
+  const sides=tileCornerSides(width,height);
   for(const [index,corner]of ['tl','tr','br','bl'].entries())values[`--tile-model-corner-${corner}`]=`var(--tile-model-radius-${sides[index]})`;
   values['--tile-model-axis-x']=ox;values['--tile-model-axis-y']=oy;
   const [downX,downY]=inverse(0,1);values['--tile-model-down-x']=downX;values['--tile-model-down-y']=downY;
@@ -58,7 +59,7 @@ export function syncTileMetric(node,box=null) {
   for(const [name,value]of Object.entries(values))node.style.setProperty(name,String(value));
   if(svg){const sm=ss.transform==='none'?null:new DOMMatrix(ss.transform),turn=sm?Math.atan2(sm.b,sm.a)*180/Math.PI:0;
     // 内部 SVG 另有旋转时，只补偿其圆角，不改图案、朝向或凹陷阴影。
-    node.style.setProperty('--tile-model-svg-radius',cornerRadius(tileCornerSides(parseFloat(ss.width),parseFloat(ss.height),angle+turn)));
+    node.style.setProperty('--tile-model-svg-radius',cornerRadius(tileCornerSides(parseFloat(ss.width),parseFloat(ss.height),turn)));
   }
 }
 

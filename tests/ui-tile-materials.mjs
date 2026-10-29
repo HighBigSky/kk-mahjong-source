@@ -14,7 +14,7 @@ const service=new RoomService({botDelayMs:600000}),server=createServer({roomServ
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const context=await browser.newContext({viewport:{width:640,height:360},reducedMotion:'reduce'});
 await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('fixed viewport'))});});
-const BASELINE='c89e461';
+const BASELINE='550ce56';
 const sheets=['tiles-depth.css','landscape.css','styles.css','seats-layout.css','wall-layout.css'];
 for(const file of sheets)await context.route(`**/${file}?material-baseline=*`,route=>route.fulfill({body:execFileSync('git',['show',`${BASELINE}:${file}`]),contentType:'text/css'}));
 const page=await context.newPage(),report={passed:false,errors:[],cases:[],screenshots:0,note:`Client display fixtures only. Dialog and animation examples reuse existing markup classes; no product DOM or game actions are added. Geometry is compared to ${BASELINE}; no screenshot pixel sampling.`};
@@ -36,6 +36,7 @@ async function checkPair(size,area,read) {
   for(const [name,rows]of Object.entries(pair[1]))for(const [index,row]of rows.entries()){
     const old=pair[0][name][index];assert.ok(Math.abs(Math.max(...row.corners)-Math.max(...old.corners))<.0001,'original soft/right corner radius retained');
     assert.equal(row.paint,old.paint,'glaze, texture and face color unchanged');assert.equal(row.coating[0],old.coating[0],'top and right side plane paints unchanged');assert.equal(row.topSizes,old.topSizes,'visible plane sizes unchanged');
+    assert.equal(row.body,old.body,'tile body material unchanged');assert.deepEqual(row.ground,old.ground,'contact shadows unchanged');assert.deepEqual(row.bevel,old.bevel,'dual bevel shadow values unchanged');
     assert.deepEqual(row.glyph,old.glyph,'glyph recession unchanged');
   }
   if(pair[0].hand){const center=data=>(data[0].shape.rect[0]+data.at(-1).shape.rect[0]+data.at(-1).shape.rect[2])/2;assert.ok(Math.abs(center(pair[0].hand)-center(pair[1].hand))<.05,'hand row remains centered');}

@@ -35,15 +35,15 @@
 /* 统一材质只在这里定义；区域规则仅选择强度、可见面与光照反旋转。
    旧 --tile-depth/--tile-side 保留给现有 SVG 朝向和边框计算，不再绘制通用底面。 */
 .tile, .back {
-  --tile-model-version: resin-v5;
+  --tile-model-version: resin-v6;
   --tile-model-grade: river;
   --tile-model-strength: .4;
   --tile-model-thickness: 1px;
   --tile-model-width: var(--tile-face-width, 30px);
   --tile-model-radius-ratio: .09;
   --tile-model-radius-soft: calc(var(--tile-model-width) * var(--tile-model-radius-ratio));
-  /* 常用牌左角约 1–2px；微型牌进一步等比收紧，不能比其原有右角更圆。 */
-  --tile-model-radius-hard: min(calc(var(--tile-model-radius-soft) * .5), clamp(1px, calc(var(--tile-model-width) * .02), 2px));
+  /* 以牌自身朝向为准：左上/左下完全平直，右侧保留原有圆角；绘制层共用四角。 */
+  --tile-model-radius-hard: 0px;
   --tile-model-corner-tl: var(--tile-model-radius-hard);
   --tile-model-corner-tr: var(--tile-model-radius-soft);
   --tile-model-corner-br: var(--tile-model-radius-soft);

@@ -16,6 +16,8 @@ export async function materialSnapshot(page,selector,validate=true) {
         back:n.classList.contains('back'),wall:n.classList.contains('wall-piece'),
         paint:n.classList.contains('back')?s.backgroundImage:b.backgroundImage,body:s.backgroundImage,bevel:split(b.boxShadow).map(v=>({inset:v.includes('inset'),px:[...v.matchAll(/(-?(?:\d*\.?\d+)(?:e[+-]?\d+)?)px/g)].map(m=>Number(m[1]))})),
         modelWidth:px('--tile-model-width'),corners:[s.borderTopLeftRadius,s.borderTopRightRadius,s.borderBottomRightRadius,s.borderBottomLeftRadius].map(parseFloat),
+        faceCorners:[b.borderTopLeftRadius,b.borderTopRightRadius,b.borderBottomRightRadius,b.borderBottomLeftRadius].map(parseFloat),
+        coatCorners:[a.borderTopLeftRadius,a.borderTopRightRadius,a.borderBottomRightRadius,a.borderBottomLeftRadius].map(parseFloat),backInset:parseFloat(b.top),
         projectedCorners:index===0?window.visualGeometry.quad(n):null,
         svgCorners:svgStyle?[svgStyle.borderTopLeftRadius,svgStyle.borderTopRightRadius,svgStyle.borderBottomRightRadius,svgStyle.borderBottomLeftRadius].map(parseFloat):null,
         svgAngle:svgStyle&&svgStyle.transform!=='none'?Math.atan2(new DOMMatrix(svgStyle.transform).b,new DOMMatrix(svgStyle.transform).a)*180/Math.PI:0,
@@ -35,12 +37,14 @@ export async function materialSnapshot(page,selector,validate=true) {
   });
   assert.ok(rows.length,`material area exists: ${selector}`);
   if(validate)for(const row of rows) {
-    assert.equal(row.version,'resin-v5',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
-    const soft=row.modelWidth*.09,hard=Math.min(soft*.5,Math.min(2,Math.max(1,row.modelWidth*.02)));
+    assert.equal(row.version,'resin-v6',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
+    const soft=row.modelWidth*.09,hard=0;
     const corners=(width,height,angle)=>{const t=angle*Math.PI/180;return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>Math.cos(t)*x*width-Math.sin(t)*y*height<0?hard:soft);};
-    assert.ok(row.corners.every((v,i)=>Math.abs(v-corners(parseFloat(row.shape.width),parseFloat(row.shape.height),row.angle)[i])<.0001),`${selector} hard corners remain on visual left`);
-    if(row.projectedCorners){const order=row.projectedCorners.map((p,i)=>({x:p.x,i})).sort((a,b)=>a.x-b.x);assert.ok(order.every(({i},rank)=>Math.abs(row.corners[i]-(rank<2?hard:soft))<.0001),`${selector} projected left corners are the hard pair`);}
-    if(row.svgCorners)assert.ok(row.svgCorners.every((v,i)=>Math.abs(v-corners(parseFloat(row.shape.svg[0]),parseFloat(row.shape.svg[1]),row.angle+row.svgAngle)[i])<.0001),`${selector} internal SVG rounding matches the rotated card`);
+    assert.deepEqual([row.corners[0],row.corners[3]],[0,0],`${selector} tile-local left corners are square at ${row.angle}deg`);
+    assert.ok([row.corners[1],row.corners[2]].every(v=>Math.abs(v-soft)<.0001),`${selector} original local right corners retained`);
+    assert.deepEqual(row.coatCorners,row.corners,`${selector} top and side coating follows all four frame corners`);
+    assert.ok(row.faceCorners.every((v,i)=>Math.abs(v-(row.back?Math.max(0,row.corners[i]-row.backInset):row.corners[i]))<.0001),`${selector} face bevel or inset back frame follows square-left profile`);
+    if(row.svgCorners)assert.ok(row.svgCorners.every((v,i)=>Math.abs(v-corners(parseFloat(row.shape.svg[0]),parseFloat(row.shape.svg[1]),row.svgAngle)[i])<.0001),`${selector} internal SVG corners match the tile frame independently of whole-tile rotation`);
     assert.deepEqual([row.thickness,row.strength],({hand:[4,1],meld:[3,.8],wall:[2,.6],river:[1,.4]})[row.grade],`${selector} only four shared tiers`);
     assert.ok(row.bevel.length>=4&&row.bevel.every(shadow=>shadow.inset),selector);
     assert.equal((row.paint.match(/radial-gradient/g)||[]).length,2,selector);
