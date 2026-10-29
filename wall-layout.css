@@ -5,7 +5,6 @@
   --wall-piece-height:var(--tile-face-height);
   --wall-stack-step:2.9cqw;
   --wall-stack-depth:.43cqw;
-  --wall-piece-radius:.3cqw;
   --wall-tail-gold:#d8b46d;
   --wall-head-jade:#b4dbc4;
   --wall-tail-muted:#abc0a0;
@@ -49,7 +48,7 @@
   left:0;
   width:var(--wall-piece-width);
   height:var(--wall-piece-height);
-  border-radius:var(--wall-piece-radius);
+  border-radius:var(--tile-model-radius);
 }
 .wall-piece-lower { z-index:0; top:var(--wall-stack-depth); }
 .wall-piece-upper { z-index:1; top:0; }
@@ -65,7 +64,7 @@
 .wall-piece.back::before {
   inset:var(--tile-model-back-inset);
   border-width:var(--tile-model-bevel);
-  border-radius:.17cqw;
+  border-radius:var(--tile-model-inner-radius);
 }
 /* Consumed slots recede into the felt but retain the indicator's location. */
 .wall-piece.is-empty {
@@ -77,13 +76,13 @@
   --tile-depth:var(--tile-model-thin-depth);
   --tile-side:calc(var(--tile-depth) * .45);
   border-width:var(--tile-model-bevel);
-  border-radius:var(--wall-piece-radius);
+  border-radius:var(--tile-model-radius);
   box-shadow:var(--tile-model-contact-shadow);
 }
 .wall-piece.is-indicator {
   z-index:3;
   outline:.15cqw solid #e7c77f;
-  outline-offset:.08cqw;
+  outline-offset:calc(-1px - .15cqw);
 }
 .wall-stack[data-side="left"] .wall-piece.tile svg,
 .wall-stack[data-side="right"] .wall-piece.tile svg {
@@ -96,11 +95,11 @@
 }
 .wall-piece.is-next-piece {
   border-color:#e6c676;
-  box-shadow:var(--tile-model-contact-shadow),0 0 0 .14cqw #e8c676b3;
+  box-shadow:var(--tile-model-contact-shadow),inset 0 0 0 .14cqw #e8c676b3;
 }
 .wall-piece.is-head-piece {
   border-color:var(--wall-head-jade);
-  box-shadow:var(--tile-model-contact-shadow),0 0 0 .13cqw #b4dbc499;
+  box-shadow:var(--tile-model-contact-shadow),inset 0 0 0 .13cqw #b4dbc499;
 }
 .wall-stack.is-next::after,.wall-stack.is-head::after {
   content:"";

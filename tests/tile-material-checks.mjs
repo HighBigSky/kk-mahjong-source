@@ -15,7 +15,9 @@ export async function materialSnapshot(page,selector,validate=true) {
         version:s.getPropertyValue('--tile-model-version').trim(),grade:s.getPropertyValue('--tile-model-grade').trim(),strength:number('--tile-model-strength'),
         back:n.classList.contains('back'),wall:n.classList.contains('wall-piece'),
         paint:n.classList.contains('back')?s.backgroundImage:b.backgroundImage,body:s.backgroundImage,bevel:split(b.boxShadow).map(v=>({inset:v.includes('inset'),px:[...v.matchAll(/(-?[\d.]+)px/g)].map(m=>Number(m[1]))})),
-        thickness:px('--tile-model-thickness'),ground:split(s.boxShadow).map(v=>({px:[...v.matchAll(/(-?[\d.]+)px/g)].map(m=>Number(m[1])),alpha:Number(v.match(/rgba\([^()]*,\s*([\d.]+)\)/)?.[1]??1)})),
+        modelWidth:px('--tile-model-width'),radiusRatio:parseFloat(s.borderTopLeftRadius)/Math.min(parseFloat(s.width),parseFloat(s.height)),
+        glyph:svgStyle?split(svgStyle.boxShadow).map(v=>({inset:v.includes('inset'),px:[...v.matchAll(/(-?[\d.]+)px/g)].map(m=>Number(m[1]))})):[],
+        thickness:px('--tile-model-thickness'),ground:split(s.boxShadow).map(v=>({inset:v.includes('inset'),px:[...v.matchAll(/(-?[\d.]+)px/g)].map(m=>Number(m[1])),alpha:Number(v.match(/rgba\([^()]*,\s*([\d.]+)\)/)?.[1]??1)})),
         pseudoCount:[b,a].filter(style=>style.content!=='none'&&style.content!=='normal').length,
         filters:[s,b,a,...(svgStyle?[svgStyle]:[])].flatMap(style=>[style.filter,style.backdropFilter]),
         topSizes:a.backgroundSize,topSize:parseFloat(a.backgroundSize.split(',')[0].trim().split(/\s+/)[1]),rightSize:parseFloat(a.backgroundSize.split(',')[2]||'0'),bottom:b.bottom,coating:[a.backgroundImage,a.borderRadius,a.boxShadow],
@@ -30,16 +32,25 @@ export async function materialSnapshot(page,selector,validate=true) {
   });
   assert.ok(rows.length,`material area exists: ${selector}`);
   if(validate)for(const row of rows) {
-    assert.equal(row.version,'resin-v3',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
+    assert.equal(row.version,'resin-v4',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
+    assert.ok(Math.abs(row.radiusRatio-.09)<.0001,`${selector} radius / physical short edge: ${JSON.stringify({ratio:row.radiusRatio,shape:row.shape,modelWidth:row.modelWidth})}`);
+    assert.deepEqual([row.thickness,row.strength],({hand:[4,1],meld:[3,.8],wall:[2,.6],river:[1,.4]})[row.grade],`${selector} only four shared tiers`);
     assert.ok(row.bevel.length>=4&&row.bevel.every(shadow=>shadow.inset),selector);
     assert.equal((row.paint.match(/radial-gradient/g)||[]).length,2,selector);
     assert.match(row.paint,/linear-gradient/);assert.doesNotMatch(row.paint,/url\(/);
     const textureLayers=row.paint.match(/repeating-linear-gradient\([^;]*?(?=\), (?:repeating-|linear-|radial-)|$)/g)||[];
     assert.equal((row.paint.match(/repeating-linear-gradient/g)||[]).length,row.back?2:1,selector);
     for(const texture of textureLayers)for(const match of texture.matchAll(/rgba\([^()]*,\s*([\d.]+)\)/g))assert.ok(Number(match[1])<=(row.back?.06:.05),`${selector} texture opacity`);
-    assert.ok(row.bevel.every(shadow=>shadow.px.every(Number.isInteger)),`${selector} integer-pixel bevel/highlights`);
-    // 后续层可能是既有金色摸补/选中状态描边，按约束不改；这里只核对三层材质投影。
-    assert.ok(row.ground.slice(0,3).every(shadow=>shadow.px.every(Number.isInteger)),`${selector} integer-pixel shadows`);
+    // 普通态三层暗部只在自身牌框内；所有偏移和柔影随真实牌宽等比。
+    for(const [index,shadow]of row.ground.slice(0,3).entries()) {
+      assert.equal(shadow.inset,true,`${selector} no outward normal shadow`);
+      const offset=[.025,.045,.08][index]*row.strength,blur=[.025,.035,.09][index]*row.strength;
+      assert.ok(Math.abs(Math.hypot(...shadow.px.slice(0,2))/row.modelWidth-Math.SQRT2*offset)<.0001,`${selector} proportional offset`);
+      const turn=row.angle*Math.PI/180,[x,y]=shadow.px,global=[x*Math.cos(turn)-y*Math.sin(turn),x*Math.sin(turn)+y*Math.cos(turn)];
+      assert.ok(global.every((v,i)=>Math.abs(v/row.modelWidth-[offset,-offset][i])<.0001),`${selector} inset darkness stays lower left under upper-right lighting`);
+      assert.ok(Math.abs(shadow.px[2]/row.modelWidth-blur)<.0001,`${selector} proportional blur`);
+    }
+    if(!row.back)assert.ok(row.glyph.length===2&&row.glyph.every(v=>v.inset&&v.px.every(x=>Math.abs(x)<=1)),`${selector} recessed glyph region <= 1px`);
     assert.ok(row.pseudoCount<=2,selector);
     assert.ok(row.filters.every(filter=>filter==='none'),selector);assert.equal(row.groundCount,3,selector);
     if(!row.back)assert.equal(row.bottom,'0px',selector);
@@ -63,9 +74,17 @@ export async function checkMaterialAreas(page,{baseline=false}={}) {
     const groups=[result.hand,result['meld-0'],result.wall,result['river-0']];
     assert.deepEqual(groups.map(rows=>rows[0].thickness),[4,3,2,1],'hand > meld > wall > river thickness');
     assert.deepEqual(groups.map(rows=>rows[0].strength),[1,.8,.6,.4],'contact shadow strength follows thickness');
-    assert.deepEqual(groups.map(rows=>rows[0].ground[2].px[2]),[4,3,2,1],'rendered soft shadow range follows the actual thickness tier');
+    assert.ok(groups.every(rows=>Math.abs(rows[0].ground[2].px[2]/rows[0].modelWidth-.09*rows[0].strength)<.0001),'soft shadow is proportional to actual width and tier');
     const contactAlpha=groups.map(rows=>rows[0].ground[0].alpha);assert.ok(contactAlpha.every((value,index)=>!index||value<contactAlpha[index-1]),'rendered contact opacity decreases with thickness');
     for(const seat of [0,1,2,3]){assert.ok(result[`river-${seat}`].every(row=>row.thickness===1&&row.strength===.4));assert.ok(result[`meld-${seat}`].every(row=>row.thickness===3&&row.strength===.8));}
+    // 在完整桌面透视后验证径向高光仍在右上方，不只检查局部渐变角度。
+    const highlights=await page.evaluate(()=>[0,1,2,3].map(seat=>{
+      const node=document.querySelector(`#river-${seat} .tile`),s=getComputedStyle(node),corners=window.visualGeometry.quad(node);
+      const point=(x,y)=>({x:corners[0].x*(1-x)*(1-y)+corners[1].x*x*(1-y)+corners[2].x*x*y+corners[3].x*(1-x)*y,y:corners[0].y*(1-x)*(1-y)+corners[1].y*x*(1-y)+corners[2].y*x*y+corners[3].y*(1-x)*y});
+      const highlight=point(parseFloat(s.getPropertyValue('--tile-model-shine-x'))/100,parseFloat(s.getPropertyValue('--tile-model-shine-y'))/100),center=point(.5,.5);
+      return {seat,dx:highlight.x-center.x,dy:highlight.y-center.y};
+    }));
+    assert.ok(highlights.every(p=>p.dx>0&&p.dy<0),`four projected highlights remain upper right: ${JSON.stringify(highlights)}`);
   }
   return result;
 }

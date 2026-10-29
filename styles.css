@@ -485,7 +485,7 @@ svg {
   background:#376f4b;
   border:1px solid #819b58;
   border-bottom:2px solid #9fb078;
-  border-radius:.5cqw;
+  border-radius:var(--tile-model-radius);
   box-shadow:inset 0 2px 0 #a6bf724a
 }
 
@@ -537,7 +537,7 @@ svg {
   background:var(--cream);
   border:1px solid #d9d9bb;
   border-bottom:2px solid #adc09b;
-  border-radius:.7cqw;
+  border-radius:var(--tile-model-radius);
   position:relative;
   box-shadow:0 1px 1px #062c2126;
   overflow:hidden
@@ -685,7 +685,7 @@ svg {
 .bot-melds .tile {
   width:2.4cqw;
   height:3.4cqw;
-  border-radius:.2cqw
+  border-radius:var(--tile-model-radius)
 }
 
 .turn-message {
@@ -906,7 +906,7 @@ svg {
 
 .hand .tile svg {
   overflow:hidden;
-  border-radius:.6cqw
+  border-radius:inherit
 }
 
 .hand .tile.drawn {
@@ -960,7 +960,7 @@ svg {
 .my-melds .tile {
   width:3.3cqw;
   height:4.6cqw;
-  border-radius:.4cqw
+  border-radius:var(--tile-model-radius)
 }
 
 .hand-zone.has-melds {

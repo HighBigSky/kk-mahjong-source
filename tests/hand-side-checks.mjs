@@ -39,7 +39,7 @@ export async function checkHandSides(page,size) {
         coatRadius:after.borderRadius,coatInset:[after.top,after.right,after.bottom,after.left],coatBorder:after.borderWidth,
         faceBorder:before.borderBottomWidth,faceBackground:before.backgroundImage,svgBottomGap:n.getBoundingClientRect().bottom-svg.getBoundingClientRect().bottom,
         bodyDepth:s.getPropertyValue('--tile-depth').trim(),
-        bevelOuter:Math.abs(shadows(before.boxShadow)[2].px[0]),bevelInner:Number((shadows(before.boxShadow)[4].px[3]-Math.abs(shadows(before.boxShadow)[2].px[0])).toFixed(4)),
+        bevelOuter:Math.abs(shadows(before.boxShadow)[5].px[0]),bevelInner:Number((shadows(before.boxShadow)[7].px[3]-Math.abs(shadows(before.boxShadow)[5].px[0])).toFixed(4)),
         faceShadows:shadows(before.boxShadow),faceLayerKinds:faceLayers.map(layer=>layer.split('(')[0]),
         glazeAlphas:[...faceLayers.find(layer=>layer.startsWith('linear-gradient')).matchAll(/rgba\([^()]*,\s*([\d.]+)\)/g)].map(m=>Number(m[1])),
         materialRadials:faceLayers.filter(layer=>layer.startsWith('radial-gradient')).length,
@@ -65,8 +65,10 @@ export async function checkHandSides(page,size) {
       assert.ok(tile.topDepth>=1&&tile.topDepth<=2,'each hand tile has a 1–2px top plane');
       assert.match(tile.paint,/linear-gradient\(rgb\(255, 254, 249\)/,label);
       assert.match(tile.faceBackground,/at 82% 8%/,'glaze light comes from the upper right');
-      assert.equal(tile.bevelOuter,1,label);assert.ok(tile.bevelInner>0&&tile.bevelInner<=1,label);
-      assert.deepEqual(tile.faceShadows,[{inset:true,px:[0,0,0,1]},{inset:true,px:[1,0,1,0]},{inset:true,px:[-1,1,0,0]},{inset:true,px:[1,-1,0,0]},{inset:true,px:[0,0,0,tile.bevelOuter+tile.bevelInner]}],'integer-pixel transmission, contact shadow and dual bevel');
+      assert.ok(Math.abs(tile.bevelOuter/parseFloat(tile.width)-.025)<.0001,label);
+      assert.ok(Math.abs(tile.bevelInner/parseFloat(tile.width)-.015)<.0001,label);
+      assert.equal(tile.faceShadows.length,8,'three inward contact layers, transmission, edge contact and dual bevel');
+      assert.ok(tile.faceShadows.every(shadow=>shadow.inset),'normal face layers cannot cast onto adjacent cards');
       assert.equal(tile.faceLayerKinds.filter(kind=>kind==='linear-gradient').length,3,label);assert.equal(tile.materialRadials,2,label);
       assert.ok(tile.faceLayerKinds.includes('repeating-linear-gradient'),'fine resin grain');
       assert.ok(tile.faceLayerKinds.every(kind=>kind==='linear-gradient'||kind==='radial-gradient'||kind==='repeating-linear-gradient'),label);
@@ -76,7 +78,7 @@ export async function checkHandSides(page,size) {
       assert.ok(tile.filters.every(value=>value==='none'),'material uses no filter or backdrop-filter');
       assert.equal(tile.coatRadius,tile.radius,'top and side share a rounded canvas');
       assert.deepEqual(tile.coatInset,['0px','0px','0px','0px'],label);assert.equal(tile.coatBorder,'0px',label);
-      assert.equal(tile.pointer,'none',label);assert.equal(tile.z,'2',label);assert.equal(tile.hit,true,label);assert.deepEqual(tile.clipping,['visible','none'],label);
+      assert.equal(tile.pointer,'none',label);assert.equal(tile.z,'2',label);assert.equal(tile.hit,true,label);assert.deepEqual(tile.clipping,['clip','none'],label);
       if(index>=scenario.count-2){assert.ok(tile.sideSizes.every(w=>w>=1&&w<=2),label);assert.match(tile.paint,/linear-gradient\(rgb\(105, 187, 136\)/,label);}
       else {assert.ok(tile.sideSizes.every(w=>w===0),label);assert.doesNotMatch(tile.paint,/rgb\(105, 187, 136\)/,label);}
     }

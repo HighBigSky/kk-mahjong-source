@@ -373,7 +373,7 @@
   min-width:0;
   width:var(--public-tile-width);
   height:var(--public-tile-height);
-  border-radius:.25cqw;
+  border-radius:var(--tile-model-radius);
   border-bottom-width:var(--tile-model-bevel);
 }
 

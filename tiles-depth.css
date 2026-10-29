@@ -30,24 +30,28 @@
   --tile-bone-mid: #dccaa9;
   --tile-bone-dark: #bda887;
   --tile-bone-edge: #8b7756;
-  --tile-radius: .75cqw;
-  --tile-hand-radius: .82cqw;
-  --tile-river-radius: .6cqw;
 }
 
 /* 统一材质只在这里定义；区域规则仅选择强度、可见面与光照反旋转。
    旧 --tile-depth/--tile-side 保留给现有 SVG 朝向和边框计算，不再绘制通用底面。 */
 .tile, .back {
-  --tile-model-version: resin-v3;
-  --tile-model-grade: popup;
-  --tile-model-strength: .7;
-  --tile-model-thickness: 2px;
+  --tile-model-version: resin-v4;
+  --tile-model-grade: river;
+  --tile-model-strength: .4;
+  --tile-model-thickness: 1px;
+  --tile-model-width: var(--tile-face-width, 30px);
+  --tile-model-radius-ratio: .09;
+  --tile-model-radius: calc(var(--tile-model-width) * var(--tile-model-radius-ratio));
+  --tile-model-inner-radius: max(0px, calc(var(--tile-model-radius) - var(--tile-model-back-inset)));
+  --tile-model-contact-unit: calc(var(--tile-model-width) * .025 * var(--tile-model-strength));
+  --tile-model-main-unit: calc(var(--tile-model-width) * .045 * var(--tile-model-strength));
+  --tile-model-soft-unit: calc(var(--tile-model-width) * .08 * var(--tile-model-strength));
   --tile-model-turn: 0deg;
-  --tile-model-light-x: -1px;
-  --tile-model-light-y: 1px;
+  --tile-model-light-x: -1;
+  --tile-model-light-y: 1;
   --tile-model-shine-x: 82%; --tile-model-shine-y: 8%;
   --tile-model-grain-x: 18%; --tile-model-grain-y: 88%;
-  --tile-model-occlusion-x: 1px; --tile-model-occlusion-y: 0px;
+  --tile-model-occlusion-x: 1; --tile-model-occlusion-y: 0;
   --tile-model-shadow-x: -1; --tile-model-shadow-y: 1;
   --tile-model-main-x: -1; --tile-model-main-y: 1;
   --tile-model-soft-x: -1; --tile-model-soft-y: 1;
@@ -58,19 +62,22 @@
   --tile-side: calc(var(--tile-depth) * .45);
   --tile-model-bevel: 1px;
   --tile-model-inset: min(1px, calc(var(--tile-depth) * .25));
-  --tile-model-bevel-outer: 1px;
-  --tile-model-bevel-inner: 1px;
+  --tile-model-bevel-outer: calc(var(--tile-model-width) * .025);
+  --tile-model-bevel-inner: calc(var(--tile-model-width) * .015);
   --tile-model-plane-size: 1px;
   --tile-model-top-size: 0px;
   --tile-model-right-size: 0px;
   --tile-model-bottom-size: 0px;
   --tile-model-right-gloss: none;
   --tile-model-right-paint: none;
-  --tile-model-top-paint: linear-gradient(180deg, #fffef9, #f6f0e5 48%, #ded9cd);
-  --tile-model-side-paint: linear-gradient(180deg, var(--tile-bone), var(--tile-bone-mid) 55%, var(--tile-bone-dark));
+  --tile-model-plane-lit: linear-gradient(180deg, #fffef9, #f6f0e5 48%, #ded9cd);
+  --tile-model-plane-shade: linear-gradient(180deg, var(--tile-bone), var(--tile-bone-mid) 55%, var(--tile-bone-dark));
+  --tile-model-top-paint: var(--tile-model-plane-lit);
+  --tile-model-side-paint: var(--tile-model-plane-shade);
   --tile-model-resin-paint: linear-gradient(180deg, var(--tile-resin-light), var(--tile-resin) 55%, var(--tile-resin-dark));
   --tile-model-side-gloss: linear-gradient(90deg, #fff8e8aa 0%, #fff8e800 38%);
   --tile-face: linear-gradient(calc(215deg - var(--tile-model-turn)), #fffef6, var(--tile-ivory) 54%, #e8dfc9);
+  --tile-face-hover: linear-gradient(calc(215deg - var(--tile-model-turn)), #ffffff, #fff8e9 48%, #eee2c9);
   --tile-face-selected: linear-gradient(calc(215deg - var(--tile-model-turn)), #fffef0, #fff2cf 55%, #e8d49e);
   /* 斜向釉面峰值低于 8%；两层径向象牙质感处于 SVG 下面，图案本身不蒙白。 */
   --tile-gloss:
@@ -83,20 +90,27 @@
   --tile-model-back-weave:
     repeating-linear-gradient(calc(35deg - var(--tile-model-turn)), #ffffff06 0px 1px, #ffffff00 1px 3px),
     repeating-linear-gradient(calc(125deg - var(--tile-model-turn)), #0a291406 0px 1px, #0a291400 1px 4px);
-  --tile-model-transmission: inset 0 0 0 1px #fffbee30;
+  --tile-model-transmission: inset 0 0 0 min(1px, calc(var(--tile-model-width) * .025)) #fffbee30;
   --tile-model-face-shadow:
-    inset var(--tile-model-light-x) var(--tile-model-light-y) 0 rgb(255 253 244 / calc(.76 * var(--tile-model-strength))),
-    inset calc(var(--tile-model-light-x) * -1) calc(var(--tile-model-light-y) * -1) 0 rgb(120 110 87 / calc(.28 * var(--tile-model-strength))),
-    inset 0 0 0 2px rgb(255 249 232 / calc(.33 * var(--tile-model-strength)));
-  --tile-model-edge-contact-shadow: inset var(--tile-model-occlusion-x) var(--tile-model-occlusion-y) 1px rgb(34 30 23 / calc(.28 * var(--tile-model-strength)));
-  --tile-model-edge-shadow: inset var(--tile-model-light-x) var(--tile-model-light-y) 1px #fffdf4b0;
-  /* 厚度 4/3/2/1px 驱动体积投影，细边固定整数像素，不挤占原牌框或 SVG。 */
+    inset calc(var(--tile-model-light-x) * var(--tile-model-bevel-outer)) calc(var(--tile-model-light-y) * var(--tile-model-bevel-outer)) 0 rgb(255 253 244 / calc(.76 * var(--tile-model-strength))),
+    inset calc(var(--tile-model-light-x) * var(--tile-model-bevel-outer) * -1) calc(var(--tile-model-light-y) * var(--tile-model-bevel-outer) * -1) 0 rgb(120 110 87 / calc(.28 * var(--tile-model-strength))),
+    inset 0 0 0 calc(var(--tile-model-bevel-outer) + var(--tile-model-bevel-inner)) rgb(255 249 232 / calc(.33 * var(--tile-model-strength)));
+  --tile-model-edge-contact-shadow: inset calc(var(--tile-model-occlusion-x) * var(--tile-model-contact-unit)) calc(var(--tile-model-occlusion-y) * var(--tile-model-contact-unit)) var(--tile-model-contact-unit) rgb(34 30 23 / calc(.28 * var(--tile-model-strength)));
+  --tile-model-edge-shadow: inset calc(var(--tile-model-light-x) * var(--tile-model-width) * .0125) calc(var(--tile-model-light-y) * var(--tile-model-width) * .0125) calc(var(--tile-model-width) * .018) #fffdf4b0;
+  /* 正常态三层接地暗部全部收进本张牌框，任何缝宽（包括 0）都不会污染邻牌。
+     光源与厚度强度仍统一；外投影单独留给选中、提示和最后出牌。 */
   --tile-model-contact-shadow:
-    calc(1px * var(--tile-model-shadow-x)) calc(1px * var(--tile-model-shadow-y)) 1px rgb(2 18 11 / calc(.95 * var(--tile-model-strength))),
-    calc(max(1px, var(--tile-model-thickness) - 1px) * var(--tile-model-main-x)) calc(max(1px, var(--tile-model-thickness) - 1px) * var(--tile-model-main-y)) 1px rgb(2 21 14 / calc(.7 * var(--tile-model-strength))),
-    calc(var(--tile-model-thickness) * var(--tile-model-soft-x)) calc(var(--tile-model-thickness) * var(--tile-model-soft-y)) var(--tile-model-thickness) rgb(2 26 17 / calc(.35 * var(--tile-model-strength)));
-  --tile-model-back-inset: 2px;
-  --tile-model-back-shadow: inset 1px -1px 1px var(--tile-back-emboss-dark), inset -1px 1px 1px var(--tile-back-emboss-light);
+    inset calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-x) * -1) calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-y) * -1) var(--tile-model-contact-unit) rgb(2 18 11 / calc(.95 * var(--tile-model-strength))),
+    inset calc(var(--tile-model-main-unit) * var(--tile-model-main-x) * -1) calc(var(--tile-model-main-unit) * var(--tile-model-main-y) * -1) calc(var(--tile-model-width) * .035 * var(--tile-model-strength)) rgb(2 21 14 / calc(.7 * var(--tile-model-strength))),
+    inset calc(var(--tile-model-soft-unit) * var(--tile-model-soft-x) * -1) calc(var(--tile-model-soft-unit) * var(--tile-model-soft-y) * -1) calc(var(--tile-model-width) * .09 * var(--tile-model-strength)) rgb(2 26 17 / calc(.35 * var(--tile-model-strength)));
+  --tile-model-raised-shadow:
+    calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-x)) calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-y)) var(--tile-model-contact-unit) rgb(2 18 11 / calc(.95 * var(--tile-model-strength))),
+    calc(var(--tile-model-main-unit) * var(--tile-model-main-x)) calc(var(--tile-model-main-unit) * var(--tile-model-main-y)) calc(var(--tile-model-width) * .035 * var(--tile-model-strength)) rgb(2 21 14 / calc(.7 * var(--tile-model-strength))),
+    calc(var(--tile-model-soft-unit) * var(--tile-model-soft-x)) calc(var(--tile-model-soft-unit) * var(--tile-model-soft-y)) calc(var(--tile-model-width) * .09 * var(--tile-model-strength)) rgb(2 26 17 / calc(.35 * var(--tile-model-strength)));
+  --tile-model-back-inset: calc(var(--tile-model-width) * .06);
+  --tile-model-back-shadow: inset calc(var(--tile-model-light-x) * var(--tile-model-contact-unit) * -1) calc(var(--tile-model-light-y) * var(--tile-model-contact-unit) * -1) var(--tile-model-contact-unit) var(--tile-back-emboss-dark), inset calc(var(--tile-model-light-x) * var(--tile-model-contact-unit)) calc(var(--tile-model-light-y) * var(--tile-model-contact-unit)) var(--tile-model-contact-unit) var(--tile-back-emboss-light);
+  --tile-model-glyph-depth: min(1px, calc(var(--tile-model-width) * .015));
+  --tile-model-glyph-shadow: inset calc(var(--tile-model-light-x) * var(--tile-model-glyph-depth)) calc(var(--tile-model-light-y) * var(--tile-model-glyph-depth)) var(--tile-model-glyph-depth) #30291e24, inset calc(var(--tile-model-light-x) * var(--tile-model-glyph-depth) * -1) calc(var(--tile-model-light-y) * var(--tile-model-glyph-depth) * -1) 0 #fffdf430;
   --tile-body: var(--tile-face);
 }
 .tile {
@@ -105,10 +119,11 @@
   border-top-color: var(--tile-bone-light);
   border-right-color: var(--tile-bone-light);
   border-bottom-color: var(--tile-border-bottom);
-  border-radius: var(--tile-radius);
+  border-radius: var(--tile-model-radius);
   box-shadow: var(--tile-model-contact-shadow);
   isolation: isolate;
-  overflow: visible;
+  overflow: clip;
+  overflow-clip-margin: 0px;
 }
 .tile::before {
   content: "";
@@ -118,7 +133,7 @@
   border: 0;
   border-radius: inherit;
   background: var(--tile-model-face-grain), var(--tile-gloss), var(--tile-face);
-  box-shadow: var(--tile-model-transmission), var(--tile-model-edge-contact-shadow), var(--tile-model-face-shadow);
+  box-shadow: var(--tile-model-contact-shadow), var(--tile-model-transmission), var(--tile-model-edge-contact-shadow), var(--tile-model-face-shadow);
   pointer-events: none;
   z-index: 0;
 }
@@ -130,6 +145,7 @@
   height: calc(100% - var(--tile-depth));
   filter: none;
   border-radius: inherit;
+  box-shadow: var(--tile-model-glyph-shadow);
 }
 /* 各面共用一张圆角画布，交界只有一段内高光；所有面均在原牌框内。 */
 .tile::after {
@@ -147,49 +163,15 @@
   z-index: 2;
 }
 .river .tile, .discard-focus .tile {
-  --tile-model-grade: river;
-  --tile-model-strength: .4;
-  --tile-model-thickness: 1px;
   --tile-depth: var(--tile-model-river-depth);
   --tile-side: max(1.5px, calc(var(--tile-depth) * .6));
   /* 牌河整牌随座位旋转：局部顶边始终是靠桌心的一边，不绘制底面及右侧面。 */
   --tile-model-top-size: var(--tile-model-plane-size);
   /* 外轮廓只收中性细线，方向高光由反旋转后的内倒角负责。 */
   border-color: var(--tile-border);
-  border-radius: var(--tile-river-radius);
+  border-radius: var(--tile-model-radius);
 }
-.river-right .tile, .discard-focus[data-player="1"] .tile {
-  --tile-model-turn: -90deg;
-  --tile-model-light-x: -1px; --tile-model-light-y: -1px;
-  --tile-model-occlusion-x: 0px; --tile-model-occlusion-y: 1px;
-  --tile-model-shine-x: 92%; --tile-model-shine-y: 82%;
-  --tile-model-grain-x: 12%; --tile-model-grain-y: 18%;
-  --tile-model-shadow-x: -1; --tile-model-shadow-y: -1;
-  --tile-model-main-x: -1; --tile-model-main-y: -1;
-  --tile-model-soft-x: -1; --tile-model-soft-y: -1;
-  --tile-model-top-paint: var(--tile-model-side-paint);
-}
-.river-top .tile, .discard-focus[data-player="2"] .tile {
-  --tile-model-turn: 180deg;
-  --tile-model-light-x: 1px; --tile-model-light-y: -1px;
-  --tile-model-occlusion-x: -1px; --tile-model-occlusion-y: 0px;
-  --tile-model-shine-x: 18%; --tile-model-shine-y: 92%;
-  --tile-model-grain-x: 82%; --tile-model-grain-y: 12%;
-  --tile-model-shadow-x: 1; --tile-model-shadow-y: -1;
-  --tile-model-main-x: 1; --tile-model-main-y: -1;
-  --tile-model-soft-x: 1; --tile-model-soft-y: -1;
-  --tile-model-top-paint: var(--tile-model-side-paint);
-}
-.river-left .tile, .discard-focus[data-player="3"] .tile {
-  --tile-model-turn: 90deg;
-  --tile-model-light-x: 1px; --tile-model-light-y: 1px;
-  --tile-model-occlusion-x: 0px; --tile-model-occlusion-y: -1px;
-  --tile-model-shine-x: 8%; --tile-model-shine-y: 18%;
-  --tile-model-grain-x: 88%; --tile-model-grain-y: 82%;
-  --tile-model-shadow-x: 1; --tile-model-shadow-y: 1;
-  --tile-model-main-x: 1; --tile-model-main-y: 1;
-  --tile-model-soft-x: 1; --tile-model-soft-y: 1;
-}
+/* 旋转补偿由 tile-material.js 按整牌实际角度统一计算，避免四家各维护一套光源。 */
 .river .tile.last-discard {
   --tile-face: var(--tile-face-selected);
   outline: .28cqw solid #e7c77f;
@@ -212,7 +194,6 @@
   z-index: -1;
 }
 .hand .tile {
-  --tile-model-grade: hand;
   /* 右上方看立牌：只看顶面和最右两张的侧面，不能把通用底面厚度带入手牌。 */
   --tile-depth: 0px;
   --tile-side: 0px;
@@ -227,8 +208,6 @@
   --hand-side-paint: none;
   --hand-face-width: calc(100% - var(--hand-visible-side));
   /* 手牌只选完整强度与可见面；倒角、釉面、缝隙和接地阴影均引用共享层。 */
-  --tile-model-strength: 1;
-  --tile-model-thickness: 4px;
   --tile-model-top-size: 2px;
   --tile-model-right-size: 0px;
   --tile-model-right-gloss: var(--hand-side-gloss);
@@ -237,8 +216,9 @@
   --hand-bevel-inner: var(--tile-model-bevel-inner);
   --hand-edge-contact-shadow: var(--tile-model-edge-contact-shadow);
   border: 0;
-  border-radius: var(--tile-hand-radius);
-  transition: transform .14s, background .14s, box-shadow .14s;
+  border-radius: var(--tile-model-radius);
+  overflow: clip;
+  transition: transform .14s, background .14s;
 }
 .hand .tile::before {
   /* 顶部窄面独立占位，正面与 SVG 均铺到底部；牌字仍按原 viewBox 等比绘制。 */
@@ -246,7 +226,7 @@
   width: var(--hand-face-width);
   border: 0;
   /* 左邻牌的遮蔽仅落在本张左缘；缝隙继续透出桌面与原有接地阴影，不铺树脂色。 */
-  box-shadow: var(--tile-model-transmission), var(--hand-edge-contact-shadow), var(--tile-model-face-shadow);
+  box-shadow: var(--tile-model-contact-shadow), var(--tile-model-transmission), var(--hand-edge-contact-shadow), var(--tile-model-face-shadow);
   transform: none;
 }
 .hand .tile svg {
@@ -281,7 +261,7 @@
   /* 悬停轻微抬牌：位移只影响视觉，不改变布局与点击判定。 */
   transform: translateY(calc(var(--tile-model-unit) * -.4));
 }
-.hand .tile.hinted { outline-color: #cee7a7; z-index: 1; }
+.hand .tile.hinted { outline-color: #cee7a7; z-index: 1; box-shadow:var(--tile-model-raised-shadow); }
 .hand .tile.selected {
   z-index: 2;
   --tile-face: var(--tile-face-selected);
@@ -291,7 +271,7 @@
   outline-offset: .1cqw;
   /* 选中牌抬得比悬停更高，配一层更远的落影强调“离桌”的高度差。 */
   transform: translateY(calc(var(--tile-model-unit) * -.55));
-  box-shadow: var(--tile-model-contact-shadow), 0 calc(var(--tile-model-unit) * .5) calc(var(--tile-model-unit) * .8) #031a1280;
+  box-shadow: var(--tile-model-raised-shadow), 0 calc(var(--tile-model-unit) * .5) calc(var(--tile-model-unit) * .8) #031a1280;
 }
 
 /* 各区仅选档位及可见面；不写宽高、间距、变换和区域圆角。 */
@@ -310,32 +290,26 @@
   --tile-model-right-paint: var(--tile-model-resin-paint);
 }
 .opponent-rack .backs.is-revealed .wild-marker { display: none; }
-.choice-option .tile, .result-hand .tile {
-  --tile-model-grade: popup;
-  --tile-model-strength: .85;
-}
-.history-tiles .tile {
-  --tile-model-grade: history;
-  --tile-model-strength: .7;
+.hand .tile, .choice-option .tile, .result-hand .tile {
+  --tile-model-grade: hand;
+  --tile-model-thickness: 4px;
+  --tile-model-strength: 1;
 }
 .topbar .laizi-summary .tile {
-  --tile-model-grade: marker;
-  --tile-model-strength: .6;
   --tile-depth: var(--tile-model-thin-depth);
   --tile-side: max(1px, calc(var(--tile-depth) * .6));
 }
 .back {
-  --tile-model-grade: concealed;
-  --tile-model-strength: .65;
   --tile-model-back-ivory-size: 1px;
   position: relative;
   background: var(--tile-model-back-weave), var(--tile-gloss), linear-gradient(calc(215deg - var(--tile-model-turn)), var(--tile-back-light), var(--tile-back) 54%, var(--tile-back-dark));
   border: 1px solid var(--tile-back-border);
   border-left-color: var(--tile-back-border-side);
   border-bottom-color: #e0d6bb;
-  border-radius: .55cqw;
+  border-radius: var(--tile-model-radius);
   box-shadow: var(--tile-model-contact-shadow);
-  overflow: hidden;
+  overflow: clip;
+  overflow-clip-margin: 0px;
 }
 .back::before {
   content: "";
@@ -345,7 +319,7 @@
   border-top-color: var(--tile-back-frame-light);
   border-right-color: var(--tile-back-frame-light);
   border-bottom-color: var(--tile-back-frame);
-  border-radius: .28cqw;
+  border-radius: var(--tile-model-inner-radius);
   background: none;
   box-shadow: var(--tile-model-transmission), var(--tile-model-edge-contact-shadow), var(--tile-model-face-shadow), var(--tile-model-back-shadow);
   pointer-events: none;
@@ -362,11 +336,13 @@
   box-shadow: var(--tile-model-edge-shadow);
   pointer-events: none;
 }
+.back, .wall-piece.tile {
+  --tile-model-grade: wall;
+  --tile-model-thickness: 2px;
+  --tile-model-strength: .6;
+}
 /* 牌墙立牌只露顶边，绿色背面朝外；翻痞实牌沿用同档正面材质。 */
 .wall-piece.back, .wall-piece.tile {
-  --tile-model-grade: wall;
-  --tile-model-strength: .6;
-  --tile-model-thickness: 2px;
   --tile-model-top-size: var(--tile-model-plane-size);
   --tile-model-back-ivory-size: 0px;
 }
@@ -400,6 +376,7 @@
   width: var(--tile-snapshot-svg-width); height: var(--tile-snapshot-svg-height);
   transform: var(--tile-snapshot-svg-transform);
   border-radius: var(--tile-snapshot-svg-radius);
+  box-shadow: var(--tile-snapshot-svg-shadow);
 }
 
 @media (prefers-reduced-motion: reduce) {

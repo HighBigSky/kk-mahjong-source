@@ -32,9 +32,6 @@ html.in-game #game.is-landscape {
   --ui-unit:calc(var(--stage-height) / 100);
   --seat-avatar-size:calc(var(--ui-unit) * 7);
   --board-width:var(--board-size);
-  --tile-radius:calc(var(--ui-unit) * .7);
-  --tile-hand-radius:calc(var(--ui-unit) * .7);
-  --tile-river-radius:calc(var(--table-unit) * .55);
   --table-rim-radius:calc(var(--ui-unit) * 3.3);
   --table-apron-depth:calc(var(--ui-unit) * .55);
   --felt-edge-depth:calc(var(--ui-unit) * 1.1);
@@ -45,7 +42,6 @@ html.in-game #game.is-landscape {
   --public-group-gap:calc(var(--table-unit) * .35);
   --wall-stack-step:var(--tile-face-width);
   --wall-stack-depth:calc(var(--tile-face-width) * .15);
-  --wall-piece-radius:calc(var(--table-unit) * .3);
   --wall-horizontal-step:var(--wall-stack-step);
   position:fixed;
   left:var(--stage-center-x);
@@ -158,13 +154,13 @@ html.in-game #game.is-landscape {
 /* 牌面朝向所属座位：本家 0°、右家 -90°、对家 180°、左家 90°；只转牌面，不动牌体。 */
 #game.is-landscape .table .opponent-rack-top .tile svg { transform:rotate(180deg); }
 #game.is-landscape .table .opponent-rack-right .tile svg { transform:translate(-50%,-50%) rotate(-90deg); }
-.is-landscape .opponent-rack .back::before { inset:var(--tile-model-back-inset); border-radius:calc(var(--table-unit) * .28); }
+.is-landscape .opponent-rack .back::before { inset:var(--tile-model-back-inset); border-radius:var(--tile-model-inner-radius); }
 .is-landscape .opponent-rack .wild-marker { display:none; }
 #game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); }
 .is-landscape .wall-piece.back { border-width:var(--tile-model-bevel); }
-.is-landscape .wall-piece.back::before { inset:var(--tile-model-back-inset); border-width:var(--tile-model-bevel); border-radius:calc(var(--table-unit) * .17); }
+.is-landscape .wall-piece.back::before { inset:var(--tile-model-back-inset); border-width:var(--tile-model-bevel); border-radius:var(--tile-model-inner-radius); }
 .is-landscape .wall-piece.tile { border-width:var(--tile-model-bevel); }
-.is-landscape .wall-piece.is-indicator { outline-width:calc(var(--table-unit) * .15); outline-offset:calc(var(--table-unit) * .08); }
+.is-landscape .wall-piece.is-indicator { outline-width:calc(var(--table-unit) * .15); outline-offset:calc(-1px - var(--table-unit) * .15); }
 .is-landscape .wall-stack.is-next::after,.is-landscape .wall-stack.is-head::after { left:calc(50% - var(--table-unit) * .42); top:calc(var(--table-unit) * -.85); border-left-width:calc(var(--table-unit) * .42); border-right-width:calc(var(--table-unit) * .42); border-top-width:calc(var(--table-unit) * .6); }
 .is-landscape .wall-stack[data-side="left"] .wall-piece.tile svg,.is-landscape .wall-stack[data-side="right"] .wall-piece.tile svg { width:calc(var(--wall-piece-width) - var(--tile-side)); height:calc(var(--wall-piece-height) - var(--tile-depth)); }
 
@@ -212,7 +208,7 @@ html.in-game #game.is-landscape {
   aspect-ratio:5 / 7;
   min-width:0;
   min-height:0;
-  border-radius:calc(var(--table-unit) * .14);
+  border-radius:var(--tile-model-radius);
   transform:rotate(var(--river-tile-turn));
   transform-origin:center;
   /* 左右家按旋转后的实体外框对齐轨道起点，余量始终留在右/下缝隙。 */
@@ -486,7 +482,7 @@ html.in-game #game.is-landscape {
   left:calc(var(--wall-stack-index) * var(--wall-stack-step));
 }
 #game.is-landscape .back {
-  border-radius:calc(var(--table-unit) * .22);
+  border-radius:var(--tile-model-radius);
 }
 #game.is-landscape .wall-piece.is-empty { opacity:.22; }
 
@@ -596,14 +592,14 @@ html.in-game #game.is-landscape {
 .hint-waits { display:grid; grid-template-columns:repeat(var(--hint-columns),minmax(0,1fr)); gap:calc(var(--ui-unit) * 1.5); min-width:0; max-height:calc(var(--stage-height) * .34); overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; scrollbar-width:thin; padding:calc(var(--ui-unit) * .5); }
 .hint-wait { display:flex; flex-direction:column; align-items:center; gap:calc(var(--ui-unit) * .8); min-width:max(27px,var(--hint-tile-width)); }
 /* 牌面始终等比缩放；极多听牌保留可读下限，在浮窗内纵向查看。 */
-.hint-wait .tile { flex:none; width:var(--hint-tile-width); height:auto; aspect-ratio:5 / 7; border-radius:calc(var(--hint-tile-width) * .086); }
+.hint-wait .tile { flex:none; width:var(--hint-tile-width); height:auto; aspect-ratio:5 / 7; border-radius:var(--tile-model-radius); }
 .hint-wait-meta { display:grid; gap:calc(var(--ui-unit) * .4); white-space:nowrap; text-align:center; font-size:max(9px,calc(var(--ui-unit) * 2.3)); font-variant-numeric:tabular-nums; line-height:1.2; }
 .hint-wait-meta small { font-size:max(8px,calc(var(--ui-unit) * 1.9)); }
 #hint-text { --hint-line-count:1; --hint-line-extra:0; --hint-line-size:min(calc(var(--ui-unit) * max(2.6,6 - max(0,min(var(--hint-line-count),10) - 2) * .4)),calc((100cqw - max(45px,var(--ui-unit) * 10) - (var(--hint-line-count) + var(--hint-line-extra)) * 1px) / (var(--hint-line-count) + var(--hint-line-extra)))); container-type:inline-size; margin:calc(var(--ui-unit) * 1) 0 0; width:100%; min-width:0; font-size:max(9px,calc(var(--ui-unit) * 2)); line-height:1.3; }
 .hint-line-core,.hint-line-waits { display:flex; flex-wrap:nowrap; align-items:center; gap:1px; min-width:0; white-space:nowrap; }
 .hint-line-label,.hint-line-wait { flex:none; }
 .hint-line-wait { display:flex; }
-#hint-text .tile { flex:none; min-width:0; width:var(--hint-line-size); height:auto; aspect-ratio:5 / 7; border-radius:calc(var(--hint-line-size) * .086); }
+#hint-text .tile { flex:none; min-width:0; width:var(--hint-line-size); height:auto; aspect-ratio:5 / 7; border-radius:var(--tile-model-radius); }
 .hint-line-total { display:block; margin-top:calc(var(--ui-unit) * .4); font-variant-numeric:tabular-nums; }
 .hint-details select { width:100%; min-width:0; margin-top:calc(var(--ui-unit) * .5); border:0; border-top:1px solid #b89d6155; background:#f3e7bf; color:#79522b; font-size:max(9px,calc(var(--ui-unit) * 1.9)); }
 /* 单张杠沿用普通副露的牌体尺寸与朝向，不再交换宽高或单独横转牌面。 */
@@ -657,7 +653,7 @@ html.in-game #game.is-landscape {
 #game.is-landscape .seat-top .seat,#game.is-landscape .seat-top .dealer-badge { width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.2); font-size:calc(var(--ui-unit) * 1.65); }
 
 /* 最近一张牌的标记和牌身一起朝向出牌者。 */
-#game.is-landscape .table .river .tile.last-discard { outline:calc(var(--table-unit) * .12) solid #ffbe46; outline-offset:calc(var(--table-unit) * .04); box-shadow:var(--tile-model-contact-shadow),0 0 calc(var(--table-unit) * .45) #ffaf3c80; }
+#game.is-landscape .table .river .tile.last-discard { outline:calc(var(--table-unit) * .12) solid #ffbe46; outline-offset:calc(var(--table-unit) * .04); box-shadow:var(--tile-model-raised-shadow),0 0 calc(var(--table-unit) * .45) #ffaf3c80; }
 
 /* The opening is readable for 1.5 seconds; the resting pair stays unobtrusive. */
 #game.is-landscape .table-die { width:calc(var(--table-unit) * 2.4); height:calc(var(--table-unit) * 2.4); padding:calc(var(--table-unit) * .4); }
@@ -677,9 +673,9 @@ html.in-game #game.is-landscape {
 .deal-flight,.deal-source { position:absolute; margin:0; transform-origin:0 0; pointer-events:none; }
 .deal-flight { z-index:2; will-change:transform,opacity; }
 .deal-flight .deal-face { display:block; position:relative; width:100%; height:100%; min-width:0; min-height:0; margin:0; padding:0; transform:none; transition:none; }
-.deal-flight[data-player="0"] .deal-face { border-radius:var(--tile-hand-radius); }
+.deal-flight[data-player="0"] .deal-face { border-radius:var(--tile-model-radius); }
 .deal-cover { position:absolute; inset:0; z-index:3; width:100%; height:100%; margin:0; }
-.deal-source,.deal-cover { border-radius:calc(var(--table-unit) * .22); }
+.deal-source,.deal-cover { border-radius:var(--tile-model-radius); }
 
 /* 新出牌只在原位置高亮；聚焦与实牌共用尺寸、相机和朝向。 */
 .discard-focus[hidden] { display:none; }
@@ -696,15 +692,15 @@ html.in-game #game.is-landscape {
   border:var(--tile-model-bevel) solid var(--tile-border);
   border-right-color:var(--tile-border-side);
   border-bottom-color:var(--tile-border-bottom);
-  border-radius:calc(var(--tile-face-width) * .08);
+  border-radius:var(--tile-model-radius);
 }
 #game.is-landscape .table .river .tile { box-shadow:var(--tile-model-contact-shadow); }
-#game.is-landscape .table .river .tile.is-discard-focus { outline:1px solid #ffdb81; box-shadow:var(--tile-model-contact-shadow),0 0 calc(var(--table-unit) * .7) #ffe4a34d; }
+#game.is-landscape .table .river .tile.is-discard-focus { outline:1px solid #ffdb81; box-shadow:var(--tile-model-raised-shadow),0 0 calc(var(--table-unit) * .7) #ffe4a34d; }
 #game.is-landscape .table .river .tile::before { border-width:var(--tile-model-bevel); }
 #game.is-landscape .table .river .tile svg { shape-rendering:geometricPrecision; filter:none; }
 
 /* Selected tiles keep the pointer target and get immediate, steady light. */
-#game.is-landscape .hand .tile { transition:transform 80ms,box-shadow 80ms; }
+#game.is-landscape .hand .tile { transition:transform 80ms; }
 
 /* 桌面文字投影至独立 HUD；牌面仍随桌面透视，文字不倾斜、不压扁。 */
 .table-labels[hidden] { display:none; }
@@ -713,7 +709,7 @@ html.in-game #game.is-landscape {
 .table-labels .table-label-direction { font-family:"KaiTi","STKaiti",serif; font-size:clamp(8px,calc(var(--stage-height) * .025),18px); font-weight:700; }
 .table-labels .table-label-direction.is-active { text-shadow:0 0 4px #ffe8aa70,0 1px 2px #001a15; }
 #game.is-landscape.has-table-labels .table .direction { opacity:0; }
-#game.is-landscape .hand .tile.selected { --tile-face:linear-gradient(135deg,#ffffef,#fff2ba 72%,#ead38c); outline:calc(var(--ui-unit) * .45) solid #fff2a8; outline-offset:calc(var(--ui-unit) * .15); box-shadow:var(--tile-model-contact-shadow),0 0 0 calc(var(--ui-unit) * .9) #fbd96e35,0 0 calc(var(--ui-unit) * 3) #ffe58a9c; }
+#game.is-landscape .hand .tile.selected { --tile-face:linear-gradient(calc(215deg - var(--tile-model-turn)),#ffffef,#fff2ba 72%,#ead38c); outline:calc(var(--ui-unit) * .45) solid #fff2a8; outline-offset:calc(var(--ui-unit) * .15); box-shadow:var(--tile-model-raised-shadow),0 0 0 calc(var(--ui-unit) * .9) #fbd96e35,0 0 calc(var(--ui-unit) * 3) #ffe58a9c; }
 
 .rotate-guide {
   position:fixed;

@@ -14,11 +14,13 @@ import { createOpeningDeal, DEAL_TEXT } from './src/ui/opening-deal.js';
 import { createFlatOpponentView, tilePlane, planeCSS } from './src/ui/flat-opponents.js';
 import { createDiscardSpeech } from './src/ui/discard-speech.js';
 import { createRecordedVoice } from './src/ui/recorded-voice.js';
+import { observeTileMetrics } from './src/ui/tile-material.js';
 
 // 先把牌面精灵图内联进文档，再开始渲染：<use> 走同文档引用，不会被反复回源。
 await loadTilesSprite();
 
 const $ = selector => document.querySelector(selector);
+observeTileMetrics($('#game'));
 $('#scoring-rules').textContent = SCORING_TEXT.note.replace('红中杠、痞子杠', '红中、痞子开杠时');
 const renderedHTML = new WeakMap();
 // 手牌按「牌面 + 第几张同牌」复用节点：重建 innerHTML 会让每张牌的 SVG 重新解析，
