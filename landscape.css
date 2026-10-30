@@ -381,7 +381,8 @@ html.in-game #game.is-landscape {
   --wall-piece-width:var(--tile-face-width);
   --wall-piece-height:var(--tile-face-height);
   background:
-    radial-gradient(ellipse at 50% 2%,#b08e4933,transparent 47%),
+    radial-gradient(ellipse at 50% 48%,transparent 0% 36%,#0109074d 78%,#010806a6 100%),
+    radial-gradient(ellipse at 82% 8%,#d4bb7826,transparent 52%),
     linear-gradient(180deg,#202921,#0e1b17 60%,#070f0d);
   box-shadow:inset 0 0 calc(var(--ui-unit) * 12) #020e0b99;
   /* 上下木沿裁到画面外；聚焦手牌不能滚动画布。 */
@@ -394,9 +395,9 @@ html.in-game #game.is-landscape {
   inset:10% -5% 0;
   z-index:0;
   background:
-    radial-gradient(ellipse at 50% 0,#dfbe7830,transparent 45%),
-    repeating-linear-gradient(95deg,transparent 0 19%,#d9b87f09 20%,transparent 21% 40%);
-  filter:blur(calc(var(--ui-unit) * 1.8));
+    radial-gradient(ellipse at 82% 4%,#d8bf7d18,transparent 62%),
+    radial-gradient(ellipse at 50% 50%,transparent 40%,#020a0833 80%,#01070566 100%);
+  filter:none;
   pointer-events:none;
 }
 #game.is-landscape::after { content:none; }
@@ -430,8 +431,14 @@ html.in-game #game.is-landscape {
   width:var(--table-frame-size);
   height:var(--table-frame-size);
   border:1px solid #c69c6370;
+  border-top-color:#d9c39880;
+  border-right-color:#c9ad7e73;
+  border-bottom-color:#5e3d287d;
+  border-left-color:#6d4c3273;
   border-radius:calc(var(--ui-unit) * 5);
   background:
+    var(--table-felt-groove-x) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-groove-y) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-felt-warp) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-felt-weft) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-felt-fuzz) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
@@ -439,10 +446,10 @@ html.in-game #game.is-landscape {
     var(--table-wood-grain),
     var(--table-wood-growth);
   box-shadow:
-    0 calc(var(--ui-unit) * 1.1) calc(var(--ui-unit) * .12) #8b603c,
-    0 calc(var(--ui-unit) * 2.2) calc(var(--ui-unit) * .2) #563722,
-    0 calc(var(--ui-unit) * 3.3) calc(var(--ui-unit) * .28) #291c14,
-    0 calc(var(--ui-unit) * 6) calc(var(--ui-unit) * 5.4) #060e0bd1;
+    0 calc(var(--ui-unit) * 1.1) calc(var(--ui-unit) * .08) #94704b,
+    0 calc(var(--ui-unit) * 2.2) calc(var(--ui-unit) * .18) #503321,
+    0 calc(var(--ui-unit) * 3.3) calc(var(--ui-unit) * .32) #22170f,
+    0 calc(var(--ui-unit) * 6) calc(var(--ui-unit) * 6) #020906d9;
   pointer-events:none;
   clip-path:inset(0 var(--table-frame-side-inset));
   transform:translateZ(-1px) scale(var(--table-frame-zoom));
@@ -452,7 +459,7 @@ html.in-game #game.is-landscape {
   inset:calc(var(--table-frame-size) * .07) calc(50% - var(--table-frame-size) * .46) calc(var(--board-height) - var(--table-frame-size) * .91);
   border:0;
   border-radius:calc(var(--ui-unit) * 2);
-  background:none;
+  background:var(--table-depth-light),var(--table-depth-shade);
   box-shadow:inset 0 calc(var(--ui-unit) * .6) calc(var(--table-frame-size) * .18) #111c1670;
   transform:scale(var(--table-frame-zoom));
   transform-origin:50% calc(var(--table-frame-size) * .43);
@@ -466,6 +473,10 @@ html.in-game #game.is-landscape {
   border-top-color:#cfb4784d;
   border-bottom-color:#8f713f38;
   border-radius:50%;
+  background:var(--table-center-well);
+  box-shadow:
+    inset calc(var(--ui-unit) * -.22) calc(var(--ui-unit) * .3) calc(var(--ui-unit) * 1.8) #02130d26,
+    inset calc(var(--ui-unit) * .12) calc(var(--ui-unit) * -.18) calc(var(--ui-unit) * 1.2) #afc4a10b;
   pointer-events:none;
 }
 #game.is-landscape .table-caption { display:none; }

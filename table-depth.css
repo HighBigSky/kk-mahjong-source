@@ -1,5 +1,5 @@
 /* Material layers only; table, seat and river bounds stay unchanged.
-   Raised edges catch the upper-left light; recessed edges shade that light. */
+   Raised edges catch the upper-right light; recessed edges shade that light. */
 :root {
   --table-wood-light:#916b45;
   --table-wood-mid:#60432e;
@@ -28,12 +28,26 @@
   --felt-thread-step:calc(var(--table-texture-width) * .0018);
   --felt-fiber-width:calc(var(--felt-thread-step) * .24);
   --felt-fuzz-step:calc(var(--table-texture-width) * .0011);
+  --felt-groove-width:2.5px;
+  --felt-groove-highlight-width:.6px;
+  --felt-groove-feather:.6px;
   --wood-fine-step:calc(var(--table-texture-width) * .005);
   --wood-growth-step:calc(var(--table-texture-width) * .038);
   --table-felt-warp:repeating-linear-gradient(90deg,#c8dfc309 0 var(--felt-fiber-width),#102f2505 var(--felt-fiber-width) calc(var(--felt-thread-step) * .55),transparent calc(var(--felt-thread-step) * .55) var(--felt-thread-step));
   --table-felt-weft:repeating-linear-gradient(0deg,#061e1810 0 var(--felt-fiber-width),#b9d3b506 var(--felt-fiber-width) calc(var(--felt-thread-step) * .48),transparent calc(var(--felt-thread-step) * .48) var(--felt-thread-step));
   --table-felt-fuzz:repeating-radial-gradient(ellipse at 32% 29%,#d4e5c403 0 calc(var(--felt-fuzz-step) * .3),#071d1804 calc(var(--felt-fuzz-step) * .3) var(--felt-fuzz-step),transparent var(--felt-fuzz-step) calc(var(--felt-fuzz-step) * 1.7));
-  --table-felt-lighting:radial-gradient(ellipse at 35% 30%,var(--felt-light) 0%,var(--felt-base) 58%,var(--felt-shade) 100%);
+  --table-felt-lighting:radial-gradient(ellipse at 68% 24%,var(--felt-light) 0%,var(--felt-base) 58%,var(--felt-shade) 100%);
+  /* 两个闭合方向共用原台呢绘制矩形：暗槽2.5px，内缘高光0.6px，四角交叠无断口。 */
+  --table-groove-dark:#03150fb3;
+  --table-groove-middle:#0c2d2280;
+  --table-groove-glint:#abc9a54d;
+  --table-groove-clear:#abc9a500;
+  --table-groove-stops:var(--table-groove-dark) 0px,var(--table-groove-dark) calc(var(--felt-groove-width) * .45),var(--table-groove-middle) var(--felt-groove-width),var(--table-groove-glint) var(--felt-groove-width),var(--table-groove-glint) calc(var(--felt-groove-width) + var(--felt-groove-highlight-width)),var(--table-groove-clear) calc(var(--felt-groove-width) + var(--felt-groove-highlight-width) + var(--felt-groove-feather)),var(--table-groove-clear) calc(100% - var(--felt-groove-width) - var(--felt-groove-highlight-width) - var(--felt-groove-feather)),var(--table-groove-glint) calc(100% - var(--felt-groove-width) - var(--felt-groove-highlight-width)),var(--table-groove-glint) calc(100% - var(--felt-groove-width)),var(--table-groove-middle) calc(100% - var(--felt-groove-width)),var(--table-groove-dark) calc(100% - var(--felt-groove-width) * .45),var(--table-groove-dark) 100%;
+  --table-felt-groove-x:linear-gradient(90deg,var(--table-groove-stops));
+  --table-felt-groove-y:linear-gradient(0deg,var(--table-groove-stops));
+  --table-depth-light:linear-gradient(215deg,#f3e5bb0a 0%,transparent 42%,#020a0804 100%);
+  --table-depth-shade:linear-gradient(180deg,#e0c7931a 0%,#d8c09508 24%,transparent 44% 62%,#0a120d20 82%,#080c0a59 100%);
+  --table-center-well:radial-gradient(ellipse at 50% 54%,#04171124 0%,#071b1414 48%,#071b1405 82%,transparent 100%);
   /* 不同周期的弧形年轮沿四边转向，连续穿过桌角；不再叠加位图木框。 */
   --table-wood-grain:repeating-radial-gradient(ellipse at 48% 49%,#e2b67a18 0 calc(var(--wood-fine-step) * .08),transparent calc(var(--wood-fine-step) * .08) calc(var(--wood-fine-step) * .46),#20130c30 calc(var(--wood-fine-step) * .46) calc(var(--wood-fine-step) * .57),transparent calc(var(--wood-fine-step) * .57) var(--wood-fine-step));
   --table-wood-growth:repeating-radial-gradient(ellipse at 51% 50%,#3c2619 0,var(--table-wood-mid) calc(var(--wood-growth-step) * .31),#805733 calc(var(--wood-growth-step) * .56),#573823 calc(var(--wood-growth-step) * .81),#3c2619 var(--wood-growth-step));
@@ -86,6 +100,8 @@
   z-index:0;
   border-color:#0d3428;
   background:
+    var(--table-felt-groove-x),
+    var(--table-felt-groove-y),
     var(--table-felt-warp),
     var(--table-felt-weft),
     var(--table-felt-fuzz),
