@@ -6,7 +6,7 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
 
-const BASELINE='5bbe071';
+const BASELINE='05772f3';
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
 const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});
 server.listen(0,'127.0.0.1');await once(server,'listening');
@@ -27,70 +27,80 @@ const luminance=rgb=>rgb.slice(0,3).map(value=>{const c=value/255;return c<=.040
 const composite=(ink,base)=>ink.slice(0,3).map((value,i)=>value*(ink[3]??1)+base[i]*(1-(ink[3]??1)));
 const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
 async function load(baseline) {
-  await page.evaluate(({sheets,baseline})=>Promise.all(sheets.map(file=>new Promise((resolve,reject)=>{const link=[...document.querySelectorAll('link[rel=stylesheet]')].find(node=>new URL(node.href).pathname.endsWith('/'+file));link.onload=resolve;link.onerror=()=>reject(Error('stylesheet failed: '+file));link.href='/'+file+'?table-'+(baseline?'baseline':'current')+'='+Date.now();}))),{sheets,baseline});
-  await page.evaluate(()=>window.dispatchEvent(new Event('resize')));await frames();
+  await page.evaluate(async function(args){
+    const sources=await Promise.all(args.sheets.map(async function(file){const response=await fetch('/'+file+'?table-'+(args.baseline?'baseline':'current')+'='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error(file);return response.text();}));
+    args.sheets.forEach(function(file,i){const old=document.querySelector('[data-craft-sheet="'+file+'"]')||Array.from(document.querySelectorAll('link[rel=stylesheet]')).find(n=>new URL(n.href).pathname.endsWith('/'+file));const style=document.createElement('style');style.dataset.craftSheet=file;style.textContent=sources[i];old.replaceWith(style);});
+  },{sheets,baseline});await frames();
 }
 async function snapshot() {
-  return page.evaluate(()=>{
+  return page.evaluate(function(){
     const properties=['position','display','top','right','bottom','left','width','height','padding','margin','box-sizing','transform','transform-origin','transform-style','perspective','clip-path','z-index','border-radius','border-width','border-style','overflow','pointer-events'];
-    const shape=style=>Object.fromEntries(properties.map(name=>[name,style.getPropertyValue(name)]));
-    const rect=node=>{const r=node.getBoundingClientRect();return [r.x,r.y,r.width,r.height];};
-    const table=document.querySelector('.table'),border=document.querySelector('.table-border'),game=document.querySelector('#game');
-    const selectors=['#game','.table','.table-border','.table-center','#hand','#wall-tail','.river','.opponent-rack','.my-melds','.table .tile','.table .back','.wall-stack','#hand button','.player-seat','.action-zone'];
-    const geometry=Object.fromEntries(selectors.map(selector=>[selector,[...document.querySelectorAll(selector)].filter(node=>node.getClientRects().length).map(node=>({rect:rect(node),shape:shape(getComputedStyle(node))}))]));
-    const layer=(node,pseudo)=>{const s=getComputedStyle(node,pseudo);return {shape:shape(s),background:s.backgroundImage,size:s.backgroundSize,position:s.backgroundPosition,repeat:s.backgroundRepeat,shadow:s.boxShadow,filters:[s.filter,s.backdropFilter],colors:[s.borderTopColor,s.borderRightColor,s.borderBottomColor,s.borderLeftColor]};};
-    const s=getComputedStyle(table);
-    const tile=getComputedStyle(document.querySelector('#hand button'));
-    return {geometry,frame:layer(table,'::before'),border:layer(border),inlay:layer(border,'::after'),game:layer(game),environment:layer(game,'::before'),groove:{width:parseFloat(s.getPropertyValue('--felt-groove-width')),highlight:parseFloat(s.getPropertyValue('--felt-groove-highlight-width'))},tileLight:[tile.getPropertyValue('--tile-model-shine-x'),tile.getPropertyValue('--tile-model-shine-y')].map(parseFloat),felt:[s.getPropertyValue('--felt-light'),s.getPropertyValue('--felt-base'),s.getPropertyValue('--felt-shade')].map(value=>value.trim()),frameSize:getComputedStyle(table,'::before').width};
+    const shape=s=>Object.fromEntries(properties.map(name=>[name,s.getPropertyValue(name)]));
+    const rect=n=>{const r=n.getBoundingClientRect();return[r.x,r.y,r.width,r.height];};
+    const selectors='#game,.table,.table-border,.table-center,.table-dice,.table-die,.table-die i,.direction,.table-label-direction,#hand,#wall-tail,.river,.opponent-rack,.my-melds,.table .tile,.table .back,.wall-stack,#hand button,.player-seat,.action-zone';
+    const geometry=Array.from(document.querySelectorAll(selectors)).filter(n=>n.getClientRects().length).map(n=>({name:n.id||n.tagName+'.'+n.getAttribute('class'),rect:rect(n),shape:shape(getComputedStyle(n)),pseudos:['::before','::after'].map(p=>shape(getComputedStyle(n,p)))}));
+    const layer=(n,p)=>{const s=getComputedStyle(n,p);return{shape:shape(s),background:s.backgroundImage,size:s.backgroundSize,position:s.backgroundPosition,origin:s.backgroundOrigin,shadow:s.boxShadow,filters:[s.filter,s.backdropFilter],colors:[s.borderTopColor,s.borderRightColor,s.borderBottomColor,s.borderLeftColor]};};
+    const table=document.querySelector('.table'),border=document.querySelector('.table-border'),center=document.querySelector('.table-center'),die=document.querySelector('#table-dice .table-die'),s=getComputedStyle(table);
+    const painted=Array.from(document.querySelectorAll('.table,.table *')).filter(n=>n.getClientRects().length).flatMap(n=>['','::before','::after'].map(p=>{const s=getComputedStyle(n,p||null);return{name:n.id||n.className,p,content:s.content,shadow:s.boxShadow,filter:s.filter,backdrop:s.backdropFilter};}));
+    return{geometry,frameRect:rect(table),consoleRect:rect(center),diceRects:Array.from(document.querySelectorAll('#table-dice .table-die')).map(rect),frame:layer(table,'::before'),border:layer(border),inlay:layer(border,'::after'),console:layer(center),well:layer(center,'::before'),dice:layer(die),pip:layer(die.querySelector('i')),painted,frameSize:parseFloat(getComputedStyle(table,'::before').width),params:Object.fromEntries(['--table-console-depth','--table-metal-edge-width','--table-inlay-track','--felt-groove-width','--table-metal-light','--table-metal-mid','--table-metal-dark','--table-wood-grain','--table-wood-growth'].map(k=>[k,s.getPropertyValue(k).trim()]))};
   });
 }
-try {
-  await page.goto(target,{waitUntil:'networkidle'});
-  await page.locator('#room-name').fill('牌桌纹理验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
-  for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-  await page.locator('#room-ready').click();await page.locator('#room-start').click();
-  report.startBeforeWait=await page.evaluate(()=>({room:window.mahjongRoom.room?.status,landscape:document.querySelector('#game').classList.contains('is-landscape')}));
-  // 公网响应到达前，等待页也满足“无骰子/发牌动画”；必须先确认真实开局与横屏对局生效。
-  await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&document.querySelector('#game').classList.contains('is-landscape'));
-  await page.locator('#room-dialog').waitFor({state:'hidden'});
-  await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
-  await page.evaluate(()=>{window.mahjongRoom.destroy();window.mahjongRoom.availableActions=()=>({chi:[],peng:false,gang:false,hu:false,pass:false,redGang:false,piziGang:false,wildGang:false,concealedGangs:[],addedGangs:[]});const game=window.mahjongGame;game.players.forEach((player,i)=>{player.hand=Array.from({length:i?10:14},(_,n)=>n);player.discards=Array.from({length:36},(_,n)=>(n+i*9)%34);player.redGangs=[];player.piziGangs=[];player.melds=[{kind:'peng',tiles:[20,20,20],from:1,concealed:false},{kind:'gang',tiles:[21,21,21,21],from:1,concealed:false}];});game.current=0;game.phase={kind:'discard',seat:0};game.pendingDiscard=null;game.lastDiscard=null;game.lastDraw=null;game.actionNotice=null;game.events=['牌桌纹理展示夹具'];window.renderMahjong();});await frames();
-  for(const size of [{width:640,height:360},{width:844,height:390},{width:1920,height:1080}]) {
-    await page.setViewportSize(size);await frames();await load(true);const before=await snapshot();await load(false);const after=await snapshot();
-    assert.deepEqual(after.geometry,before.geometry,'every table/frame/hand/river/wall/meld rectangle and geometry property remains exactly unchanged: '+JSON.stringify(size));
-    for(const name of ['frame','border','inlay','game','environment']){
-      assert.deepEqual(after[name].shape,before[name].shape,`${name} dimensions, padding, transform, clipping, radius, layer and border widths unchanged`);
-      assert.deepEqual(after[name].filters,['none','none']);
-      const images=split(after[name].background);assert.ok(images.length<=8);assert.ok(images.every(image=>image==='none'||/^(?:repeating-)?(?:linear|radial)-gradient\(/.test(image)));assert.doesNotMatch(after[name].background,/url\(/);
-    }
-    const layers=split(after.frame.background);assert.equal(layers.length,8);
-    assert.match(layers[2],/^repeating-linear-gradient\(90deg/);assert.match(layers[3],/^repeating-linear-gradient\(0deg/);
-    assert.match(layers[4],/^repeating-radial-gradient/);assert.match(layers[5],/^radial-gradient\(at 92% 32%/);
-    assert.ok(layers.slice(6).every(layer=>layer.startsWith('repeating-radial-gradient')),'two continuous wood growth periods');
-    const ratios=[2,3,4,6,7].map(index=>{const lengths=[...layers[index].matchAll(/(-?[\d.]+)px/g)].map(match=>Number(match[1]));return lengths.at(-1)/parseFloat(after.frameSize);});
-    for(const [i,ratio]of ratios.entries())assert.ok(Math.abs(ratio-[.0018,.0018,.00187,.005,.038][i])<1e-6,'material periods scale with the physical table width');
-    const sizes=after.frame.size.split(',').map(value=>value.trim()),positions=after.frame.position.split(',').map(value=>value.trim());assert.ok(sizes.slice(0,6).every(value=>value===sizes[0]),'groove, cloth lighting and weave share one unchanged felt paint region');assert.equal(sizes[0],before.frame.size.split(',')[0].trim(),'groove follows the original cloth boundary');assert.ok(positions.slice(0,6).every(value=>value===positions[0]),'all four groove corners meet on the same paint rectangle');
-    assert.ok(after.groove.width>=2&&after.groove.width<=3);assert.ok(after.groove.highlight>0&&after.groove.highlight<=1);
-    for(const [index,angle]of [[0,90],[1,0]]){
-      assert.match(layers[index],new RegExp('^linear-gradient\\('+angle+'deg'));
-      const ink=gradientColors(layers[index]);assert.equal(ink.length,12);assert.ok(ink[0][3]>.5&&ink.at(-1)[3]>.5);assert.ok(ink[3][3]>0&&ink[3][3]<ink[0][3]);assert.equal(ink[5][3],0);assert.equal(ink[6][3],0);
-      const px=[...layers[index].matchAll(/(-?[\d.]+)px/g)].map(match=>Number(match[1]));assert.equal(px[2],after.groove.width);assert.ok(Math.abs(px[4]-after.groove.width-after.groove.highlight)<1e-5,'inner glint is subpixel and stays within the original cloth boundary');
-    }
-    const well=split(after.inlay.background);assert.equal(well.length,1);assert.match(well[0],/^radial-gradient/);const wellInk=gradientColors(well[0]);assert.ok(wellInk[0][3]>0&&wellInk[0][3]<=.15);assert.equal(wellInk.at(-1)[3],0,'center depression fades to transparent without a hard boundary');const wellShadows=split(after.inlay.shadow);assert.equal(wellShadows.length,2);assert.ok(wellShadows.every(value=>value.includes('inset')&&Number([...value.matchAll(/(-?[\d.]+)px/g)][2][1])>0));
-    const oldShadows=split(before.frame.shadow),shadows=split(after.frame.shadow);assert.equal(shadows.length,4);assert.equal(shadows.length,oldShadows.length);
-    for(let i=0;i<shadows.length;i++){const px=value=>[...value.matchAll(/(-?[\d.]+)px/g)].map(match=>Number(match[1]));assert.ok(px(shadows[i])[0]<0&&px(shadows[i])[1]>0,'decorative wood depth and cast shadows move to the left under the right-side lamp');}
-    const woodLum=shadows.slice(0,3).map(shadow=>luminance(colors(shadow)));assert.ok(woodLum[0]>woodLum[1]&&woodLum[1]>woodLum[2],'three original side-wall layers run from highlight through middle to shade');
-    const felt=[27,85,67],gold=after.inlay.colors.map(colors),oldGold=before.inlay.colors.map(colors);
-    const goldContrast=gold.map(color=>contrast(composite(color,felt),felt)),oldContrast=oldGold.map(color=>contrast(composite(color,felt),felt));
-    assert.deepEqual(after.inlay.colors,before.inlay.colors,'existing gold line endpoints are retained');assert.ok(gold.every(color=>luminance(composite(color,felt))<luminance([255,253,246])),'inlay remains darker than the tile highlights');
-    const depth=split(after.border.background);assert.equal(depth.length,2);assert.match(depth[0],/^linear-gradient\(255deg/);assert.match(depth[1],/^linear-gradient\(90deg,\s*rgba?\(/);const depthInk=gradientColors(depth[1]),wood=[96,67,46],far=luminance(composite(depthInk[0],wood)),near=luminance(composite(depthInk.at(-1),wood));assert.ok(near>far,'right wood is brighter than left wood');assert.ok(luminance(composite(colors(after.frame.colors[0]),wood))>luminance(composite(colors(after.frame.colors[2]),wood)),'thin far edge is lighter than near edge');
-    const nearDepth=Number([...shadows[2].matchAll(/(-?[\d.]+)px/g)][1][1]);assert.ok(nearDepth>parseFloat(after.frame.shape['border-width']),'three positive-Y sidewall shadows paint more near depth than the far thin edge');
-    assert.ok(after.tileLight.every((value,index)=>Math.abs(value-[92,32][index])<1e-4),"light direction keeps its upper-right reference despite serialized projection tails");const gameLayers=split(after.game.background);assert.equal(gameLayers.length,3);assert.match(gameLayers[1],/^radial-gradient\(at 92% 32%/);const outside=gradientColors(gameLayers[0]);assert.equal(outside[0][3],0);assert.ok(outside.at(-1)[3]>.5,'environment darkens softly away from the table');
-    report.cases.push({size,tableRect:after.geometry['.table'][0].rect,frameRect:after.geometry['.table-border'][0].rect,rectangles:Object.values(after.geometry).reduce((sum,list)=>sum+list.length,0),geometryExactlyEqual:true,backgroundLayers:layers.length,texturePeriods:[2,3,4,6,7].map(index=>[...layers[index].matchAll(/(-?[\d.]+)px/g)].map(match=>Number(match[1])).at(-1)),frameWidth:parseFloat(after.frameSize),periodRatios:ratios,gold:after.inlay.colors,goldContrast,oldContrast,groove:after.groove,wellAlpha:wellInk[0][3],wellShadows:wellShadows.length,nearFarLuminance:{near,far},nearDepth,shadowLayers:shadows.length,gameLayers:gameLayers.length,tileLight:after.tileLight});
+function stopData(gradient){
+  const args=split(gradient.slice(gradient.indexOf('(')+1,-1));
+  return args.filter(s=>/^rgba?\(/.test(s)).map(s=>({color:colors(s.match(/rgba?\([^()]*\)/)[0]),px:Number(s.match(/(-?[\d.]+)px/)?.[1]||0)}));
+}
+function sample(stops,r){
+  const period=stops.at(-1).px,p=((r%period)+period)%period;let i=1;while(i<stops.length-1&&p>stops[i].px)i++;
+  const a=stops[i-1],b=stops[i],t=(p-a.px)/(b.px-a.px);return a.color.map((v,j)=>v+(b.color[j]-v)*t);
+}
+function grainContinuity(gradient,width){
+  const stops=stopData(gradient);assert.ok(stops.length>=5);assert.deepEqual(stops[0].color,stops.at(-1).color,'period wraps to the same color');
+  let maxColorDelta=0,maxTangentDelta=0,samples=0;
+  for(const sx of [-1,1])for(const sy of [-1,1])for(let r=.36;r<=.48;r+=.01){
+    const e=.0005,a=[sx*(r+e),sy*(r-e)],b=[sx*(r-e),sy*(r+e)],ra=Math.hypot(...a)*width,rb=Math.hypot(...b)*width;
+    const ca=sample(stops,ra),cb=sample(stops,rb);maxColorDelta=Math.max(maxColorDelta,...ca.map((v,i)=>Math.abs(v-cb[i])));
+    let angle=Math.abs(Math.atan2(a[1],a[0])-Math.atan2(b[1],b[0]));if(angle>Math.PI)angle=2*Math.PI-angle;maxTangentDelta=Math.max(maxTangentDelta,angle*180/Math.PI);samples++;
   }
-  assert.ok(new Set(report.cases.map(row=>row.frameWidth)).size>1,'density is checked at different physical frame widths');assert.deepEqual(report.errors,[]);report.passed=true;
-  console.log(JSON.stringify({passed:true,cases:report.cases.length,rectangles:report.cases.reduce((sum,row)=>sum+row.rectangles,0),backgroundLayers:8,errors:report.errors,screenshots:0}));
-} finally {
+  assert.ok(maxColorDelta<1e-8&&maxTangentDelta<.2,'one analytic field crosses all four miter diagonals continuously');
+  return{samples,maxColorDelta,maxTangentDelta,period:stops.at(-1).px};
+}
+try {
+  await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill('牌桌工艺验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
+  for(const seat of [1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();
+  await page.locator('#room-ready').click();await page.locator('#room-start').click();await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&document.querySelector('#game').classList.contains('is-landscape'));await page.locator('#room-dialog').waitFor({state:'hidden'});
+  await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
+  await page.evaluate(()=>{window.mahjongRoom.destroy();window.mahjongRoom.availableActions=()=>({chi:[],peng:false,gang:false,hu:false,pass:false,redGang:false,piziGang:false,wildGang:false,concealedGangs:[],addedGangs:[]});const g=window.mahjongGame;g.players.forEach((p,i)=>{p.hand=Array.from({length:i?10:14},(_,n)=>n);p.discards=Array.from({length:36},(_,n)=>(n+i*9)%34);p.redGangs=[];p.piziGangs=[];p.melds=[{kind:'peng',tiles:[20,20,20],from:1,concealed:false},{kind:'gang',tiles:[21,21,21,21],from:1,concealed:false}];});g.current=0;g.phase={kind:'discard',seat:0};g.pendingDiscard=null;g.lastDiscard=null;g.lastDraw=null;g.actionNotice=null;g.events=['牌桌工艺显示夹具'];window.renderMahjong();});await frames();
+  for(const size of [{width:640,height:360},{width:844,height:390},{width:1920,height:1080}]){
+    await page.setViewportSize(size);await frames();await load(true);const before=await snapshot();await load(false);const after=await snapshot();
+    assert.deepEqual(after.geometry,before.geometry,'all table/tile/HUD/dice/direction rectangles, pseudo geometry, radii, transforms and click bounds remain exactly unchanged: '+JSON.stringify(size));
+    for(const key of ['frame','border','inlay','console','well','dice','pip']){
+      assert.deepEqual(after[key].shape,before[key].shape,key+' geometry unchanged');assert.deepEqual(after[key].filters,['none','none']);assert.ok(split(after[key].shadow).length<=2,key+' at most two shadows');
+      assert.ok(split(after[key].background).length<=10);assert.doesNotMatch(after[key].background,/url\(|image-set\(/);
+    }
+    for(const p of after.painted){if(p.p&&['none','normal'].includes(p.content))continue;assert.ok(split(p.shadow).length<=2,String(p.name)+' shadow budget');assert.deepEqual([p.filter,p.backdrop],['none','none']);}
+    const layers=split(after.frame.background),old=split(before.frame.background);assert.equal(layers.length,10);
+    for(const [now,prior]of [[2,2],[3,3],[4,4],[7,5]])assert.equal(layers[now],old[prior],'original weave/fuzz/felt lighting is retained');
+    for(const i of [5,6]){assert.match(layers[i],/^radial-gradient/);const ink=gradientColors(layers[i]);assert.ok(ink.every(c=>(c[3]??1)<=.025));assert.equal(ink.at(-1)[3],0,'usage variation fades out');assert.doesNotMatch(layers[i],/repeating/);}
+    const bgSizes=split(after.frame.size),priorSizes=split(before.frame.size);assert.ok(bgSizes.slice(2,8).every(s=>s===priorSizes[2]),'felt paint footprint unchanged');
+    const trim=bgSizes[0].split(' ').map(parseFloat),felt=bgSizes[2].split(' ').map(parseFloat);assert.ok(trim.every((v,i)=>Math.abs(v-felt[i]-8)<.001),'4px inlay lies on wood outside each unchanged felt edge');
+    for(const i of [0,1]){assert.match(layers[i],/^linear-gradient/);for(const c of [[233,212,157],[187,150,92],[105,70,37]])assert.ok(gradientColors(layers[i]).some(color=>c.every((v,j)=>v===color[j])),'three metallic tones in trim');}
+    const ring=split(after.inlay.background);assert.equal(ring.length,2);assert.match(ring[0],/^radial-gradient/);assert.equal(gradientColors(ring[0])[0][3],0,'metal ring leaves the interior transparent');
+    const edges=split(after.inlay.shadow).map(s=>[...s.matchAll(/(-?[\d.]+)px/g)].map(m=>Number(m[1])));assert.deepEqual(edges,[[0,1,0,0],[0,-1,0,0]],'1px upper glint and 1px lower groove');
+    const depth=Number.parseFloat(after.params['--table-console-depth']);assert.ok(depth>=1&&depth<=2);assert.ok(split(after.console.shadow).some(s=>s.includes('inset')&&s.includes(depth+'px')),'console has 1-2px recessed contact');
+    assert.match(after.console.background,/at 92% 32%/);assert.match(after.dice.background,/at 92% 32%/);assert.match(after.pip.background,/radial-gradient/);
+    assert.ok(after.diceRects.length===2&&after.diceRects.every(r=>r[0]>=after.consoleRect[0]-.5&&r[1]>=after.consoleRect[1]-.5&&r[0]+r[2]<=after.consoleRect[0]+after.consoleRect[2]+.5&&r[1]+r[3]<=after.consoleRect[1]+after.consoleRect[3]+.5),'both dice sit within the unchanged console');
+    for(const key of ['frame','console','dice'])for(const s of split(after[key].shadow).filter(s=>!s.includes('inset'))){const x=Number(s.match(/(-?[\d.]+)px/)[1]);assert.ok(x<0,key+' casts left');}
+    const metal=after.params['--table-metal-light'];const metalRgb=[1,3,5].map(i=>parseInt(metal.slice(i,i+2),16));assert.ok(luminance(metalRgb)<luminance([255,254,246]),'gold stays below tile highlights');
+    const grain=layers.slice(8);assert.ok(grain.every(s=>s.startsWith('repeating-radial-gradient(')));assert.ok(['--table-wood-grain','--table-wood-growth'].every(k=>after.params[k].includes('at 50% 50%')),'one shared center and phase instead of four plank directions');
+    const corners=grain.map(g=>grainContinuity(g,after.frameSize));
+    const border=split(after.border.background);assert.equal(border.length,7);assert.match(border[0],/^linear-gradient/);const farInk=gradientColors(border[0]);assert.equal(farInk.at(-1)[3],0);assert.ok(farInk[0][3]>0&&farInk[0][3]<=.31);
+    const wood=[96,67,46],far=luminance(composite(farInk[0],wood)),near=luminance(wood);assert.ok(far<near,'far trim is darker');
+    const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));const a=[128,87,51],b=[60,38,25],softness=distance(composite(farInk[0],a),composite(farInk[0],b))/distance(a,b);assert.ok(Math.abs(softness-.7)<.001,'far fine grain contrast is reduced 30% without blur');
+    assert.ok(border.slice(1,5).every(g=>/^radial-gradient/.test(g)),'four rounded corner polish fields');
+    report.cases.push({size,rectangles:after.geometry.length,geometryExactlyEqual:true,backgroundLayers:10,maxShadows:2,consoleDepth:depth,metalEdge:1,corners,wearMaxAlpha:Math.max(...[5,6].flatMap(i=>gradientColors(layers[i]).map(c=>c[3]??1))),farLuminance:far,nearLuminance:near,farContrastRatio:softness,frameRect:after.frameRect});
+  }
+  assert.deepEqual(report.errors,[]);report.passed=true;console.log(JSON.stringify({passed:true,cases:report.cases.length,rectangles:report.cases.reduce((n,c)=>n+c.rectangles,0),backgroundLayers:10,maxShadows:2,screenshots:0}));
+}catch(error){report.failure=error.stack;throw error;}finally{
   if(process.env.KK_UI_TARGET_URL)try{report.testRoomLeft=await page.evaluate(()=>window.mahjongRoom.leave());}catch(error){report.cleanupError=error.message;}
-  writeFileSync(process.env.KK_UI_TARGET_URL?'output/table-materials-online-verification.json':'output/table-materials-verification.json',JSON.stringify(report,null,2));await browser.close();service.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
+  writeFileSync(process.env.KK_UI_TARGET_URL?'output/table-craft-online.json':'output/table-craft-verification.json',JSON.stringify(report,null,2));await browser.close();service.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
 }

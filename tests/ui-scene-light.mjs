@@ -71,9 +71,9 @@ try {
     for(const tile of after.paints)for(const layer of tile.layers)assert.ok(split(layer.shadow).length<=2,`${tile.name}: tile and each existing drawing layer have at most two shadows`);
     assert.ok(after.globalLights.filter(light=>!light.empty).length>=14);
     for(const light of after.globalLights.filter(light=>!light.empty)){assert.ok(light.shine[0]>0&&light.shine[1]<0,`${light.selector} highlights are at the global right`);assert.ok(Math.abs(light.shadow[0]+1)<1e-6&&Math.abs(light.shadow[1]-.25)<1e-6,'all rotations project left at the same slope');}
-    assert.equal(split(after.surfaces.table.background).length,8);
+    assert.equal(split(after.surfaces.table.background).length,10);
     for(const name of ['table','felt','scene','environment','center','dice','seat','hud','button']) {
-      const surface=after.surfaces[name];assert.ok(split(surface.background).length<=8);
+      const surface=after.surfaces[name];assert.ok(split(surface.background).length<=(name==='table'?10:8));
       assert.ok(/(?:92% 32%|255deg)/.test(surface.background),name+' highlights follow the right-side lamp');
       for(const shadow of split(surface.shadow).filter(s=>!s.includes('inset'))){const px=[...shadow.matchAll(/(-?[\d.]+)px/g)].map(m=>Number(m[1]));assert.ok(px[0]<=0,name+' has no rightward cast shadow');}
     }
@@ -85,7 +85,7 @@ try {
     const minContrast=contrast(palette.faceShade,feltBound);assert.ok(minContrast>=3,'darkest ivory face / conservatively bright felt >=3:1');
     const hand=await page.locator('#hand .tile').first().evaluate(n=>({turn:getComputedStyle(n).getPropertyValue('--tile-model-turn'),face:getComputedStyle(n,'::before').backgroundImage,top:getComputedStyle(n).getPropertyValue('--tile-model-plane-lit')}));
     assert.match(hand.face,/linear-gradient\(255deg, rgb\(255, 254, 246\)/,'right end of face is the bright end');assert.match(hand.top,/#fffef9/);
-    report.cases.push({size,rectangles:after.geometry.length,exactGeometry:true,light:after.light,globalLights:after.globalLights,maxTileShadowLayers:Math.max(...after.paints.flatMap(t=>t.layers.map(s=>split(s.shadow).length))),tiles:after.paints.length,backgroundLayers:8,levels,minContrast,surfaces:after.surfaces});
+    report.cases.push({size,rectangles:after.geometry.length,exactGeometry:true,light:after.light,globalLights:after.globalLights,maxTileShadowLayers:Math.max(...after.paints.flatMap(t=>t.layers.map(s=>split(s.shadow).length))),tiles:after.paints.length,backgroundLayers:10,levels,minContrast,surfaces:after.surfaces});
   }
   await page.emulateMedia({reducedMotion:'no-preference'});
   const interactive=[];

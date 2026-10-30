@@ -51,26 +51,38 @@
   --felt-groove-width:2.5px;
   --felt-groove-highlight-width:.6px;
   --felt-groove-feather:.6px;
+  /* 嵌线在原台呢边界外侧的木头里，内侧仍保留原2.5px压槽。 */
+  --table-inlay-track:4px;
+  --table-metal-light:#e9d49d;
+  --table-metal-mid:#bb965c;
+  --table-metal-dark:#694625;
+  --table-metal-edge-width:1px;
+  --table-console-depth:1.5px;
   --wood-fine-step:calc(var(--table-texture-width) * .005);
   --wood-growth-step:calc(var(--table-texture-width) * .038);
   --table-felt-warp:repeating-linear-gradient(90deg,#c8dfc309 0 var(--felt-fiber-width),#102f2505 var(--felt-fiber-width) calc(var(--felt-thread-step) * .55),transparent calc(var(--felt-thread-step) * .55) var(--felt-thread-step));
   --table-felt-weft:repeating-linear-gradient(0deg,#061e1810 0 var(--felt-fiber-width),#b9d3b506 var(--felt-fiber-width) calc(var(--felt-thread-step) * .48),transparent calc(var(--felt-thread-step) * .48) var(--felt-thread-step));
   --table-felt-fuzz:repeating-radial-gradient(ellipse at 32% 29%,#d4e5c403 0 calc(var(--felt-fuzz-step) * .3),#071d1804 calc(var(--felt-fuzz-step) * .3) var(--felt-fuzz-step),transparent var(--felt-fuzz-step) calc(var(--felt-fuzz-step) * 1.7));
   --table-felt-lighting:radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),var(--felt-light) 0%,var(--felt-base) 58%,var(--felt-shade) 100%);
+  /* 宽幅低对比磨痕不重复、不硬收边；仅表达绒毛方向与常接触区的轻微不均。 */
+  --table-felt-wear-center:radial-gradient(ellipse at 48% 52%,#e6d8b805 0%,#e6d8b803 18%,#e6d8b800 63%);
+  --table-felt-wear-touch:radial-gradient(ellipse at 66% 74%,#10261b06 0%,#10261b03 28%,#10261b00 71%);
   /* 两个闭合方向共用原台呢绘制矩形：暗槽2.5px，内缘高光0.6px，四角交叠无断口。 */
   --table-groove-dark:#03150fb3;
   --table-groove-middle:#0c2d2280;
   --table-groove-glint:#78917826;
   --table-groove-clear:#78917800;
-  --table-groove-stops:var(--table-groove-dark) 0px,var(--table-groove-dark) calc(var(--felt-groove-width) * .45),var(--table-groove-middle) var(--felt-groove-width),var(--table-groove-glint) var(--felt-groove-width),var(--table-groove-glint) calc(var(--felt-groove-width) + var(--felt-groove-highlight-width)),var(--table-groove-clear) calc(var(--felt-groove-width) + var(--felt-groove-highlight-width) + var(--felt-groove-feather)),var(--table-groove-clear) calc(100% - var(--felt-groove-width) - var(--felt-groove-highlight-width) - var(--felt-groove-feather)),var(--table-groove-glint) calc(100% - var(--felt-groove-width) - var(--felt-groove-highlight-width)),var(--table-groove-glint) calc(100% - var(--felt-groove-width)),var(--table-groove-middle) calc(100% - var(--felt-groove-width)),var(--table-groove-dark) calc(100% - var(--felt-groove-width) * .45),var(--table-groove-dark) 100%;
+  --table-groove-stops:#281d14b3 0px,var(--table-metal-light) 1px,var(--table-metal-mid) 2px,var(--table-metal-dark) 3px,var(--table-groove-dark) var(--table-inlay-track),var(--table-groove-dark) calc(var(--table-inlay-track) + var(--felt-groove-width) * .45),var(--table-groove-middle) calc(var(--table-inlay-track) + var(--felt-groove-width)),var(--table-groove-glint) calc(var(--table-inlay-track) + var(--felt-groove-width)),var(--table-groove-clear) calc(var(--table-inlay-track) + var(--felt-groove-width) + var(--felt-groove-highlight-width) + var(--felt-groove-feather)),var(--table-groove-clear) calc(100% - var(--table-inlay-track) - var(--felt-groove-width) - var(--felt-groove-highlight-width) - var(--felt-groove-feather)),var(--table-groove-glint) calc(100% - var(--table-inlay-track) - var(--felt-groove-width)),var(--table-groove-middle) calc(100% - var(--table-inlay-track) - var(--felt-groove-width)),var(--table-groove-dark) calc(100% - var(--table-inlay-track) - var(--felt-groove-width) * .45),var(--table-groove-dark) calc(100% - var(--table-inlay-track)),var(--table-metal-dark) calc(100% - 3px),var(--table-metal-mid) calc(100% - 2px),var(--table-metal-light) calc(100% - 1px),#281d14b3 100%;
   --table-felt-groove-x:linear-gradient(90deg,var(--table-groove-stops));
   --table-felt-groove-y:linear-gradient(0deg,var(--table-groove-stops));
   --table-depth-light:linear-gradient(var(--scene-light-angle),#fff5df0a 0%,transparent 42%,#1e1a1204 100%);
   --table-depth-shade:linear-gradient(90deg,#1e1a1259 0%,#1e1a1220 22%,transparent 44% 62%,#fff5df08 82%,#fff5df1a 100%);
   --table-center-well:radial-gradient(ellipse at 50% 54%,#04171124 0%,#071b1414 48%,#071b1405 82%,transparent 100%);
-  /* 不同周期的弧形年轮沿四边转向，连续穿过桌角；不再叠加位图木框。 */
-  --table-wood-grain:repeating-radial-gradient(ellipse at 48% 49%,#e2b67a18 0 calc(var(--wood-fine-step) * .08),transparent calc(var(--wood-fine-step) * .08) calc(var(--wood-fine-step) * .46),#20130c30 calc(var(--wood-fine-step) * .46) calc(var(--wood-fine-step) * .57),transparent calc(var(--wood-fine-step) * .57) var(--wood-fine-step));
-  --table-wood-growth:repeating-radial-gradient(ellipse at 51% 50%,#3c2619 0,var(--table-wood-mid) calc(var(--wood-growth-step) * .31),#805733 calc(var(--wood-growth-step) * .56),#573823 calc(var(--wood-growth-step) * .81),#3c2619 var(--wood-growth-step));
+  /* 两条共心、同相位的连续椭圆场穿过四个斜接角；周期两端同色，不按四边切换方向。 */
+  --table-wood-grain:repeating-radial-gradient(ellipse at 50% 50%,#e2b67a0a 0,#e2b67a18 calc(var(--wood-fine-step) * .08),#e2b67a00 calc(var(--wood-fine-step) * .32),#20130c30 calc(var(--wood-fine-step) * .52),#e2b67a00 calc(var(--wood-fine-step) * .76),#e2b67a0a var(--wood-fine-step));
+  --table-wood-growth:repeating-radial-gradient(ellipse at 50% 50%,#3c2619 0,var(--table-wood-mid) calc(var(--wood-growth-step) * .31),#805733 calc(var(--wood-growth-step) * .56),#573823 calc(var(--wood-growth-step) * .81),#3c2619 var(--wood-growth-step));
+  --table-far-soft:linear-gradient(180deg,#221f1a4d 0%,#221f1a2e 12%,#221f1a0b 26%,#221f1a00 38% 100%);
+  --table-metal-ring:radial-gradient(ellipse closest-side,#bb965c00 calc(100% - var(--table-inlay-track)),var(--table-metal-dark) calc(100% - 3px),var(--table-metal-mid) calc(100% - 2px),var(--table-metal-light) calc(100% - 1px),var(--table-metal-dark) 100%);
   isolation:isolate;
   border-radius:var(--table-rim-radius);
   border:1px solid #af8b55;
@@ -78,10 +90,8 @@
     var(--table-wood-grain),
     var(--table-wood-growth);
   box-shadow:
-    inset .15cqw .2cqw .14cqw #f6dba176,
-    inset -.2cqw -.28cqw .25cqw #1b120cba,
-    .25cqw 1.25cqw 1.1cqw #04191070,
-    .65cqw 1.7cqw 2.3cqw #041a1240;
+    inset -.15cqw .0375cqw .14cqw #fff5df40,
+    var(--scene-main-shadow);
 }
 
 /* A continuous rounded apron avoids joints where the curved corners turn. */
@@ -112,7 +122,7 @@
   background:
     var(--table-wood-grain),
     var(--table-wood-growth);
-  box-shadow:0 .12cqw .14cqw #20170ebf,inset .12cqw .16cqw .16cqw #f1d0974d,inset -.13cqw -.15cqw .16cqw #1e170fd9;
+  box-shadow:inset -1px .25px 1px #fff5df26,var(--scene-contact-shadow);
   pointer-events:none;
 }
 
@@ -127,11 +137,8 @@
     var(--table-felt-fuzz),
     var(--table-felt-lighting);
   box-shadow:
-    inset .65cqw .8cqw var(--felt-edge-depth) #041e17b3,
-    inset -.2cqw -.3cqw .55cqw #75a17c52,
-    inset 0 0 .65cqw #05271da6,
-    0 -.14cqw .12cqw #edcf9670,
-    0 .22cqw .18cqw #211b13bf;
+    var(--scene-ao-shadow),
+    inset -1px .25px 1px #fff5df12;
   pointer-events:none;
 }
 
@@ -146,12 +153,8 @@
     radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df14,transparent 67%),
     linear-gradient(var(--scene-light-angle),var(--compass-highlight),var(--compass-ink) 72%,#102f26);
   box-shadow:
-    inset -.16cqw .04cqw .28cqw #fff5df36,
-    inset .2cqw -.05cqw .34cqw #1e1a12b3,
-    var(--scene-contact-shadow),
-    0 0 0 var(--compass-rim) #153e30,
-    0 0 0 calc(var(--compass-rim) + 1px) #b7bc7d70,
-    var(--scene-main-shadow);
+    inset var(--table-console-depth) -.375px 2px #07181099,
+    var(--scene-contact-shadow);
 }
 
 .table .table-center::before {

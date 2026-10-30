@@ -423,6 +423,8 @@ html.in-game #game.is-landscape {
   /* 沿用原木框42/1000的内沿；双SVG偏移合成的绒布边界用相同绘制尺寸保留。 */
   --table-felt-paint-width:calc(var(--table-frame-size) * .916 - var(--table-frame-side-inset) * 2);
   --table-felt-paint-height:calc(var(--table-frame-size) * .916);
+  --table-trim-paint-width:calc(var(--table-felt-paint-width) + var(--table-inlay-track) * 2);
+  --table-trim-paint-height:calc(var(--table-felt-paint-height) + var(--table-inlay-track) * 2);
   content:"";
   position:absolute;
   z-index:-2;
@@ -437,17 +439,17 @@ html.in-game #game.is-landscape {
   border-left-color:#6d4c3273;
   border-radius:calc(var(--ui-unit) * 5);
   background:
-    var(--table-felt-groove-x) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
-    var(--table-felt-groove-y) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-groove-x) center / var(--table-trim-paint-width) var(--table-trim-paint-height) no-repeat,
+    var(--table-felt-groove-y) center / var(--table-trim-paint-width) var(--table-trim-paint-height) no-repeat,
     var(--table-felt-warp) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-felt-weft) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-felt-fuzz) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-wear-center) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-wear-touch) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-felt-lighting) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-wood-grain),
     var(--table-wood-growth);
   box-shadow:
-    calc(var(--ui-unit) * -1.1) calc(var(--ui-unit) * .275) calc(var(--ui-unit) * .08) #94704b,
-    calc(var(--ui-unit) * -2.2) calc(var(--ui-unit) * .55) calc(var(--ui-unit) * .18) #503321,
     calc(var(--ui-unit) * -3.3) calc(var(--ui-unit) * .825) calc(var(--ui-unit) * .32) #22170f,
     calc(var(--ui-unit) * -6) calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * 6) #1e1a12b3;
   pointer-events:none;
@@ -459,8 +461,14 @@ html.in-game #game.is-landscape {
   inset:calc(var(--table-frame-size) * .07) calc(50% - var(--table-frame-size) * .46) calc(var(--board-height) - var(--table-frame-size) * .91);
   border:0;
   border-radius:calc(var(--ui-unit) * 2);
-  background:var(--table-depth-light),var(--table-depth-shade);
-  box-shadow:var(--scene-ao-shadow);
+  background:
+    var(--table-far-soft),
+    radial-gradient(ellipse at 60% 40%,#fff5df06,transparent 45%) left top / 16% 16% no-repeat,
+    radial-gradient(ellipse at 60% 40%,#fff5df12,transparent 45%) right top / 16% 16% no-repeat,
+    radial-gradient(ellipse at 60% 40%,#fff5df06,transparent 45%) left bottom / 16% 16% no-repeat,
+    radial-gradient(ellipse at 60% 40%,#fff5df12,transparent 45%) right bottom / 16% 16% no-repeat,
+    var(--table-depth-light),var(--table-depth-shade);
+  box-shadow:var(--scene-ao-shadow),inset 0 0 1px 1px #fff5df0b;
   transform:scale(var(--table-frame-zoom));
   transform-origin:50% calc(var(--table-frame-size) * .43);
   clip-path:inset(0 max(0px,calc(var(--table-frame-side-inset) - var(--table-frame-size) * .04)));
@@ -469,14 +477,14 @@ html.in-game #game.is-landscape {
   content:"";
   position:absolute;
   inset:15% 24%;
-  border:calc(var(--table-unit) * 1.2) double #bf9f6540;
-  border-top-color:#cfb4784d;
-  border-bottom-color:#8f713f38;
+  border:calc(var(--table-unit) * 1.2) double transparent;
   border-radius:50%;
-  background:var(--table-center-well);
+  background:var(--table-metal-ring),var(--table-center-well);
+  background-origin:border-box;
+  background-clip:border-box;
   box-shadow:
-    inset calc(var(--ui-unit) * .22) calc(var(--ui-unit) * -.055) calc(var(--ui-unit) * 1.8) #1e1a1226,
-    inset calc(var(--ui-unit) * -.12) calc(var(--ui-unit) * .03) calc(var(--ui-unit) * 1.2) #fff5df0b;
+    inset 0 var(--table-metal-edge-width) 0 #e9d49d66,
+    inset 0 calc(var(--table-metal-edge-width) * -1) 0 #69462580;
   pointer-events:none;
 }
 #game.is-landscape .table-caption { display:none; }
@@ -550,21 +558,31 @@ html.in-game #game.is-landscape {
   top:calc(var(--table-frame-size) / 2 - var(--table-unit) * 7);
   width:calc(var(--table-unit) * 14);
   height:calc(var(--table-unit) * 14);
-  border:1px solid #abc0ac80;
+  border:1px solid #b99b63;
+  border-right-color:#e2c98c;
+  border-left-color:#705537;
   border-radius:calc(var(--table-unit) * .9);
-  background:var(--scene-surface),conic-gradient(from 45deg,#56352e 0deg 90deg,#245d45 90deg 180deg,#254d5a 180deg 270deg,#2d3d3d 270deg);
-  box-shadow:0 0 0 calc(var(--table-unit) * .55) #092e2f,var(--scene-main-shadow),inset -1px 0 1px #fff5df55;
+  background:radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df18,transparent 68%),linear-gradient(var(--scene-light-angle),#1022190a,#06150e52),conic-gradient(from 45deg,#56352e 0deg 90deg,#245d45 90deg 180deg,#254d5a 180deg 270deg,#2d3d3d 270deg);
+  box-shadow:inset var(--table-console-depth) -.375px 2px #07181099,var(--scene-contact-shadow);
 }
 #game.is-landscape .table .table-center::before {
   inset:24%;
   border-radius:50%;
-  border:1px solid #8da49666;
+  border:1px solid #b99b6359;
   background:radial-gradient(circle at var(--scene-light-x) var(--scene-light-y),#4b5146,#172b25 80%);
-  box-shadow:0 0 0 1px #001c2455;
+  box-shadow:inset var(--table-console-depth) -.375px 2px #07181080,inset -1px .25px 1px #fff5df26;
 }
 #game.is-landscape .table-center .direction { display:grid; color:#bbc3b1; font-family:"KaiTi","STKaiti",serif; }
 #game.is-landscape .table-center .direction.active { color:#ffe8aa; background:#b7563e70; border-radius:calc(var(--table-unit) * .45); }
-#game.is-landscape .table-die { border-radius:calc(var(--table-unit) * .55); }
+#game.is-landscape .table-die {
+  border-radius:calc(var(--table-unit) * .55);
+  background:radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df12,transparent 70%),linear-gradient(var(--scene-light-angle),var(--tile-face-normal-light),var(--tile-ivory) 58%,var(--tile-face-normal-shade));
+  box-shadow:inset 1px -.25px 1px #7a674b40,var(--scene-contact-shadow);
+}
+#game.is-landscape .table-die i {
+  background:radial-gradient(circle at 78% 28%,#67533b,#33261a 60%,#1a130c);
+  box-shadow:inset 1px -.25px 1px #120d08a6,inset -1px .25px 1px #fff5df1f;
+}
 #game.is-landscape .table-dice { gap:calc(var(--table-unit) * .7); }
 
 /* Avatars sit on the outside rail. Utilities remain in the upper corners. */
