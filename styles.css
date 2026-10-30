@@ -8,6 +8,16 @@
   --muted:#90b4a3;
   --red:#b94537;
   --stat-digit-size:clamp(10px,calc(var(--stage-height,100dvh) * .04),30px);
+  /* 薄面板与牌桌共用右侧单灯；只提供绘制参数，不包含几何和字体尺寸。 */
+  --ui-panel-version:resin-panel-v1;
+  --ui-panel-base:#3a5c49;
+  --ui-panel-active-base:#426b50;
+  --ui-panel-dark:30 26 18;
+  --ui-panel-edge:#fff5df55;
+  --ui-panel-disabled-text:#97aa95;
+  --ui-panel-duration:120ms;
+  --ui-panel-easing:cubic-bezier(.2,.7,.2,1);
+  --ui-panel-transition:transform var(--ui-panel-duration) var(--ui-panel-easing),opacity var(--ui-panel-duration) var(--ui-panel-easing),background-color var(--ui-panel-duration) var(--ui-panel-easing);
   font-family:"Microsoft YaHei","PingFang SC",sans-serif;
   background:#0c241e;
   color:var(--cream)
@@ -1027,7 +1037,7 @@ svg {
 }
 
 .modal::backdrop {
-  background:#071d17c9;
+  background:rgb(0 0 0 / .72);
   backdrop-filter:none
 }
 
@@ -1446,6 +1456,63 @@ svg {
 
 .hand-instruction {
   margin-top:1cqw
+}
+
+/* 现有元素共用一张材质画布：微凸釉面、左缘暗部和1px右侧高光。
+   参数在元素上求值，hover只改灯斑位置，不能因根变量提前求值而失效。 */
+html :is(.player-seat,.portrait,.result-avatar,.wallet-pill,.hud-stat,.laizi-summary,.connection,.modal,.room-invite,.hint-details),
+html button:is(.action-button,.primary-button,.secondary-button,.icon-button,.modal-close,.hint-button,.hint-close,.setting-link,.choice-option,.room-bot-button) {
+  --ui-panel-shine-x:var(--scene-light-x,92%);
+  --ui-panel-shine-y:var(--scene-light-y,32%);
+  --ui-panel-gloss:.07;
+  --ui-panel-coat:
+    linear-gradient(90deg,transparent calc(100% - 1px),var(--ui-panel-edge) calc(100% - 1px)),
+    radial-gradient(ellipse at var(--ui-panel-shine-x) var(--ui-panel-shine-y),rgb(255 245 223 / var(--ui-panel-gloss)),transparent 68%),
+    radial-gradient(ellipse at 56% 48%,#fff5df05 0%,transparent 52%,#1e1a1214 100%),
+    linear-gradient(90deg,#1e1a1226,transparent 38%);
+  --ui-panel-unit:var(--ui-unit,1cqw);
+  --ui-panel-cast:calc(var(--ui-panel-unit) * .45 * var(--scene-shadow-x,-1)) calc(var(--ui-panel-unit) * .45 * var(--scene-shadow-y,.25)) calc(var(--ui-panel-unit) * .9) rgb(var(--ui-panel-dark) / .28);
+  --ui-panel-contact:inset 1px 0 1px rgb(var(--ui-panel-dark) / .3);
+  --ui-panel-shadow:var(--ui-panel-contact),var(--ui-panel-cast);
+  --ui-panel-recess-shadow:inset calc(var(--ui-panel-unit) * .22 * var(--scene-shadow-x,-1) * -1) calc(var(--ui-panel-unit) * .22 * var(--scene-shadow-y,.25) * -1) calc(var(--ui-panel-unit) * .65) rgb(var(--ui-panel-dark) / .42),var(--ui-panel-cast);
+  --ui-panel-pressed-shadow:inset calc(var(--ui-panel-unit) * .3 * var(--scene-shadow-x,-1) * -1) calc(var(--ui-panel-unit) * .3 * var(--scene-shadow-y,.25) * -1) calc(var(--ui-panel-unit) * .65) rgb(var(--ui-panel-dark) / .5),inset -1px 0 1px #fff5df1a;
+}
+html .modal {
+  background:var(--ui-panel-coat) var(--ui-panel-base);
+  box-shadow:var(--ui-panel-shadow);
+}
+html .modal .modal-lead,html .modal .rule-note { color:#c8d2be; }
+html .modal h2 { text-shadow:-1px 0 1px #1e1a122e; }
+html .result-avatar { background:var(--ui-panel-coat) var(--ui-panel-base); box-shadow:var(--ui-panel-shadow); }
+html .room-invite { background:var(--ui-panel-coat) var(--ui-panel-base); box-shadow:var(--ui-panel-recess-shadow); }
+html .modal input:not([type="checkbox"]),html .modal select {
+  background:var(--ui-panel-coat) #2d4737;
+  box-shadow:var(--ui-panel-recess-shadow);
+}
+html .modal input:not([type="checkbox"]):disabled,html .modal select:disabled {
+  background-image:none;
+  box-shadow:inset 1px 0 1px #1e1a1226;
+}
+html button:is(.action-button,.primary-button,.secondary-button,.icon-button,.modal-close,.hint-button,.hint-close,.setting-link,.choice-option,.room-bot-button) {
+  background-image:var(--ui-panel-coat);
+  box-shadow:var(--ui-panel-shadow);
+  transition:var(--ui-panel-transition);
+}
+html button.secondary-button { background-color:var(--ui-panel-base); }
+html button:is(.action-button,.primary-button,.secondary-button,.icon-button,.modal-close,.hint-button,.hint-close,.setting-link,.choice-option,.room-bot-button):not(:disabled):hover {
+  --ui-panel-shine-x:98%;
+  background-image:var(--ui-panel-coat);
+  box-shadow:var(--ui-panel-shadow);
+}
+html button:is(.action-button,.primary-button,.secondary-button,.icon-button,.modal-close,.hint-button,.hint-close,.setting-link,.choice-option,.room-bot-button):not(:disabled):active {
+  --ui-panel-gloss:.025;
+  box-shadow:var(--ui-panel-pressed-shadow);
+}
+html button:is(.action-button,.primary-button,.secondary-button,.icon-button,.modal-close,.hint-button,.hint-close,.setting-link,.choice-option,.room-bot-button):disabled {
+  background-image:none;
+  background-color:#3c5041;
+  color:var(--ui-panel-disabled-text);
+  box-shadow:inset 1px 0 1px #1e1a1226;
 }
 
 @keyframes pulse {

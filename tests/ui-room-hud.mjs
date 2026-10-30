@@ -111,7 +111,7 @@ try{
       });
       assert.ok(data.centerError<=1,`hand center ${JSON.stringify({viewport,count,publicCase,error:data.centerError})}`);assert.equal(data.collisions,false,'concealed cards avoid public combinations');assert.ok(data.rowSpread<=1,'hand never wraps');assert.ok(data.cards.every(r=>r.left>=data.hand.left-.2&&r.right<=data.hand.right+.2),'all cards fit the hand region');assert.ok(data.scroll[0]<=viewport.width+1&&data.scroll[1]<=viewport.height+1);
       report.hands.push({viewport,count,...publicCase,centerError:data.centerError,tileWidth:data.width,noWrap:true,noOverlap:true});
-      if((count===14||count===2)&&publicCase.melds===0&&viewport.width===640){const file=path.join(output,`hud-centered-hand-${count}-special${publicCase.special}.png`);await page.screenshot({path:file});report.screenshots.push(file);}
+      if(process.env.KK_UI_SCREENSHOTS!=='0'&&(count===14||count===2)&&publicCase.melds===0&&viewport.width===640){const file=path.join(output,`hud-centered-hand-${count}-special${publicCase.special}.png`);await page.screenshot({path:file});report.screenshots.push(file);}
     }
   }
   assert.ok(room.game,'server game was started normally');assert.deepEqual(report.errors,[]);report.passed=true;

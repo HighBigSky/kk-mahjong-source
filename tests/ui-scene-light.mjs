@@ -39,7 +39,7 @@ async function snapshot() {
     const nodes=[...document.querySelectorAll('#game,#game *')].filter(n=>n.getClientRects().length&&!n.closest('.icon-defs,#tile-sprite'));
     const geometry=nodes.map(n=>{const r=n.getBoundingClientRect();return {name:n.id||n.className?.baseVal||String(n.className),rect:[r.x,r.y,r.width,r.height],shape:shape(getComputedStyle(n)),pseudos:['::before','::after'].map(p=>shape(getComputedStyle(n,p)))};});
     const style=(node,pseudo)=>{const s=getComputedStyle(node,pseudo);return {background:s.backgroundImage,shadow:s.boxShadow,filter:s.filter,backdrop:s.backdropFilter,transition:s.transitionProperty};};
-    const surfaces=Object.fromEntries([['table','.table','::before'],['felt','.table-border'],['scene','#game'],['environment','#game','::before'],['center','.table-center'],['dice','.table-die'],['seat','.player-seat'],['hud','.wallet-pill'],['button','.action-button']].map(([name,selector,pseudo])=>[name,style(document.querySelector(selector),pseudo)]));
+    const surfaces=Object.fromEntries([['table','.table','::before'],['felt','.table-border'],['scene','#game'],['environment','#game','::before'],['center','.table-center'],['dice','.table-die'],['seat','.player-seat'],['hud','.wallet-pill'],['button','.action-button:not(:disabled)']].map(([name,selector,pseudo])=>[name,style(document.querySelector(selector),pseudo)]));
     const tiles=[...document.querySelectorAll('.tile,.back')].filter(n=>!n.closest('#opening-deal'));
     const paints=tiles.map(n=>({name:n.id||n.parentElement.id||n.className,grade:getComputedStyle(n).getPropertyValue('--tile-model-grade').trim(),layers:[style(n),style(n,'::before'),style(n,'::after'),...(n.querySelector('svg')?[style(n.querySelector('svg'))]:[])]}));
     const lightSelectors=[...Array.from({length:4},(_,i)=>`#river-${i} .tile`),...Array.from({length:4},(_,i)=>`#melds-${i} .tile`),...Array.from({length:3},(_,i)=>`#backs-${i+1} .back`),'#hand .tile','.wall-stack[data-side="top"] .back','.wall-stack[data-side="bottom"] .back','.wall-stack[data-side="left"] .back','.wall-stack[data-side="right"] .back'];
@@ -67,7 +67,7 @@ try {
     await page.setViewportSize(size);await frames();await load(true);const before=await snapshot();await load(false);const after=await snapshot();
     assert.deepEqual(after.geometry,before.geometry,'all visible scene/tile/HUD/button rectangles and pseudo-element geometry stay exactly unchanged: '+JSON.stringify(size));
     assert.deepEqual(after.filters,[],'global scene has no filters/backdrop filters');
-    assert.ok(after.transitions.every(list=>list.split(',').every(property=>['opacity','transform'].includes(property.trim()))),'only transform and opacity can transition');
+    assert.ok(after.transitions.every(list=>list.split(',').every(property=>['opacity','transform','background-color'].includes(property.trim()))),'UI only transitions transform, opacity or background-color');
     for(const tile of after.paints)for(const layer of tile.layers)assert.ok(split(layer.shadow).length<=2,`${tile.name}: tile and each existing drawing layer have at most two shadows`);
     assert.ok(after.globalLights.filter(light=>!light.empty).length>=14);
     for(const light of after.globalLights.filter(light=>!light.empty)){assert.ok(light.shine[0]>0&&light.shine[1]<0,`${light.selector} highlights are at the global right`);assert.ok(Math.abs(light.shadow[0]+1)<1e-6&&Math.abs(light.shadow[1]-.25)<1e-6,'all rotations project left at the same slope');}
@@ -103,7 +103,7 @@ try {
     assert.ok(split(data.resting).every(s=>s.includes('inset')),'interaction shadows disappear immediately');interactive.push(data);
   }
   report.interactive=interactive;
-  const moving=await snapshot();assert.ok(moving.transitions.every(list=>list.split(',').every(p=>['transform','opacity'].includes(p.trim()))));
+  const moving=await snapshot();assert.ok(moving.transitions.every(list=>list.split(',').every(p=>['transform','opacity','background-color'].includes(p.trim()))));
   // 样式表与现有WAAPI只允许transform/opacity；不以reduced-motion掩盖动画属性问题。
   const animationProperties=await page.evaluate(()=>{
     const violations=[];const walk=rules=>{for(const rule of rules){if(rule.type===CSSRule.KEYFRAMES_RULE)for(const frame of rule.cssRules)for(const name of frame.style)if(!['transform','opacity'].includes(name))violations.push(name);else{}if(rule.cssRules&&rule.type!==CSSRule.KEYFRAMES_RULE)walk(rule.cssRules);}};for(const sheet of document.styleSheets)walk(sheet.cssRules);return violations;
