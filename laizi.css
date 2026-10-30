@@ -64,7 +64,11 @@
 }
 
 .hand .tile.red-kong-tile:not(:disabled):hover {
-  --tile-face:linear-gradient(135deg,#fffdf2,#f7efdc 56%,#ded0ae);
+  --tile-face-light:var(--tile-face-special-light);
+  --tile-face-base:var(--tile-face-special-base);
+  --tile-face-shade:var(--tile-face-special-shade);
+  --tile-face-stop:56%;
+  --tile-face-angle:135deg;
   cursor:help;
 }
 

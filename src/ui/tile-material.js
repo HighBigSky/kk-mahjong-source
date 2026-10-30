@@ -45,6 +45,8 @@ export function syncTileMetric(node,box=null) {
   const values={'--tile-model-width':`${Math.min(width,height)}px`,'--tile-model-turn':`${angle}deg`,'--tile-model-light-x':lx,'--tile-model-light-y':ly,'--tile-model-occlusion-x':ox,'--tile-model-occlusion-y':oy,'--tile-model-shine-x':`${shine[0]}%`,'--tile-model-shine-y':`${shine[1]}%`,'--tile-model-grain-x':`${grain[0]}%`,'--tile-model-grain-y':`${grain[1]}%`,'--tile-model-top-paint':s+c>0?'var(--tile-model-plane-lit)':'var(--tile-model-plane-shade)'};
   // 弧形顶边与直顶边共用同一次光照判定，旋转后不能出现一段亮、一段暗的接缝。
   values['--tile-model-top-curve-tones']=s+c>0?'var(--tile-model-curve-lit)':'var(--tile-model-curve-shade)';
+  // 微描边使用已读取的牌宽给数值，不依赖移动浏览器较新的CSS量纲相除。
+  values['--tile-model-glyph-accent']=clean(12/Math.min(width,height));
   values['--tile-model-axis-x']=ox;values['--tile-model-axis-y']=oy;
   const [downX,downY]=inverse(0,1);values['--tile-model-down-x']=downX;values['--tile-model-down-y']=downY;
   for(const prefix of ['shadow','main','soft']){values[`--tile-model-${prefix}-x`]=lx;values[`--tile-model-${prefix}-y`]=ly;}

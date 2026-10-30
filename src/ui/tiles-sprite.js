@@ -15,6 +15,14 @@ export async function loadTilesSprite() {
     const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml');
     const sprite = parsed.documentElement;
     if (!sprite || sprite.nodeName.toLowerCase() !== 'svg' || parsed.querySelector('parsererror')) return;
+    // 保留原描边属性与颜色，只把原宽度供共享CSS叠加微描边，不改图案路径。
+    for (const glyph of sprite.querySelectorAll('[stroke-width]:not([stroke="none"])')) {
+      const width = Number(glyph.getAttribute('stroke-width'));
+      if (Number.isFinite(width)) {
+        glyph.style.setProperty('--tile-glyph-base-stroke', String(width));
+        glyph.classList.add('tile-glyph-stroked');
+      }
+    }
     sprite.setAttribute('aria-hidden', 'true');
     sprite.setAttribute('id', 'tile-sprite');
     sprite.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';

@@ -70,7 +70,7 @@ export async function checkHandSides(page,size) {
       assert.ok(Math.abs(tile.bevelInner/parseFloat(tile.width)-.015)<.0001,label);
       assert.equal(tile.faceShadows.length,8,'three inward contact layers, transmission, edge contact and dual bevel');
       assert.ok(tile.faceShadows.every(shadow=>shadow.inset),'normal face layers cannot cast onto adjacent cards');
-      assert.equal(tile.faceLayerKinds.filter(kind=>kind==='linear-gradient').length,3,label);assert.equal(tile.materialRadials,2,label);
+      assert.equal(tile.faceLayerKinds.filter(kind=>kind==='linear-gradient').length,3,label);assert.equal(tile.materialRadials,3,label);
       assert.ok(tile.faceLayerKinds.includes('repeating-linear-gradient'),'fine resin grain');
       assert.ok(tile.faceLayerKinds.every(kind=>kind==='linear-gradient'||kind==='radial-gradient'||kind==='repeating-linear-gradient'),label);
       assert.ok(tile.glazeAlphas.length>0&&Math.max(...tile.glazeAlphas)<=.08,'diagonal glaze never exceeds 8%');

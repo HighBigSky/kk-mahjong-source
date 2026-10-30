@@ -14,7 +14,8 @@ export async function materialSnapshot(page,selector,validate=true) {
         shape:{width:s.width,height:s.height,radius:s.borderRadius,borderWidths:[s.borderTopWidth,s.borderRightWidth,s.borderBottomWidth,s.borderLeftWidth],rect:[r.x,r.y,r.width,r.height],margin:s.margin,gap:getComputedStyle(n.parentElement).gap,transform:s.transform,svg:svgStyle?[svgStyle.width,svgStyle.height,svgStyle.transform,svg.getAttribute('viewBox')]:null},
         version:s.getPropertyValue('--tile-model-version').trim(),grade:s.getPropertyValue('--tile-model-grade').trim(),strength:number('--tile-model-strength'),
         back:n.classList.contains('back'),wall:n.classList.contains('wall-piece'),
-        paint:n.classList.contains('back')?s.backgroundImage:b.backgroundImage,body:s.backgroundImage,bevel:split(b.boxShadow).map(v=>({inset:v.includes('inset'),px:[...v.matchAll(/(-?(?:\d*\.?\d+)(?:e[+-]?\d+)?)px/g)].map(m=>Number(m[1]))})),
+        paint:n.classList.contains('back')?s.backgroundImage:b.backgroundImage,paintLayers:split(n.classList.contains('back')?s.backgroundImage:b.backgroundImage).map(v=>v.trim()),body:s.backgroundImage,bevel:split(b.boxShadow).map(v=>({inset:v.includes('inset'),px:[...v.matchAll(/(-?(?:\d*\.?\d+)(?:e[+-]?\d+)?)px/g)].map(m=>Number(m[1]))})),
+        ivory:s.getPropertyValue('--tile-ivory').trim(),faceColors:['--tile-face-light','--tile-face-base','--tile-ivory','--tile-face-shade'].map(name=>s.getPropertyValue(name).trim()),curve:s.getPropertyValue('--tile-model-face-curve').trim(),
         modelWidth:px('--tile-model-width'),corners:[s.borderTopLeftRadius,s.borderTopRightRadius,s.borderBottomRightRadius,s.borderBottomLeftRadius].map(parseFloat),
         faceCorners:[b.borderTopLeftRadius,b.borderTopRightRadius,b.borderBottomRightRadius,b.borderBottomLeftRadius].map(parseFloat),
         coatCorners:[a.borderTopLeftRadius,a.borderTopRightRadius,a.borderBottomRightRadius,a.borderBottomLeftRadius].map(parseFloat),backInset:parseFloat(b.top),
@@ -39,7 +40,7 @@ export async function materialSnapshot(page,selector,validate=true) {
   });
   assert.ok(rows.length,`material area exists: ${selector}`);
   if(validate)for(const row of rows) {
-    assert.equal(row.version,'resin-v8',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
+    assert.equal(row.version,'resin-v9',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
     const physicalWidth=Math.min(parseFloat(row.shape.width),parseFloat(row.shape.height)),radius=physicalWidth*.09;
     assert.ok(Math.abs(row.modelWidth-physicalWidth)<.0001,`${selector} radius is based on the actual physical tile width`);
     assert.ok(row.corners.every(v=>v>0&&Math.abs(v-radius)<.0001),`${selector} all four corners share the same radius at ${row.angle}deg`);
@@ -75,7 +76,10 @@ export async function materialSnapshot(page,selector,validate=true) {
     assert.ok(row.edgeShadow.length>=2&&row.edgeShadow.every(shadow=>shadow.inset),`${selector} soft continuous inner highlight never projects onto another tile`);
     assert.deepEqual([row.thickness,row.strength],({hand:[4,1],meld:[3,.8],wall:[2,.6],river:[1,.4]})[row.grade],`${selector} only four shared tiers`);
     assert.ok(row.bevel.length>=4&&row.bevel.every(shadow=>shadow.inset),selector);
-    assert.equal((row.paint.match(/radial-gradient/g)||[]).length,2,selector);
+    assert.equal((row.paint.match(/radial-gradient/g)||[]).length,row.back?2:3,selector);
+    const rgb=value=>value.startsWith('#')?[1,3,5].map(index=>parseInt(value.slice(index,index+2),16)):(value.match(/[\d.]+/g)||[]).slice(0,3).map(Number);
+    assert.deepEqual(row.faceColors.map(rgb),[[255,254,246],[246,239,221],[246,239,221],[232,223,201]],`${selector} all areas share the same ivory palette`);
+    if(!row.back)assert.match(row.curve,/^radial-gradient\(/,`${selector} shared subtle convex face light`);
     assert.match(row.paint,/linear-gradient/);assert.doesNotMatch(row.paint,/url\(/);
     const textureLayers=row.paint.match(/repeating-linear-gradient\([^;]*?(?=\), (?:repeating-|linear-|radial-)|$)/g)||[];
     assert.equal((row.paint.match(/repeating-linear-gradient/g)||[]).length,row.back?2:1,selector);
