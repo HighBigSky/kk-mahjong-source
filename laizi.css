@@ -68,7 +68,7 @@
   --tile-face-base:var(--tile-face-special-base);
   --tile-face-shade:var(--tile-face-special-shade);
   --tile-face-stop:56%;
-  --tile-face-angle:135deg;
+  --tile-face-angle:var(--scene-light-angle);
   cursor:help;
 }
 

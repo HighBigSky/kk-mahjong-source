@@ -114,20 +114,15 @@ async function transitions(page) {
   result.interpolation=[];
   for(const state of ['selected','hinted']){
     const sample=await page.locator('#hand button').first().evaluate((node,state)=>{
-      const split=value=>{let depth=0,start=0;const result=[];for(let index=0;index<value.length;index++){if(value[index]==='(')depth++;else if(value[index]===')')depth--;else if(value[index]===','&&!depth){result.push(value.slice(start,index));start=index+1;}}result.push(value.slice(start));return result;};
-      const read=()=>{const style=getComputedStyle(node),outer=split(style.boxShadow).filter(layer=>layer.trim()!=='none'&&!layer.includes('inset'));return {opacity:parseFloat(style.getPropertyValue('--tile-model-raised-opacity')),outer,alpha:Math.max(0,...outer.map(layer=>Number(layer.match(/rgba\([^()]*,\s*([\d.]+)\)/)?.[1]??1)))};};
-      getComputedStyle(node).boxShadow;node.classList.add(state);getComputedStyle(node).boxShadow;
-      const animations=node.getAnimations(),raised=animations.find(animation=>animation.transitionProperty==='--tile-model-raised-opacity');
-      if(!raised){node.classList.remove(state);return {state,missing:true,properties:animations.map(animation=>animation.transitionProperty)};}
-      for(const animation of animations){animation.pause();animation.currentTime=60;}
-      const middle=read();for(const animation of animations)animation.finish();const end=read();
-      node.classList.remove(state);const exit=read();return {state,middle,end,exit};
+      node.classList.add(state);const properties=node.getAnimations().map(a=>a.transitionProperty);
+      const active=getComputedStyle(node).boxShadow;node.classList.remove(state);
+      return {state,properties,active,exit:getComputedStyle(node).boxShadow};
     },state);
-    assert.equal(sample.missing,undefined,'raised-state opacity has a real CSS transition: '+JSON.stringify(sample));
-    assert.ok(sample.middle.opacity>0&&sample.middle.opacity<1,'interaction shadow has an interpolated mid-frame opacity');assert.equal(sample.end.opacity,1);
-    assert.ok(sample.middle.outer.length>0&&sample.middle.alpha<sample.end.alpha,'visible outer shadows genuinely fade in instead of jumping');
-    assert.deepEqual(sample.exit.outer,[],'normal-state return removes every outer shadow immediately');result.interpolation.push(sample);await settle(page);
+    assert.ok(sample.properties.every(name=>['transform','opacity'].includes(name)),'paint properties never animate');
+    assert.ok(!sample.active.includes('inset'),'interaction keeps external lighting');assert.ok(sample.exit.includes('inset'),'normal-state return removes outer shadows immediately');
+    result.interpolation.push(sample);await settle(page);
   }
+
   return result;
 }
 async function borders(page,dpr) {

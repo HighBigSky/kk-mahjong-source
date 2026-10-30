@@ -229,7 +229,7 @@ html.in-game #game.is-landscape {
   border-right-width:calc(var(--table-unit) * .1);
   border-bottom-width:calc(var(--table-unit) * .1);
   border-radius:calc(var(--table-unit) * 1);
-  box-shadow:inset 0 calc(var(--table-unit) * -.45) calc(var(--table-unit) * .7) #b9a8824d,calc(var(--table-unit) * .2) calc(var(--table-unit) * .4) calc(var(--table-unit) * .7) #061e1780;
+  box-shadow:inset calc(var(--table-unit) * .2) calc(var(--table-unit) * -.05) calc(var(--table-unit) * .7) #6a54344d,var(--scene-main-shadow);
 }
 .is-landscape .table-die i { width:calc(var(--table-unit) * 1.05); height:calc(var(--table-unit) * 1.05); }
 .is-landscape .table-die.is-key { outline-width:calc(var(--table-unit) * .2); outline-offset:calc(var(--table-unit) * .16); }
@@ -281,11 +281,11 @@ html.in-game #game.is-landscape {
   border-width:calc(var(--ui-unit) * .16);
   border-bottom-width:calc(var(--ui-unit) * .5);
   border-radius:calc(var(--ui-unit) * 1.8);
-  box-shadow:0 calc(var(--ui-unit) * .5) calc(var(--ui-unit) * 1.4) #0000003d;
+  box-shadow:var(--scene-contact-shadow),var(--scene-main-shadow);
 }
 .is-landscape .action-button small { font-size:calc(var(--ui-unit) * 1.55); letter-spacing:calc(var(--ui-unit) * .2); }
 .is-landscape .action-button.action-next { width:100%; }
-.is-landscape .action-hu:not(:disabled) { box-shadow:0 0 calc(var(--ui-unit) * 3.4) #e0703f77, 0 calc(var(--ui-unit) * .6) calc(var(--ui-unit) * 1.5) #00000045; }
+.is-landscape .action-hu:not(:disabled) { box-shadow:var(--scene-contact-shadow),var(--scene-main-shadow); }
 .is-landscape .toast { top:64%; padding:calc(var(--ui-unit) * 1.6) calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 1.5); font-size:calc(var(--ui-unit) * 2.8); }
 
 /* Game dialogs share the single landscape canvas. Lobby dialogs use rooms.css. */
@@ -382,9 +382,9 @@ html.in-game #game.is-landscape {
   --wall-piece-height:var(--tile-face-height);
   background:
     radial-gradient(ellipse at 50% 48%,transparent 0% 36%,#0109074d 78%,#010806a6 100%),
-    radial-gradient(ellipse at 82% 8%,#d4bb7826,transparent 52%),
+    radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df12,transparent 52%),
     linear-gradient(180deg,#202921,#0e1b17 60%,#070f0d);
-  box-shadow:inset 0 0 calc(var(--ui-unit) * 12) #020e0b99;
+  box-shadow:var(--scene-ao-shadow);
   /* 上下木沿裁到画面外；聚焦手牌不能滚动画布。 */
   overflow:clip;
 }
@@ -395,7 +395,7 @@ html.in-game #game.is-landscape {
   inset:10% -5% 0;
   z-index:0;
   background:
-    radial-gradient(ellipse at 82% 4%,#d8bf7d18,transparent 62%),
+    radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df0c,transparent 62%),
     radial-gradient(ellipse at 50% 50%,transparent 40%,#020a0833 80%,#01070566 100%);
   filter:none;
   pointer-events:none;
@@ -432,7 +432,7 @@ html.in-game #game.is-landscape {
   height:var(--table-frame-size);
   border:1px solid #c69c6370;
   border-top-color:#d9c39880;
-  border-right-color:#c9ad7e73;
+  border-right-color:#e2ceb08c;
   border-bottom-color:#5e3d287d;
   border-left-color:#6d4c3273;
   border-radius:calc(var(--ui-unit) * 5);
@@ -446,10 +446,10 @@ html.in-game #game.is-landscape {
     var(--table-wood-grain),
     var(--table-wood-growth);
   box-shadow:
-    0 calc(var(--ui-unit) * 1.1) calc(var(--ui-unit) * .08) #94704b,
-    0 calc(var(--ui-unit) * 2.2) calc(var(--ui-unit) * .18) #503321,
-    0 calc(var(--ui-unit) * 3.3) calc(var(--ui-unit) * .32) #22170f,
-    0 calc(var(--ui-unit) * 6) calc(var(--ui-unit) * 6) #020906d9;
+    calc(var(--ui-unit) * -1.1) calc(var(--ui-unit) * .275) calc(var(--ui-unit) * .08) #94704b,
+    calc(var(--ui-unit) * -2.2) calc(var(--ui-unit) * .55) calc(var(--ui-unit) * .18) #503321,
+    calc(var(--ui-unit) * -3.3) calc(var(--ui-unit) * .825) calc(var(--ui-unit) * .32) #22170f,
+    calc(var(--ui-unit) * -6) calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * 6) #1e1a12b3;
   pointer-events:none;
   clip-path:inset(0 var(--table-frame-side-inset));
   transform:translateZ(-1px) scale(var(--table-frame-zoom));
@@ -460,7 +460,7 @@ html.in-game #game.is-landscape {
   border:0;
   border-radius:calc(var(--ui-unit) * 2);
   background:var(--table-depth-light),var(--table-depth-shade);
-  box-shadow:inset 0 calc(var(--ui-unit) * .6) calc(var(--table-frame-size) * .18) #111c1670;
+  box-shadow:var(--scene-ao-shadow);
   transform:scale(var(--table-frame-zoom));
   transform-origin:50% calc(var(--table-frame-size) * .43);
   clip-path:inset(0 max(0px,calc(var(--table-frame-side-inset) - var(--table-frame-size) * .04)));
@@ -475,8 +475,8 @@ html.in-game #game.is-landscape {
   border-radius:50%;
   background:var(--table-center-well);
   box-shadow:
-    inset calc(var(--ui-unit) * -.22) calc(var(--ui-unit) * .3) calc(var(--ui-unit) * 1.8) #02130d26,
-    inset calc(var(--ui-unit) * .12) calc(var(--ui-unit) * -.18) calc(var(--ui-unit) * 1.2) #afc4a10b;
+    inset calc(var(--ui-unit) * .22) calc(var(--ui-unit) * -.055) calc(var(--ui-unit) * 1.8) #1e1a1226,
+    inset calc(var(--ui-unit) * -.12) calc(var(--ui-unit) * .03) calc(var(--ui-unit) * 1.2) #fff5df0b;
   pointer-events:none;
 }
 #game.is-landscape .table-caption { display:none; }
@@ -552,14 +552,14 @@ html.in-game #game.is-landscape {
   height:calc(var(--table-unit) * 14);
   border:1px solid #abc0ac80;
   border-radius:calc(var(--table-unit) * .9);
-  background:conic-gradient(from 45deg,#56352e 0deg 90deg,#245d45 90deg 180deg,#254d5a 180deg 270deg,#2d3d3d 270deg);
-  box-shadow:0 0 0 calc(var(--table-unit) * .55) #092e2f,0 calc(var(--table-unit) * .65) calc(var(--table-unit) * .8) #002826b3,inset 0 1px 1px #d4e6cd55;
+  background:var(--scene-surface),conic-gradient(from 45deg,#56352e 0deg 90deg,#245d45 90deg 180deg,#254d5a 180deg 270deg,#2d3d3d 270deg);
+  box-shadow:0 0 0 calc(var(--table-unit) * .55) #092e2f,var(--scene-main-shadow),inset -1px 0 1px #fff5df55;
 }
 #game.is-landscape .table .table-center::before {
   inset:24%;
   border-radius:50%;
   border:1px solid #8da49666;
-  background:radial-gradient(circle at 40% 30%,#455650,#172b2c 80%);
+  background:radial-gradient(circle at var(--scene-light-x) var(--scene-light-y),#4b5146,#172b25 80%);
   box-shadow:0 0 0 1px #001c2455;
 }
 #game.is-landscape .table-center .direction { display:grid; color:#bbc3b1; font-family:"KaiTi","STKaiti",serif; }
@@ -670,7 +670,7 @@ html.in-game #game.is-landscape {
 #game.is-landscape .seat-top .seat,#game.is-landscape .seat-top .dealer-badge { width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.2); font-size:calc(var(--ui-unit) * 1.65); }
 
 /* 最近一张牌的标记和牌身一起朝向出牌者。 */
-#game.is-landscape .table .river .tile.last-discard { outline:calc(var(--table-unit) * .12) solid #ffbe46; outline-offset:calc(var(--table-unit) * .04); box-shadow:var(--tile-model-raised-shadow),0 0 calc(var(--table-unit) * .45) rgb(255 175 60 / calc(.501960784 * var(--tile-model-raised-opacity))); }
+#game.is-landscape .table .river .tile.last-discard { outline:calc(var(--table-unit) * .12) solid #ffbe46; outline-offset:calc(var(--table-unit) * .04); box-shadow:var(--tile-model-raised-shadow); }
 
 /* The opening is readable for 1.5 seconds; the resting pair stays unobtrusive. */
 #game.is-landscape .table-die { width:calc(var(--table-unit) * 2.4); height:calc(var(--table-unit) * 2.4); padding:calc(var(--table-unit) * .4); }
@@ -707,12 +707,12 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .river .tile {
   --tile-depth:var(--tile-model-river-depth);
   border:var(--tile-model-bevel) solid var(--tile-border);
-  border-right-color:var(--tile-border-side);
+  border-right-color:var(--tile-border);
   border-bottom-color:var(--tile-border-bottom);
   border-radius:var(--tile-model-radius);
 }
 #game.is-landscape .table .river .tile { box-shadow:var(--tile-model-contact-shadow); }
-#game.is-landscape .table .river .tile.is-discard-focus { outline:1px solid #ffdb81; box-shadow:var(--tile-model-raised-shadow),0 0 calc(var(--table-unit) * .7) rgb(255 228 163 / calc(.301960784 * var(--tile-model-raised-opacity))); }
+#game.is-landscape .table .river .tile.is-discard-focus { outline:1px solid #ffdb81; box-shadow:var(--tile-model-raised-shadow); }
 #game.is-landscape .table .river .tile::before { border-width:var(--tile-model-bevel); }
 #game.is-landscape .table .river .tile svg { shape-rendering:geometricPrecision; filter:none; }
 
@@ -726,7 +726,55 @@ html.in-game #game.is-landscape {
 .table-labels .table-label-direction { font-family:"KaiTi","STKaiti",serif; font-size:clamp(8px,calc(var(--stage-height) * .025),18px); font-weight:700; }
 .table-labels .table-label-direction.is-active { text-shadow:0 0 4px #ffe8aa70,0 1px 2px #001a15; }
 #game.is-landscape.has-table-labels .table .direction { opacity:0; }
-#game.is-landscape .hand .tile.selected { --tile-face-light:var(--tile-face-selected-strong-light); --tile-face-base:var(--tile-face-selected-strong-base); --tile-face-shade:var(--tile-face-selected-strong-shade); --tile-face-stop:72%; --tile-face-angle:215deg; outline:calc(var(--ui-unit) * .45) solid #fff2a8; outline-offset:calc(var(--ui-unit) * .15); box-shadow:var(--tile-model-raised-shadow),0 0 0 calc(var(--ui-unit) * .9) rgb(251 217 110 / calc(.207843137 * var(--tile-model-raised-opacity))),0 0 calc(var(--ui-unit) * 3) rgb(255 229 138 / calc(.611764706 * var(--tile-model-raised-opacity))); }
+#game.is-landscape .hand .tile.selected { --tile-face-light:var(--tile-face-selected-strong-light); --tile-face-base:var(--tile-face-selected-strong-base); --tile-face-shade:var(--tile-face-selected-strong-shade); --tile-face-stop:72%; --tile-face-angle:var(--scene-light-angle); outline:calc(var(--ui-unit) * .45) solid #fff2a8; outline-offset:calc(var(--ui-unit) * .15); box-shadow:var(--tile-model-raised-shadow); }
+
+/* 同一盏右侧灯覆盖HUD、四席、按钮和弹窗；只改绘制，不接管各区几何。 */
+#game.is-landscape :is(.player-seat,.wallet-pill,.hud-stat,.laizi-summary,.connection,.icon-button,.dice-intro,.hint-button,.hint-close,.red-gang-badge,.hint-details),
+html.in-game .modal {
+  background-image:var(--scene-surface);
+  box-shadow:var(--scene-contact-shadow),var(--scene-main-shadow);
+}
+#game.is-landscape .dice-intro { background:var(--scene-surface),#112d24f5; }
+#game.is-landscape .hint-button { background:var(--scene-surface),#164534; }
+#game.is-landscape #hint-details { background:var(--scene-surface),linear-gradient(var(--scene-light-angle),#fff8dc,#eee0ad); }
+#game.is-landscape .player-seat {
+  background:var(--scene-surface),linear-gradient(var(--scene-light-angle),#1c4b3bc2,#0b3029c2);
+}
+#game.is-landscape .player-seat.is-active {
+  background:var(--scene-surface),linear-gradient(var(--scene-light-angle),#315a3ce6,#214b36e6);
+}
+#game.is-landscape :is(.player-seat .seat,.dealer-badge) {
+  background-image:linear-gradient(var(--scene-light-angle),#edd498,#b69a5c);
+  box-shadow:var(--scene-contact-shadow);
+}
+#game.is-landscape .player-seat .portrait { box-shadow:var(--scene-contact-shadow); }
+#game.is-landscape .player-seat.is-active .portrait { box-shadow:0 0 0 .45cqw #dcc27d29,var(--scene-contact-shadow); }
+#game.is-landscape .action-button {
+  background-image:var(--scene-surface);
+  box-shadow:var(--scene-contact-shadow),var(--scene-main-shadow);
+}
+#game.is-landscape :is(.action-button,.icon-button):not(:disabled):hover {
+  background-image:var(--scene-surface);
+  box-shadow:var(--scene-contact-shadow),var(--scene-main-shadow);
+}
+/* 状态金色光晕与向左短投影共用两层预算，描边/抬起距离保持原样。 */
+#game.is-landscape .hand .tile.selected {
+  box-shadow:calc(var(--tile-model-main-unit) * var(--tile-model-main-x)) calc(var(--tile-model-main-unit) * var(--tile-model-main-y)) var(--tile-model-main-unit) #1e1a1266,
+    0 0 calc(var(--ui-unit) * 3) #ffe58a9c;
+}
+#game.is-landscape .table .river .tile:is(.last-discard,.is-discard-focus) {
+  box-shadow:calc(var(--tile-model-main-unit) * var(--tile-model-main-x)) calc(var(--tile-model-main-unit) * var(--tile-model-main-y)) var(--tile-model-main-unit) #1e1a124d,
+    0 0 calc(var(--table-unit) * .7) #ffe4a34d;
+}
+/* 牌墙的取牌描边使用outline之外的第二层内环，不再叠成三层阴影。 */
+#game.is-landscape .wall-piece:is(.is-next-piece,.is-head-piece) {
+  box-shadow:inset calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-x) * -1) calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-y) * -1) var(--tile-model-contact-unit) rgb(var(--scene-shadow-ink) / calc(.55 * var(--tile-model-strength))),
+    inset 0 0 0 .14cqw #e8c676b3;
+}
+#game.is-landscape .wall-piece.is-head-piece:not(.is-next-piece) {
+  box-shadow:inset calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-x) * -1) calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-y) * -1) var(--tile-model-contact-unit) rgb(var(--scene-shadow-ink) / calc(.55 * var(--tile-model-strength))),
+    inset 0 0 0 .13cqw #b4dbc499;
+}
 
 .rotate-guide {
   position:fixed;

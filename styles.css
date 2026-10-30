@@ -593,11 +593,11 @@ svg {
   height:8cqw;
   padding:1.15cqw;
   border:.1cqw solid #d3c9ac;
-  border-right-color:#a49a80;
+  border-right-color:#fff5df;
   border-bottom-color:#8a8067;
   border-radius:1.7cqw;
-  background:linear-gradient(135deg,#fffbed,#efe4c9 58%,#d8cba8);
-  box-shadow:inset 0 -.55cqw .9cqw #b9a8824d,.25cqw .5cqw .9cqw #061e1780
+  background:linear-gradient(var(--scene-light-angle),var(--tile-face-normal-light),var(--tile-ivory) 58%,var(--tile-face-normal-shade));
+  box-shadow:inset .2cqw -.05cqw .9cqw #6a54344d,var(--scene-main-shadow)
 }
 
 .table-die i {
@@ -605,7 +605,7 @@ svg {
   height:1.5cqw;
   border-radius:50%;
   background:#33261a;
-  box-shadow:inset 0 .12cqw .18cqw #00000059
+  box-shadow:inset .12cqw -.03cqw .18cqw #1e1a1259
 }
 
 /* 取较小点数的那颗用来翻皮，加一圈金边点出来。 */
@@ -777,7 +777,7 @@ svg {
   background:#dbc18a;
   color:#234330;
   gap:.4cqw;
-  transition:background .15s,transform .15s,box-shadow .15s
+  transition:transform var(--tile-model-transition-duration,120ms) var(--tile-model-transition-easing,ease),opacity var(--tile-model-transition-duration,120ms) var(--tile-model-transition-easing,ease)
 }
 
 .action-button.action-next {
@@ -901,7 +901,7 @@ svg {
   padding:0;
   border-bottom:3px solid #8cad87;
   overflow:visible;
-  transition:transform .14s,background .14s
+  transition:transform .14s,opacity .14s
 }
 
 .hand .tile svg {
@@ -1028,7 +1028,7 @@ svg {
 
 .modal::backdrop {
   background:#071d17c9;
-  backdrop-filter:blur(3px)
+  backdrop-filter:none
 }
 
 .modal-close {

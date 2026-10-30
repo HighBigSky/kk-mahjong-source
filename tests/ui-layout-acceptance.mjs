@@ -221,7 +221,7 @@ async function stability(page, screen, seat) {
     });
     const before = rects(); const nodes = [...document.querySelectorAll('.river .tile')];
     // 首次把该格位标为最新出牌时，渲染器可能替换节点；每阶段重新定位，不能测脱离 DOM 的旧牌。
-    const material=()=>{const style=getComputedStyle(document.querySelector(`#river-${seat}`).children[capacity-1]);return JSON.stringify(['--tile-model-version','--tile-model-thickness','--tile-model-strength','--tile-gloss','--tile-model-face-grain','--tile-model-transmission','--tile-model-face-shadow','--tile-model-contact-shadow'].map(name=>style.getPropertyValue(name)));};
+    const material=()=>{const style=getComputedStyle(document.querySelector(`#river-${seat}`).children[capacity-1]);return JSON.stringify(['--tile-model-version','--tile-model-thickness','--tile-model-strength','--tile-gloss','--tile-model-face-grain','--tile-model-face-shadow','--tile-model-contact-shadow'].map(name=>style.getPropertyValue(name)));};
     const materialBefore=material();
     for (let render = 0; render < 10; render++) window.renderMahjong();
     const unchangedNodes = nodes.every((node, index) => document.querySelectorAll('.river .tile')[index] === node);

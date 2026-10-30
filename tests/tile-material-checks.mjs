@@ -40,7 +40,7 @@ export async function materialSnapshot(page,selector,validate=true) {
   });
   assert.ok(rows.length,`material area exists: ${selector}`);
   if(validate)for(const row of rows) {
-    assert.equal(row.version,'resin-v9',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
+    assert.equal(row.version,'resin-v10',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
     const physicalWidth=Math.min(parseFloat(row.shape.width),parseFloat(row.shape.height)),radius=physicalWidth*.09;
     assert.ok(Math.abs(row.modelWidth-physicalWidth)<.0001,`${selector} radius is based on the actual physical tile width`);
     assert.ok(row.corners.every(v=>v>0&&Math.abs(v-radius)<.0001),`${selector} all four corners share the same radius at ${row.angle}deg`);
@@ -73,9 +73,9 @@ export async function materialSnapshot(page,selector,validate=true) {
     }
     assert.equal(row.edgeBorder,'0px',`${selector} corner joins do not add a second border`);
     assert.deepEqual(row.edgeInset,['0px','0px','0px','0px'],`${selector} curved edge remains inside the original tile frame`);
-    assert.ok(row.edgeShadow.length>=2&&row.edgeShadow.every(shadow=>shadow.inset),`${selector} soft continuous inner highlight never projects onto another tile`);
+    assert.ok(row.edgeShadow.length===1&&row.edgeShadow.every(shadow=>shadow.inset),`${selector} soft continuous inner highlight never projects onto another tile`);
     assert.deepEqual([row.thickness,row.strength],({hand:[4,1],meld:[3,.8],wall:[2,.6],river:[1,.4]})[row.grade],`${selector} only four shared tiers`);
-    assert.ok(row.bevel.length>=4&&row.bevel.every(shadow=>shadow.inset),selector);
+    assert.ok(row.bevel.length===2&&row.bevel.every(shadow=>shadow.inset),selector);
     assert.equal((row.paint.match(/radial-gradient/g)||[]).length,row.back?2:3,selector);
     const rgb=value=>value.startsWith('#')?[1,3,5].map(index=>parseInt(value.slice(index,index+2),16)):(value.match(/[\d.]+/g)||[]).slice(0,3).map(Number);
     assert.deepEqual(row.faceColors.map(rgb),[[255,254,246],[246,239,221],[246,239,221],[232,223,201]],`${selector} all areas share the same ivory palette`);
@@ -84,29 +84,29 @@ export async function materialSnapshot(page,selector,validate=true) {
     const textureLayers=row.paint.match(/repeating-linear-gradient\([^;]*?(?=\), (?:repeating-|linear-|radial-)|$)/g)||[];
     assert.equal((row.paint.match(/repeating-linear-gradient/g)||[]).length,row.back?2:1,selector);
     for(const texture of textureLayers)for(const match of texture.matchAll(/rgba\([^()]*,\s*([\d.]+)\)/g))assert.ok(Number(match[1])<=(row.back?.06:.05),`${selector} texture opacity`);
-    // 普通态三层暗部只在自身牌框内；所有偏移和柔影随真实牌宽等比。
-    for(const [index,shadow]of row.ground.slice(0,3).entries()) {
-      assert.equal(shadow.inset,true,`${selector} no outward normal shadow`);
-      const offset=[.025,.045,.08][index]*row.strength,blur=[.025,.035,.09][index]*row.strength;
-      const turn=row.angle*Math.PI/180,[x,y]=shadow.px,global=[x*Math.cos(turn)-y*Math.sin(turn),x*Math.sin(turn)+y*Math.cos(turn)];
-      assert.ok(global[0]+shadow.px[3]+1.5*shadow.px[2]<=1.0001,`${selector} left shadow including blur tail <= 1px`);
-      assert.ok(Math.abs((shadow.px[3]-global[1])/row.modelWidth-offset)<.0001,`${selector} original bottom contact depth retained`);
-      assert.ok(Math.abs(shadow.px[2]/row.modelWidth-blur)<.0001,`${selector} proportional blur`);
+    // 两层内影均在本张牌框；接触/短投影随宽度和档位推导。
+    assert.equal(row.ground.length,2,selector);
+    for(const [index,shadow]of row.ground.entries()) {
+      assert.equal(shadow.inset,true,selector);
+      // 牌墙当前摸/补槽的第二层仍为原描边环；它替代主影以遵守两层预算。
+      if(index===1&&shadow.px[0]===0&&shadow.px[1]===0&&shadow.px[2]===0&&shadow.px[3]>0)continue;
+      const unit=[.025,.045][index]*row.strength*row.modelWidth;
+      const t=row.angle*Math.PI/180,[x,y]=shadow.px;
+      assert.ok(Math.abs(x*Math.cos(t)-y*Math.sin(t)-unit)<.0001,selector+' inward left edge: '+JSON.stringify({index,shadow,unit,angle:row.angle}));
+      assert.ok(Math.abs(x*Math.sin(t)+y*Math.cos(t)+unit*.25)<.0001,selector+' common slope');
+      assert.ok(Math.abs(shadow.px[2]-unit)<.0001,selector+' common proportional blur');
     }
     if(!row.back)assert.ok(row.glyph.length===2&&row.glyph.every(v=>v.inset&&v.px.every(x=>Math.abs(x)<=1)),`${selector} recessed glyph region <= 1px`);
     assert.ok(row.pseudoCount<=2,selector);
-    assert.ok(row.filters.every(filter=>filter==='none'),selector);assert.equal(row.groundCount,3,selector);
+    assert.ok(row.filters.every(filter=>filter==='none'),selector);assert.equal(row.groundCount,2,selector);
     {
       if(!row.back)assert.equal(row.bottom,'0px',selector);
-      const turn=row.angle*Math.PI/180,rotateX=shadow=>shadow.px[0]*Math.cos(turn)-shadow.px[1]*Math.sin(turn);
-      const start=row.back?2:5,outer=row.bevel[start],dark=row.bevel[start+1],ring=row.bevel[start+2];
-      assert.ok(rotateX(dark)<=1.0001&&rotateX(ring)+ring.px[3]<=1.0001,'left outer and inner bevel <= 1px');
-      assert.ok(Math.abs((-rotateX(ring)+ring.px[3])/row.modelWidth-.04)<.0001,`${selector} right inner bevel width unchanged: ${JSON.stringify({ring,angle:row.angle,width:row.modelWidth,bevel:row.bevel})}`);
-      assert.ok(Math.abs(Math.hypot(...outer.px.slice(0,2))/row.modelWidth-Math.SQRT2*.025)<.0001,'original upper-right outer bevel retained');
+      assert.ok(row.bevel.every(shadow=>shadow.inset),selector+' bevels stay in frame');
+      if(!row.back)assert.ok(Math.abs(Math.hypot(...row.bevel[0].px.slice(0,2))/row.modelWidth-Math.hypot(1,.25)*.025)<.0001,'right-side outer bevel follows common light');
     }
-    for(const name of ['light','shadow','main','soft'])assert.ok(row[name].every((v,i)=>Math.abs(v-[-1,1][i])<1e-6),`${selector} ${name}: ${row[name]}`);
-    assert.ok(Math.abs(((row.gradientAngle+row.angle-215)%360+360)%360)<1e-6,`${selector} global glaze direction`);
-    if(row.back){assert.match(row.body,/rgb\(119, 211, 154\)/);assert.ok(row.bevel.length>=6,`${selector} embossed green back`);}
+    for(const name of ['light','shadow','main'])assert.ok(row[name].every((v,i)=>Math.abs(v-[-1,.25][i])<1e-6),`${selector} ${name}: ${row[name]}`);
+    assert.ok(Math.abs(((row.gradientAngle+row.angle-255)%360+360)%360)<1e-6,`${selector} global glaze direction`);
+    if(row.back){assert.match(row.body,/rgb\(119, 211, 154\)/);assert.ok(row.bevel.length===2,`${selector} embossed green back`);}
   }
   return rows;
 }
@@ -124,10 +124,10 @@ export async function checkMaterialAreas(page,{baseline=false}={}) {
     const groups=[result.hand,result['meld-0'],result.wall,result['river-0']];
     assert.deepEqual(groups.map(rows=>rows[0].thickness),[4,3,2,1],'hand > meld > wall > river thickness');
     assert.deepEqual(groups.map(rows=>rows[0].strength),[1,.8,.6,.4],'contact shadow strength follows thickness');
-    assert.ok(groups.every(rows=>Math.abs(rows[0].ground[2].px[2]/rows[0].modelWidth-.09*rows[0].strength)<.0001),'soft shadow is proportional to actual width and tier');
+    assert.ok(groups.every(rows=>{const row=rows.find(row=>row.ground[1].px[2]>0);return row&&Math.abs(row.ground[1].px[2]/row.modelWidth-.045*row.strength)<.0001;}),'short main shadow is proportional to actual width and tier');
     const contactAlpha=groups.map(rows=>rows[0].ground[0].alpha);assert.ok(contactAlpha.every((value,index)=>!index||value<contactAlpha[index-1]),'rendered contact opacity decreases with thickness');
     for(const seat of [0,1,2,3]){assert.ok(result[`river-${seat}`].every(row=>row.thickness===1&&row.strength===.4));assert.ok(result[`meld-${seat}`].every(row=>row.thickness===3&&row.strength===.8));}
-    // 在完整桌面透视后验证径向高光仍在右上方，不只检查局部渐变角度。
+    // 在完整桌面透视后验证径向高光仍在右侧略偏前上方，不只检查局部渐变角度。
     const highlights=await page.evaluate(()=>[0,1,2,3].map(seat=>{
       const node=document.querySelector(`#river-${seat} .tile`),s=getComputedStyle(node),corners=window.visualGeometry.quad(node);
       const point=(x,y)=>({x:corners[0].x*(1-x)*(1-y)+corners[1].x*x*(1-y)+corners[2].x*x*y+corners[3].x*(1-x)*y,y:corners[0].y*(1-x)*(1-y)+corners[1].y*x*(1-y)+corners[2].y*x*y+corners[3].y*(1-x)*y});

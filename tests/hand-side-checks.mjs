@@ -39,7 +39,7 @@ export async function checkHandSides(page,size) {
         coatRadius:after.borderRadius,coatInset:[after.top,after.right,after.bottom,after.left],coatBorder:after.borderWidth,
         faceBorder:before.borderBottomWidth,faceBackground:before.backgroundImage,svgBottomGap:n.getBoundingClientRect().bottom-svg.getBoundingClientRect().bottom,
         bodyDepth:s.getPropertyValue('--tile-depth').trim(),
-        bevelOuter:Math.abs(shadows(before.boxShadow)[5].px[0]),bevelInner:Number((shadows(before.boxShadow)[7].px[3]-shadows(before.boxShadow)[7].px[0]-Math.abs(shadows(before.boxShadow)[5].px[0])).toFixed(4)),
+        bevelOuter:Math.abs(shadows(before.boxShadow)[0].px[0]),bevelInner:shadows(before.boxShadow)[1].px[3],
         faceShadows:shadows(before.boxShadow),faceLayerKinds:faceLayers.map(layer=>layer.split('(')[0]),
         glazeAlphas:[...faceLayers.find(layer=>layer.startsWith('linear-gradient')).matchAll(/rgba\([^()]*,\s*([\d.]+)\)/g)].map(m=>Number(m[1])),
         materialRadials:faceLayers.filter(layer=>layer.startsWith('radial-gradient')).length,
@@ -65,16 +65,16 @@ export async function checkHandSides(page,size) {
       assert.ok(Math.abs(tile.svgBottomGap)<.05,'SVG reaches the tile bottom');
       assert.ok(tile.topDepth>=1&&tile.topDepth<=2,'each hand tile has a 1–2px top plane');
       assert.match(tile.coatLayers[9],/^linear-gradient\(/,label);
-      assert.match(tile.faceBackground,/at 82% 8%/,'glaze light comes from the upper right');
+      assert.match(tile.faceBackground,/at 92% 32%/,'glaze light comes from the right, slightly forward and above');
       assert.ok(Math.abs(tile.bevelOuter/parseFloat(tile.width)-.025)<.0001,label);
-      assert.ok(Math.abs(tile.bevelInner/parseFloat(tile.width)-.015)<.0001,label);
-      assert.equal(tile.faceShadows.length,8,'three inward contact layers, transmission, edge contact and dual bevel');
+      assert.ok(tile.bevelInner>0&&tile.bevelInner/parseFloat(tile.width)<=.04,label);
+      assert.equal(tile.faceShadows.length,2,'dual bevel is merged into two inward shadows');
       assert.ok(tile.faceShadows.every(shadow=>shadow.inset),'normal face layers cannot cast onto adjacent cards');
       assert.equal(tile.faceLayerKinds.filter(kind=>kind==='linear-gradient').length,3,label);assert.equal(tile.materialRadials,3,label);
       assert.ok(tile.faceLayerKinds.includes('repeating-linear-gradient'),'fine resin grain');
       assert.ok(tile.faceLayerKinds.every(kind=>kind==='linear-gradient'||kind==='radial-gradient'||kind==='repeating-linear-gradient'),label);
       assert.ok(tile.glazeAlphas.length>0&&Math.max(...tile.glazeAlphas)<=.08,'diagonal glaze never exceeds 8%');
-      assert.equal(tile.groundLayers,3,'three ground shadow layers are retained');
+      assert.equal(tile.groundLayers,2,'contact and short main shadows; broad AO belongs to scene containers');
       assert.ok(tile.coatShadows.every(shadow=>shadow.inset),'green side paint and its shadows stay inside the rounded tile');
       assert.ok(tile.filters.every(value=>value==='none'),'material uses no filter or backdrop-filter');
       assert.equal(tile.coatRadius,tile.radius,'top and side share a rounded canvas');

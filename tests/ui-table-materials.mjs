@@ -6,7 +6,7 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
 
-const BASELINE='3601345';
+const BASELINE='5bbe071';
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
 const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});
 server.listen(0,'127.0.0.1');await once(server,'listening');
@@ -65,7 +65,7 @@ try {
     }
     const layers=split(after.frame.background);assert.equal(layers.length,8);
     assert.match(layers[2],/^repeating-linear-gradient\(90deg/);assert.match(layers[3],/^repeating-linear-gradient\(0deg/);
-    assert.match(layers[4],/^repeating-radial-gradient/);assert.match(layers[5],/^radial-gradient\(at 68% 24%/);
+    assert.match(layers[4],/^repeating-radial-gradient/);assert.match(layers[5],/^radial-gradient\(at 92% 32%/);
     assert.ok(layers.slice(6).every(layer=>layer.startsWith('repeating-radial-gradient')),'two continuous wood growth periods');
     const ratios=[2,3,4,6,7].map(index=>{const lengths=[...layers[index].matchAll(/(-?[\d.]+)px/g)].map(match=>Number(match[1]));return lengths.at(-1)/parseFloat(after.frameSize);});
     for(const [i,ratio]of ratios.entries())assert.ok(Math.abs(ratio-[.0018,.0018,.00187,.005,.038][i])<1e-6,'material periods scale with the physical table width');
@@ -78,14 +78,14 @@ try {
     }
     const well=split(after.inlay.background);assert.equal(well.length,1);assert.match(well[0],/^radial-gradient/);const wellInk=gradientColors(well[0]);assert.ok(wellInk[0][3]>0&&wellInk[0][3]<=.15);assert.equal(wellInk.at(-1)[3],0,'center depression fades to transparent without a hard boundary');const wellShadows=split(after.inlay.shadow);assert.equal(wellShadows.length,2);assert.ok(wellShadows.every(value=>value.includes('inset')&&Number([...value.matchAll(/(-?[\d.]+)px/g)][2][1])>0));
     const oldShadows=split(before.frame.shadow),shadows=split(after.frame.shadow);assert.equal(shadows.length,4);assert.equal(shadows.length,oldShadows.length);
-    for(let i=0;i<shadows.length;i++){const px=value=>[...value.matchAll(/(-?[\d.]+)px/g)].map(match=>Number(match[1]));assert.deepEqual(px(shadows[i]).slice(0,2),px(oldShadows[i]).slice(0,2),'side-wall and ground offsets unchanged');}
+    for(let i=0;i<shadows.length;i++){const px=value=>[...value.matchAll(/(-?[\d.]+)px/g)].map(match=>Number(match[1]));assert.ok(px(shadows[i])[0]<0&&px(shadows[i])[1]>0,'decorative wood depth and cast shadows move to the left under the right-side lamp');}
     const woodLum=shadows.slice(0,3).map(shadow=>luminance(colors(shadow)));assert.ok(woodLum[0]>woodLum[1]&&woodLum[1]>woodLum[2],'three original side-wall layers run from highlight through middle to shade');
     const felt=[27,85,67],gold=after.inlay.colors.map(colors),oldGold=before.inlay.colors.map(colors);
     const goldContrast=gold.map(color=>contrast(composite(color,felt),felt)),oldContrast=oldGold.map(color=>contrast(composite(color,felt),felt));
     assert.deepEqual(after.inlay.colors,before.inlay.colors,'existing gold line endpoints are retained');assert.ok(gold.every(color=>luminance(composite(color,felt))<luminance([255,253,246])),'inlay remains darker than the tile highlights');
-    const depth=split(after.border.background);assert.equal(depth.length,2);assert.match(depth[0],/^linear-gradient\(215deg/);assert.match(depth[1],/^linear-gradient\((?:180deg,\s*)?rgba?\(/);const depthInk=gradientColors(depth[1]),wood=[96,67,46],far=luminance(composite(depthInk[0],wood)),near=luminance(composite(depthInk.at(-1),wood));assert.ok(far>near&&depthInk.at(-1)[3]>depthInk[0][3],'near wood is darker, far wood lighter');assert.ok(luminance(composite(colors(after.frame.colors[0]),wood))>luminance(composite(colors(after.frame.colors[2]),wood)),'thin far edge is lighter than near edge');
+    const depth=split(after.border.background);assert.equal(depth.length,2);assert.match(depth[0],/^linear-gradient\(255deg/);assert.match(depth[1],/^linear-gradient\(90deg,\s*rgba?\(/);const depthInk=gradientColors(depth[1]),wood=[96,67,46],far=luminance(composite(depthInk[0],wood)),near=luminance(composite(depthInk.at(-1),wood));assert.ok(near>far,'right wood is brighter than left wood');assert.ok(luminance(composite(colors(after.frame.colors[0]),wood))>luminance(composite(colors(after.frame.colors[2]),wood)),'thin far edge is lighter than near edge');
     const nearDepth=Number([...shadows[2].matchAll(/(-?[\d.]+)px/g)][1][1]);assert.ok(nearDepth>parseFloat(after.frame.shape['border-width']),'three positive-Y sidewall shadows paint more near depth than the far thin edge');
-    assert.deepEqual(after.tileLight,before.tileLight,'tile material is untouched');assert.ok(after.tileLight.every((value,index)=>Math.abs(value-[82,8][index])<1e-4),"light direction keeps its upper-right reference despite serialized projection tails");const gameLayers=split(after.game.background);assert.equal(gameLayers.length,3);assert.match(gameLayers[1],/^radial-gradient\(at 82% 8%/);const outside=gradientColors(gameLayers[0]);assert.equal(outside[0][3],0);assert.ok(outside.at(-1)[3]>.5,'environment darkens softly away from the table');
+    assert.ok(after.tileLight.every((value,index)=>Math.abs(value-[92,32][index])<1e-4),"light direction keeps its upper-right reference despite serialized projection tails");const gameLayers=split(after.game.background);assert.equal(gameLayers.length,3);assert.match(gameLayers[1],/^radial-gradient\(at 92% 32%/);const outside=gradientColors(gameLayers[0]);assert.equal(outside[0][3],0);assert.ok(outside.at(-1)[3]>.5,'environment darkens softly away from the table');
     report.cases.push({size,tableRect:after.geometry['.table'][0].rect,frameRect:after.geometry['.table-border'][0].rect,rectangles:Object.values(after.geometry).reduce((sum,list)=>sum+list.length,0),geometryExactlyEqual:true,backgroundLayers:layers.length,texturePeriods:[2,3,4,6,7].map(index=>[...layers[index].matchAll(/(-?[\d.]+)px/g)].map(match=>Number(match[1])).at(-1)),frameWidth:parseFloat(after.frameSize),periodRatios:ratios,gold:after.inlay.colors,goldContrast,oldContrast,groove:after.groove,wellAlpha:wellInk[0][3],wellShadows:wellShadows.length,nearFarLuminance:{near,far},nearDepth,shadowLayers:shadows.length,gameLayers:gameLayers.length,tileLight:after.tileLight});
   }
   assert.ok(new Set(report.cases.map(row=>row.frameWidth)).size>1,'density is checked at different physical frame widths');assert.deepEqual(report.errors,[]);report.passed=true;

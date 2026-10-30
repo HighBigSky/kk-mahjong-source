@@ -34,22 +34,24 @@ export function syncTileMetric(node,box=null) {
   if(!(width>0&&height>0))return;
   const matrix=style.transform==='none'?null:new DOMMatrix(style.transform);
   const angle=clean(matrix?Math.atan2(matrix.b,matrix.a)*180/Math.PI:0),svg=node.querySelector('svg'),ss=svg&&getComputedStyle(svg);
+  // CSS场景参数是唯一光源；连同旋转一起反投影，左右牌河不能把灯随牌转走。
+  const lamp={x:Number(style.getPropertyValue('--scene-shadow-x').trim()||-1),y:Number(style.getPropertyValue('--scene-shadow-y').trim()||.25),sx:parseFloat(style.getPropertyValue('--scene-light-x')||92)/100,sy:parseFloat(style.getPropertyValue('--scene-light-y')||32)/100};
   // 显隐或牌面单独旋转后，牌框可能没变；SVG 的尺寸/角度也必须参与材质缓存。
-  const key=`${width}:${height}:${angle}:${ss?.width}:${ss?.height}:${ss?.transform}`;
+  const key=`${width}:${height}:${angle}:${ss?.width}:${ss?.height}:${ss?.transform}:${lamp.x}:${lamp.y}:${lamp.sx}:${lamp.sy}`;
   if(metricCache.get(node)===key)return;
   metricCache.set(node,key);
   const t=angle*Math.PI/180,c=Math.cos(t),s=Math.sin(t),inverse=(x,y)=>[clean(c*x+s*y),clean(-s*x+c*y)];
-  const [lx,ly]=inverse(-1,1),[ox,oy]=inverse(1,0),globalWidth=Math.abs(c)*width+Math.abs(s)*height,globalHeight=Math.abs(s)*width+Math.abs(c)*height;
+  const [lx,ly]=inverse(lamp.x,lamp.y),[ox,oy]=inverse(1,0),globalWidth=Math.abs(c)*width+Math.abs(s)*height,globalHeight=Math.abs(s)*width+Math.abs(c)*height;
   const point=(x,y)=>{const [px,py]=inverse((x-.5)*globalWidth,(y-.5)*globalHeight);return[clean((.5+px/width)*100),clean((.5+py/height)*100)];};
-  const shine=point(.82,.08),grain=point(.18,.88);
-  const values={'--tile-model-width':`${Math.min(width,height)}px`,'--tile-model-turn':`${angle}deg`,'--tile-model-light-x':lx,'--tile-model-light-y':ly,'--tile-model-occlusion-x':ox,'--tile-model-occlusion-y':oy,'--tile-model-shine-x':`${shine[0]}%`,'--tile-model-shine-y':`${shine[1]}%`,'--tile-model-grain-x':`${grain[0]}%`,'--tile-model-grain-y':`${grain[1]}%`,'--tile-model-top-paint':s+c>0?'var(--tile-model-plane-lit)':'var(--tile-model-plane-shade)'};
-  // 弧形顶边与直顶边共用同一次光照判定，旋转后不能出现一段亮、一段暗的接缝。
-  values['--tile-model-top-curve-tones']=s+c>0?'var(--tile-model-curve-lit)':'var(--tile-model-curve-shade)';
+  const shine=point(lamp.sx,lamp.sy),grain=point(.18,.88),topLit=-lamp.x*s+lamp.y*c>0;
+  const values={'--tile-model-width':`${Math.min(width,height)}px`,'--tile-model-turn':`${angle}deg`,'--tile-model-light-x':lx,'--tile-model-light-y':ly,'--tile-model-occlusion-x':ox,'--tile-model-occlusion-y':oy,'--tile-model-shine-x':`${shine[0]}%`,'--tile-model-shine-y':`${shine[1]}%`,'--tile-model-grain-x':`${grain[0]}%`,'--tile-model-grain-y':`${grain[1]}%`,'--tile-model-top-paint':topLit?'var(--tile-model-plane-lit)':'var(--tile-model-plane-shade)'};
+  // 右侧略偏前上方的单灯：弧形顶边与直顶边共用同一次光照判定，旋转后不能出现一段亮、一段暗的接缝。
+  values['--tile-model-top-curve-tones']=topLit?'var(--tile-model-curve-lit)':'var(--tile-model-curve-shade)';
   // 微描边使用已读取的牌宽给数值，不依赖移动浏览器较新的CSS量纲相除。
   values['--tile-model-glyph-accent']=clean(12/Math.min(width,height));
   values['--tile-model-axis-x']=ox;values['--tile-model-axis-y']=oy;
   const [downX,downY]=inverse(0,1);values['--tile-model-down-x']=downX;values['--tile-model-down-y']=downY;
-  for(const prefix of ['shadow','main','soft']){values[`--tile-model-${prefix}-x`]=lx;values[`--tile-model-${prefix}-y`]=ly;}
+  for(const prefix of ['shadow','main']){values[`--tile-model-${prefix}-x`]=lx;values[`--tile-model-${prefix}-y`]=ly;}
   for(const [name,value]of Object.entries(values))node.style.setProperty(name,String(value));
 }
 

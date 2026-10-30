@@ -14,7 +14,7 @@ const service=new RoomService({botDelayMs:600000}),server=createServer({roomServ
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const context=await browser.newContext({viewport:{width:640,height:360},reducedMotion:'reduce'});
 await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('fixed viewport'))});});
-const BASELINE='ebe2e64';
+const BASELINE='5bbe071';
 const sheets=['tiles-depth.css','landscape.css','styles.css','seats-layout.css','wall-layout.css'];
 for(const file of sheets)await context.route(`**/${file}?material-baseline=*`,route=>route.fulfill({body:execFileSync('git',['show',`${BASELINE}:${file}`]),contentType:'text/css'}));
 const page=await context.newPage(),report={passed:false,errors:[],cases:[],screenshots:0,note:`Client display fixtures only. Dialog and animation examples reuse existing markup classes; no product DOM or game actions are added. Geometry is compared to ${BASELINE}; no screenshot pixel sampling.`};
@@ -42,16 +42,12 @@ async function checkPair(size,area,read) {
     maxProjectionDelta=Math.max(maxProjectionDelta,...row.shape.rect.map((value,i)=>Math.abs(value-old.shape.rect[i])));
     assert.ok(maxProjectionDelta<=.001,`${name} projected geometry unchanged within floating-point precision: ${maxProjectionDelta}px`);
     assert.deepEqual(row.corners,old.corners,'all four rounded-corner radii unchanged');
-    if(row.back)assert.equal(row.paint,old.paint,'green back weave and material unchanged');
-    else {
-      assert.equal(row.paintLayers.length,old.paintLayers.length+1,'one subtle convex light layer is added to the original face');
-      const additions=row.paintLayers.map((layer,index)=>({layer,remaining:row.paintLayers.filter((_,i)=>i!==index)})).filter(candidate=>JSON.stringify(candidate.remaining)===JSON.stringify(old.paintLayers));
-      assert.ok(additions.some(candidate=>candidate.layer.startsWith('radial-gradient(')),'existing ivory colors, glaze and grain remain in order beneath one radial curve layer');
-    }
+    assert.equal(row.paintLayers.length,old.paintLayers.length,'existing face/texture drawing layer count is retained');
     assert.equal(row.topSize,old.topSize,'visible top plane size unchanged');assert.equal(row.rightSize,old.rightSize,'visible right plane size unchanged');
-    assert.equal(row.body,old.body,'tile body material unchanged');assert.deepEqual(row.ground,old.ground,'contact shadows unchanged');assert.deepEqual(row.bevel,old.bevel,'dual bevel shadow values unchanged');
-    assert.deepEqual(row.glyph,old.glyph,'glyph recession unchanged');
-    assert.deepEqual(row.coating,old.coating,'rounded side and top transitions unchanged');
+    assert.deepEqual(row.edgeSizes,old.edgeSizes,'rounded edge coverage sizes unchanged');
+    assert.deepEqual(row.edgePositions,old.edgePositions,'rounded edge coverage positions unchanged');
+    for(const shadows of [row.ground,row.bevel,row.edgeShadow,row.glyph])assert.ok(shadows.length<=2,'each drawing layer uses at most two shadows');
+
   }
   if(pair[0].hand){const center=data=>(data[0].shape.rect[0]+data.at(-1).shape.rect[0]+data.at(-1).shape.rect[2])/2;assert.ok(Math.abs(center(pair[0].hand)-center(pair[1].hand))<.05,'hand row remains centered');}
   const edgeSample=rows=>{const row=rows.find(tile=>tile.rightSize>0)||rows[0];return {top:row.topSize,right:row.rightSize,paint:row.edgeLayers,sizes:row.edgeSizes,positions:row.edgePositions,shadow:row.edgeShadow};};
