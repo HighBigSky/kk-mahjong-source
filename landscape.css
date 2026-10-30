@@ -419,6 +419,9 @@ html.in-game #game.is-landscape {
 }
 /* 桌框整体等比扩大，裁去上下桌沿；逻辑方桌尺寸不变，牌区不会跟着位移。 */
 #game.is-landscape .table::before {
+  /* 沿用原木框42/1000的内沿；双SVG偏移合成的绒布边界用相同绘制尺寸保留。 */
+  --table-felt-paint-width:calc(var(--table-frame-size) * .916 - var(--table-frame-side-inset) * 2);
+  --table-felt-paint-height:calc(var(--table-frame-size) * .916);
   content:"";
   position:absolute;
   z-index:-2;
@@ -429,16 +432,17 @@ html.in-game #game.is-landscape {
   border:1px solid #c69c6370;
   border-radius:calc(var(--ui-unit) * 5);
   background:
-    url("assets/table-square-frame.svg") var(--table-frame-side-inset) 0 / 100% 100% no-repeat,
-    url("assets/table-square-frame.svg") calc(-1 * var(--table-frame-side-inset)) 0 / 100% 100% no-repeat,
-    repeating-linear-gradient(28deg,#d9ebcd04 0 1px,transparent 1px 3px),
-    repeating-linear-gradient(118deg,#002c2509 0 1px,transparent 1px 4px),
-    radial-gradient(ellipse at 50% 42%,#38775d,#1b5543 48%,#0a3027);
+    var(--table-felt-warp) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-weft) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-fuzz) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-lighting) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-wood-grain),
+    var(--table-wood-growth);
   box-shadow:
-    0 calc(var(--ui-unit) * 1.1) 0 #70462a,
-    0 calc(var(--ui-unit) * 2.2) 0 #462a1c,
-    0 calc(var(--ui-unit) * 3.3) 0 #241910,
-    0 calc(var(--ui-unit) * 6) calc(var(--ui-unit) * 5) #010b09c9;
+    0 calc(var(--ui-unit) * 1.1) calc(var(--ui-unit) * .12) #8b603c,
+    0 calc(var(--ui-unit) * 2.2) calc(var(--ui-unit) * .2) #563722,
+    0 calc(var(--ui-unit) * 3.3) calc(var(--ui-unit) * .28) #291c14,
+    0 calc(var(--ui-unit) * 6) calc(var(--ui-unit) * 5.4) #060e0bd1;
   pointer-events:none;
   clip-path:inset(0 var(--table-frame-side-inset));
   transform:translateZ(-1px) scale(var(--table-frame-zoom));
@@ -449,7 +453,7 @@ html.in-game #game.is-landscape {
   border:0;
   border-radius:calc(var(--ui-unit) * 2);
   background:none;
-  box-shadow:inset 0 calc(var(--ui-unit) * .6) calc(var(--ui-unit) * 2.4) #031e1759;
+  box-shadow:inset 0 calc(var(--ui-unit) * .6) calc(var(--table-frame-size) * .18) #111c1670;
   transform:scale(var(--table-frame-zoom));
   transform-origin:50% calc(var(--table-frame-size) * .43);
   clip-path:inset(0 max(0px,calc(var(--table-frame-side-inset) - var(--table-frame-size) * .04)));
@@ -458,7 +462,9 @@ html.in-game #game.is-landscape {
   content:"";
   position:absolute;
   inset:15% 24%;
-  border:calc(var(--table-unit) * 1.2) double #64b6a60b;
+  border:calc(var(--table-unit) * 1.2) double #bf9f6540;
+  border-top-color:#cfb4784d;
+  border-bottom-color:#8f713f38;
   border-radius:50%;
   pointer-events:none;
 }

@@ -8,9 +8,9 @@
   --table-inlay-width:clamp(1px,.4cqw,2px);
   --table-apron-depth:.85cqw;
   --table-rim-radius:5cqw;
-  --felt-base:#185341;
-  --felt-light:#2f6c56;
-  --felt-shade:#133d31;
+  --felt-base:#1b5543;
+  --felt-light:#38775d;
+  --felt-shade:#0a3027;
   --felt-edge-depth:1.5cqw;
   --felt-thread-step:.24cqw;
   --compass-rim:.65cqw;
@@ -23,12 +23,26 @@
 .opponent-top>.opponent-state { top:9.4cqw; min-height:0; line-height:1; }
 
 .table {
+  /* 纹距基于实体桌框宽度；不按屏幕或像素密度另做一套纹理。 */
+  --table-texture-width:var(--table-frame-size,100cqw);
+  --felt-thread-step:calc(var(--table-texture-width) * .0018);
+  --felt-fiber-width:calc(var(--felt-thread-step) * .24);
+  --felt-fuzz-step:calc(var(--table-texture-width) * .0011);
+  --wood-fine-step:calc(var(--table-texture-width) * .005);
+  --wood-growth-step:calc(var(--table-texture-width) * .038);
+  --table-felt-warp:repeating-linear-gradient(90deg,#c8dfc309 0 var(--felt-fiber-width),#102f2505 var(--felt-fiber-width) calc(var(--felt-thread-step) * .55),transparent calc(var(--felt-thread-step) * .55) var(--felt-thread-step));
+  --table-felt-weft:repeating-linear-gradient(0deg,#061e1810 0 var(--felt-fiber-width),#b9d3b506 var(--felt-fiber-width) calc(var(--felt-thread-step) * .48),transparent calc(var(--felt-thread-step) * .48) var(--felt-thread-step));
+  --table-felt-fuzz:repeating-radial-gradient(ellipse at 32% 29%,#d4e5c403 0 calc(var(--felt-fuzz-step) * .3),#071d1804 calc(var(--felt-fuzz-step) * .3) var(--felt-fuzz-step),transparent var(--felt-fuzz-step) calc(var(--felt-fuzz-step) * 1.7));
+  --table-felt-lighting:radial-gradient(ellipse at 35% 30%,var(--felt-light) 0%,var(--felt-base) 58%,var(--felt-shade) 100%);
+  /* 不同周期的弧形年轮沿四边转向，连续穿过桌角；不再叠加位图木框。 */
+  --table-wood-grain:repeating-radial-gradient(ellipse at 48% 49%,#e2b67a18 0 calc(var(--wood-fine-step) * .08),transparent calc(var(--wood-fine-step) * .08) calc(var(--wood-fine-step) * .46),#20130c30 calc(var(--wood-fine-step) * .46) calc(var(--wood-fine-step) * .57),transparent calc(var(--wood-fine-step) * .57) var(--wood-fine-step));
+  --table-wood-growth:repeating-radial-gradient(ellipse at 51% 50%,#3c2619 0,var(--table-wood-mid) calc(var(--wood-growth-step) * .31),#805733 calc(var(--wood-growth-step) * .56),#573823 calc(var(--wood-growth-step) * .81),#3c2619 var(--wood-growth-step));
   isolation:isolate;
   border-radius:var(--table-rim-radius);
   border:1px solid #af8b55;
   background:
-    repeating-linear-gradient(174deg,transparent 0 1.35cqw,#e5bb8110 1.4cqw 1.46cqw,transparent 1.51cqw 2.45cqw,#1a100b24 2.5cqw 2.58cqw),
-    linear-gradient(135deg,var(--table-wood-light),var(--table-wood-mid) 32%,var(--table-wood-dark));
+    var(--table-wood-grain),
+    var(--table-wood-growth);
   box-shadow:
     inset .15cqw .2cqw .14cqw #f6dba176,
     inset -.2cqw -.28cqw .25cqw #1b120cba,
@@ -45,8 +59,8 @@
   border:1px solid #201911;
   border-radius:inherit;
   background:
-    repeating-linear-gradient(0deg,transparent 0 .25cqw,#0e0a0726 .27cqw .32cqw),
-    linear-gradient(135deg,#89633e,#4e3827 42%,#241d17);
+    var(--table-wood-grain),
+    var(--table-wood-growth);
   box-shadow:inset 0 -.2cqw .2cqw #110e0bb3,0 .22cqw .2cqw #081c1370;
   pointer-events:none;
 }
@@ -62,8 +76,8 @@
   border-bottom-color:#927644;
   border-radius:calc(var(--table-rim-radius) - .43cqw);
   background:
-    repeating-linear-gradient(174deg,transparent 0 1.35cqw,#ebc8900e 1.4cqw 1.46cqw,transparent 1.51cqw 2.5cqw),
-    linear-gradient(135deg,#9b754d,#654931 32%,#463223 74%,#33251c);
+    var(--table-wood-grain),
+    var(--table-wood-growth);
   box-shadow:0 .12cqw .14cqw #20170ebf,inset .12cqw .16cqw .16cqw #f1d0974d,inset -.13cqw -.15cqw .16cqw #1e170fd9;
   pointer-events:none;
 }
@@ -72,9 +86,10 @@
   z-index:0;
   border-color:#0d3428;
   background:
-    repeating-linear-gradient(35deg,#dbf1c902 0 .055cqw,transparent .055cqw var(--felt-thread-step)),
-    repeating-linear-gradient(125deg,#031d1504 0 .055cqw,transparent .055cqw var(--felt-thread-step)),
-    radial-gradient(ellipse at 26% 18%,var(--felt-light),var(--felt-base) 62%,var(--felt-shade));
+    var(--table-felt-warp),
+    var(--table-felt-weft),
+    var(--table-felt-fuzz),
+    var(--table-felt-lighting);
   box-shadow:
     inset .65cqw .8cqw var(--felt-edge-depth) #041e17b3,
     inset -.2cqw -.3cqw .55cqw #75a17c52,
