@@ -116,6 +116,43 @@
 .room-play-controls>button { flex:1; }
 .room-leave { display:block; margin:10px auto 0; min-height:36px; padding:7px 12px; color:#c8b798; border:0; background:none; font-size:12px; text-decoration:underline; text-underline-offset:3px; }
 
+/* 离房独立于设置文字链；多出的8px由原上边距补偿，再移回原位，不推移状态行或弹窗。 */
+.room-leave.room-leave-danger {
+  position:relative;
+  top:8px;
+  width:min(80%,160px);
+  min-height:44px;
+  margin-top:2px;
+  border:1px solid #a17468;
+  border-radius:8px;
+  background:var(--ui-panel-coat) #422e2b;
+  color:#f0c2b4;
+  box-shadow:var(--ui-panel-shadow);
+  font-size:14px;
+  font-weight:600;
+  line-height:1.4;
+  white-space:nowrap;
+  text-decoration:none;
+  transition:var(--ui-panel-transition);
+}
+.room-leave-danger:not(:disabled):hover {
+  --ui-panel-shine-x:98%;
+  background-color:#503833;
+}
+.room-leave-danger:not(:disabled):active {
+  --ui-panel-gloss:.025;
+  box-shadow:var(--ui-panel-pressed-shadow);
+}
+.room-leave-danger:focus-visible { outline:2px solid var(--gold-light); outline-offset:3px; }
+.room-modal .room-leave-danger:disabled {
+  background-image:none;
+  background-color:#39322f;
+  border-color:#765e56;
+  color:#c1a79c;
+  box-shadow:inset 1px 0 1px #1e1a1230;
+  opacity:1;
+}
+
 .connection[data-state="offline"] i,.connection[data-state="error"] i { background:#bd8e73; }
 .connection[data-state="connecting"] i,.connection[data-state="reconnecting"] i { background:#d8b46d; }
 .connection[data-state="connected"] i { background:#a0c58d; }

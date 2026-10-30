@@ -1461,7 +1461,7 @@ svg {
 /* 现有元素共用一张材质画布：微凸釉面、左缘暗部和1px右侧高光。
    参数在元素上求值，hover只改灯斑位置，不能因根变量提前求值而失效。 */
 html :is(.player-seat,.portrait,.result-avatar,.wallet-pill,.hud-stat,.laizi-summary,.connection,.modal,.room-invite,.hint-details),
-html button:is(.action-button,.primary-button,.secondary-button,.icon-button,.modal-close,.hint-button,.hint-close,.setting-link,.choice-option,.room-bot-button) {
+html button:is(.action-button,.primary-button,.secondary-button,.icon-button,.modal-close,.hint-button,.hint-close,.setting-link,.choice-option,.room-bot-button,.room-leave-danger) {
   --ui-panel-shine-x:var(--scene-light-x,92%);
   --ui-panel-shine-y:var(--scene-light-y,32%);
   --ui-panel-gloss:.07;
