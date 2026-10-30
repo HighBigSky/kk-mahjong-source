@@ -23,7 +23,13 @@ const split=s=>{if(s==='none')return [];const out=[];let depth=0,start=0;for(let
 const rgb=s=>s.startsWith('#')?[1,3,5].map(i=>parseInt(s.slice(i,i+2),16)):(s.match(/[\d.]+/g)||[]).slice(0,3).map(Number);
 const luminance=c=>c.map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;}).reduce((sum,x,i)=>sum+x*[.2126,.7152,.0722][i],0);
 async function sheet(baseline){
-  await page.evaluate(({sheets,baseline})=>Promise.all(sheets.map(file=>new Promise((resolve,reject)=>{const link=[...document.querySelectorAll('link[rel=stylesheet]')].find(n=>new URL(n.href).pathname.endsWith('/'+file));link.onload=resolve;link.onerror=reject;link.href='/'+file+'?panel-'+(baseline?'baseline':'current')+'='+Date.now();}))),{sheets,baseline});await frames();
+  await page.evaluate(async({sheets,baseline})=>{
+    // 先取齐三表，再在同一任务内按原顺序替换，避免公网逐表到达时的中间布局触发滚动锚定。
+    const sources=await Promise.all(sheets.map(async file=>{const response=await fetch('/'+file+'?panel-'+(baseline?'baseline':'current')+'='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('stylesheet '+file);return response.text();}));
+    sheets.forEach((file,i)=>{const old=document.querySelector(`[data-panel-sheet="${file}"]`)||[...document.querySelectorAll('link[rel=stylesheet]')].find(n=>new URL(n.href).pathname.endsWith('/'+file));const style=document.createElement('style');style.dataset.panelSheet=file;style.textContent=sources[i];old.replaceWith(style);});
+    // 固定对照输入：都从弹窗起点测量，并同时断言内容总尺寸，不能靠改变滚动量掩盖尺寸差异。
+    for(const dialog of document.querySelectorAll('.modal[open]')){dialog.scrollTop=0;dialog.scrollLeft=0;}
+  },{sheets,baseline});await frames();
 }
 async function snapshot(){return page.evaluate(()=>{
   const selectors='.player-seat,.player-seat *,.topbar,.topbar *,.action-zone,.action-zone *,.modal[open],.modal[open] *,.table,.table-border,.river,.opponent-rack,#hand,.hand-zone,#wall-tail,.wall-stack';
@@ -33,10 +39,11 @@ async function snapshot(){return page.evaluate(()=>{
   const widgets=[...document.querySelectorAll('.player-seat,.portrait,.wallet-pill,.hud-stat,.laizi-summary,.connection,.room-invite,button:not(.tile),.modal[open],.modal[open] input:not([type="checkbox"]),.modal[open] select')].filter(n=>n.getClientRects().length);
   const paint=widgets.map(n=>{const s=getComputedStyle(n);return {id:n.id,name:n.className,tag:n.tagName,disabled:n.disabled||false,background:s.backgroundImage,color:s.backgroundColor,text:s.color,border:s.borderColor,shadow:s.boxShadow,filter:s.filter,backdrop:s.backdropFilter,transition:s.transitionProperty,model:s.getPropertyValue('--ui-panel-version').trim(),base:s.getPropertyValue('--ui-panel-base').trim(),coat:s.getPropertyValue('--ui-panel-coat').trim(),cast:s.getPropertyValue('--ui-panel-cast').trim(),edge:s.getPropertyValue('--ui-panel-edge').trim(),shine:s.getPropertyValue('--ui-panel-shine-x').trim(),unit:s.getPropertyValue('--ui-panel-unit').trim(),variant:s.fontVariantNumeric};});
   const dialogs=[...document.querySelectorAll('.modal[open]')].map(n=>{const s=getComputedStyle(n,'::backdrop');return {id:n.id,color:s.backgroundColor,image:s.backgroundImage,backdrop:s.backdropFilter};});
+  const scrollers=[...document.querySelectorAll('.modal[open]')].map(n=>({id:n.id,top:n.scrollTop,left:n.scrollLeft,width:n.scrollWidth,height:n.scrollHeight,clientWidth:n.clientWidth,clientHeight:n.clientHeight}));
   const numeric=[...document.querySelectorAll('.topbar strong')].map(n=>({id:n.id,variant:getComputedStyle(n).fontVariantNumeric,features:getComputedStyle(n).fontFeatureSettings}));
   const palette=getComputedStyle(document.documentElement);
   const semantic=[...document.querySelectorAll('.player-seat,.opponent-name,.opponent-score,.opponent-state,.room-member-state')].map(n=>{const s=getComputedStyle(n);return [n.id||n.className,s.color,s.borderColor];});
-  return {geometry,paint,dialogs,numeric,semantic,palette:['--tile-ivory','--ui-panel-base','--felt-base','--ui-panel-active-base'].map(k=>palette.getPropertyValue(k).trim())};
+  return {geometry,paint,dialogs,scrollers,numeric,semantic,palette:['--tile-ivory','--ui-panel-base','--felt-base','--ui-panel-active-base'].map(k=>palette.getPropertyValue(k).trim())};
 });}
 function assertPaint(current,{state='normal'}={}){
   const painted=current.paint.filter(p=>p.coat&&(['DIALOG','INPUT','SELECT'].includes(p.tag)||/player-seat|portrait|wallet-pill|hud-stat|laizi-summary|connection|room-invite|action-button|primary-button|secondary-button|icon-button|modal-close|hint-button|hint-close|setting-link|choice-option|room-bot-button/.test(p.name)));
@@ -55,10 +62,11 @@ function assertPaint(current,{state='normal'}={}){
 async function compare(label,{state='normal',validate=true}={}){
   await sheet(true);const before=await snapshot();await sheet(false);const after=await snapshot();
   assert.deepEqual(after.geometry,before.geometry,label+' all rectangles/geometry, typography, images and hit regions unchanged');
+  assert.deepEqual(after.scrollers,before.scrollers,label+' scroll viewport, content bounds and test scroll positions unchanged');
   // 座位身份/离线提示的字色与强调边框不能因材质换色改变。
   assert.deepEqual(after.semantic,before.semantic,label+' identity/action/offline colors stay unchanged');
   if(validate)assertPaint(after,{state});
-  report.cases.push({label,rectangles:after.geometry.length,exactGeometry:true,paint:after.paint,dialogs:after.dialogs,palette:after.palette});return after;
+  report.cases.push({label,rectangles:after.geometry.length,exactGeometry:true,scrollers:after.scrollers,paint:after.paint,dialogs:after.dialogs,palette:after.palette});return after;
 }
 async function force(selector,state){
   const {root}=await cdp.send('DOM.getDocument');const {nodeId}=await cdp.send('DOM.querySelector',{nodeId:root.nodeId,selector});assert.ok(nodeId,selector);
@@ -80,7 +88,7 @@ try {
   await cdp.send('CSS.enable');await page.goto(target,{waitUntil:'networkidle'});
   await compare('360x640 create room');await controls(['#room-create','#room-join'],'portrait lobby');
   await page.locator('#room-name').fill('共享面板材质');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
-  for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();await compare('360x640 waiting room');
+  for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();await page.waitForFunction(()=>!window.mahjongRoom.busy&&window.mahjongRoom.room.seats.every(seat=>seat.occupied));await compare('360x640 waiting room');
   const onlineMember=await page.locator('#room-members li[data-seat="1"]').evaluate(n=>{const saved={classes:n.className,text:n.querySelector('.room-member-state').textContent};n.classList.add('is-offline');n.querySelector('.room-member-state').textContent='离线重连中';return saved;});
   await compare('waiting room offline color');await page.locator('#room-members li[data-seat="1"]').evaluate((n,saved)=>{n.className=saved.classes;n.querySelector('.room-member-state').textContent=saved.text;},onlineMember);
   await page.locator('#room-ready').click();await page.setViewportSize({width:640,height:360});await page.locator('#room-start').click();await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&document.querySelector('#game').classList.contains('is-landscape'));await page.locator('#room-dialog').waitFor({state:'hidden'});
