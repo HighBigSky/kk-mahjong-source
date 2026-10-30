@@ -37,6 +37,14 @@
   --compass-ink:#0e2b24;
   --compass-highlight:#295747;
   --compass-pointer:.65cqw;
+  /* 房间与桌底都画在既有背景上，绕开桌框裁剪，不改任何元素的边界。 */
+  --room-vignette:radial-gradient(ellipse at 58% 46%,#00000000 22%,#00000026 62%,#0000008c 100%);
+  --room-side-light:radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#8e876828,transparent 62%);
+  --room-left-shade:linear-gradient(90deg,#050b0899,transparent 68%);
+  --room-floor-bounce:linear-gradient(180deg,#141e1800 48%,#1c271b4d 100%);
+  --room-base:linear-gradient(180deg,#202921,#0e1b17 60%,#070f0d);
+  --table-floor-near:radial-gradient(ellipse at 50% 50%,#0000008f 0%,#00000059 25%,#00000017 52%,#00000000 70%);
+  --table-floor-far:radial-gradient(ellipse at 50% 50%,#00000024 0%,#0000000a 32%,#00000000 70%);
 }
 
 .opponent-top { top:16%; }
@@ -51,6 +59,16 @@
   --felt-groove-width:2.5px;
   --felt-groove-highlight-width:.6px;
   --felt-groove-feather:.6px;
+  --table-inner-wall-width:var(--felt-groove-width);
+  --table-inner-wall-left:#0b1f15cc;
+  --table-inner-wall-left-mid:#1a3322b3;
+  --table-inner-wall-right:#71917199;
+  --table-inner-wall-right-mid:#45664b99;
+  --table-inner-wall-far:#46644999;
+  --table-inner-wall-far-mid:#29463180;
+  --table-inner-wall-near:#263d2abf;
+  --table-inner-wall-near-mid:#142b1c99;
+  --table-ground-shadow:calc(var(--ui-unit,1cqw) * 6 * var(--scene-shadow-x)) calc(var(--ui-unit,1cqw) * 6 * var(--scene-shadow-y)) calc(var(--ui-unit,1cqw) * 8) #050807c7;
   /* 嵌线在原台呢边界外侧的木头里，内侧仍保留原2.5px压槽。 */
   --table-inlay-track:4px;
   --table-metal-light:#e9d49d;
@@ -67,14 +85,16 @@
   /* 宽幅低对比磨痕不重复、不硬收边；仅表达绒毛方向与常接触区的轻微不均。 */
   --table-felt-wear-center:radial-gradient(ellipse at 48% 52%,#e6d8b805 0%,#e6d8b803 18%,#e6d8b800 63%);
   --table-felt-wear-touch:radial-gradient(ellipse at 66% 74%,#10261b06 0%,#10261b03 28%,#10261b00 71%);
+  --table-felt-sheen:linear-gradient(var(--scene-light-angle),#fff5df00 0% 16%,#fff5df08 24%,#fff5df0a 31%,#fff5df03 39%,#fff5df00 51% 100%);
   /* 两个闭合方向共用原台呢绘制矩形：暗槽2.5px，内缘高光0.6px，四角交叠无断口。 */
-  --table-groove-dark:#03150fb3;
   --table-groove-middle:#0c2d2280;
   --table-groove-glint:#78917826;
   --table-groove-clear:#78917800;
-  --table-groove-stops:#281d14b3 0px,var(--table-metal-light) 1px,var(--table-metal-mid) 2px,var(--table-metal-dark) 3px,var(--table-groove-dark) var(--table-inlay-track),var(--table-groove-dark) calc(var(--table-inlay-track) + var(--felt-groove-width) * .45),var(--table-groove-middle) calc(var(--table-inlay-track) + var(--felt-groove-width)),var(--table-groove-glint) calc(var(--table-inlay-track) + var(--felt-groove-width)),var(--table-groove-clear) calc(var(--table-inlay-track) + var(--felt-groove-width) + var(--felt-groove-highlight-width) + var(--felt-groove-feather)),var(--table-groove-clear) calc(100% - var(--table-inlay-track) - var(--felt-groove-width) - var(--felt-groove-highlight-width) - var(--felt-groove-feather)),var(--table-groove-glint) calc(100% - var(--table-inlay-track) - var(--felt-groove-width)),var(--table-groove-middle) calc(100% - var(--table-inlay-track) - var(--felt-groove-width)),var(--table-groove-dark) calc(100% - var(--table-inlay-track) - var(--felt-groove-width) * .45),var(--table-groove-dark) calc(100% - var(--table-inlay-track)),var(--table-metal-dark) calc(100% - 3px),var(--table-metal-mid) calc(100% - 2px),var(--table-metal-light) calc(100% - 1px),#281d14b3 100%;
-  --table-felt-groove-x:linear-gradient(90deg,var(--table-groove-stops));
-  --table-felt-groove-y:linear-gradient(0deg,var(--table-groove-stops));
+  --table-trim-start:#281d14b3 0px,var(--table-metal-light) 1px,var(--table-metal-mid) 2px,var(--table-metal-dark) 3px;
+  --table-trim-end:var(--table-metal-dark) calc(100% - 3px),var(--table-metal-mid) calc(100% - 2px),var(--table-metal-light) calc(100% - 1px),#281d14b3 100%;
+  /* 两轴各自反映四面受光，中央透明区和金属带共用；相交角没有空槽。 */
+  --table-felt-groove-x:linear-gradient(90deg,var(--table-trim-start),var(--table-inner-wall-left) var(--table-inlay-track),var(--table-inner-wall-left-mid) calc(var(--table-inlay-track) + var(--table-inner-wall-width) * .5),var(--table-groove-middle) calc(var(--table-inlay-track) + var(--table-inner-wall-width)),var(--table-groove-glint) calc(var(--table-inlay-track) + var(--table-inner-wall-width)),var(--table-groove-clear) calc(var(--table-inlay-track) + var(--table-inner-wall-width) + var(--felt-groove-highlight-width) + var(--felt-groove-feather)),var(--table-groove-clear) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width) - var(--felt-groove-highlight-width) - var(--felt-groove-feather)),var(--table-groove-glint) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width)),var(--table-groove-middle) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width)),var(--table-inner-wall-right-mid) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width) * .5),var(--table-inner-wall-right) calc(100% - var(--table-inlay-track)),var(--table-trim-end));
+  --table-felt-groove-y:linear-gradient(0deg,var(--table-trim-start),var(--table-inner-wall-near) var(--table-inlay-track),var(--table-inner-wall-near-mid) calc(var(--table-inlay-track) + var(--table-inner-wall-width) * .5),var(--table-groove-middle) calc(var(--table-inlay-track) + var(--table-inner-wall-width)),var(--table-groove-glint) calc(var(--table-inlay-track) + var(--table-inner-wall-width)),var(--table-groove-clear) calc(var(--table-inlay-track) + var(--table-inner-wall-width) + var(--felt-groove-highlight-width) + var(--felt-groove-feather)),var(--table-groove-clear) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width) - var(--felt-groove-highlight-width) - var(--felt-groove-feather)),var(--table-groove-glint) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width)),var(--table-groove-middle) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width)),var(--table-inner-wall-far-mid) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width) * .5),var(--table-inner-wall-far) calc(100% - var(--table-inlay-track)),var(--table-trim-end));
   --table-depth-light:linear-gradient(var(--scene-light-angle),#fff5df0a 0%,transparent 42%,#1e1a1204 100%);
   --table-depth-shade:linear-gradient(90deg,#1e1a1259 0%,#1e1a1220 22%,transparent 44% 62%,#fff5df08 82%,#fff5df1a 100%);
   --table-center-well:radial-gradient(ellipse at 50% 54%,#04171124 0%,#071b1414 48%,#071b1405 82%,transparent 100%);

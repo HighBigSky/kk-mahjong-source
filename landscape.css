@@ -381,9 +381,7 @@ html.in-game #game.is-landscape {
   --wall-piece-width:var(--tile-face-width);
   --wall-piece-height:var(--tile-face-height);
   background:
-    radial-gradient(ellipse at 50% 48%,transparent 0% 36%,#0109074d 78%,#010806a6 100%),
-    radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df12,transparent 52%),
-    linear-gradient(180deg,#202921,#0e1b17 60%,#070f0d);
+    var(--room-vignette),var(--room-side-light),var(--room-left-shade),var(--room-floor-bounce),var(--room-base);
   box-shadow:var(--scene-ao-shadow);
   /* 上下木沿裁到画面外；聚焦手牌不能滚动画布。 */
   overflow:clip;
@@ -395,6 +393,8 @@ html.in-game #game.is-landscape {
   inset:10% -5% 0;
   z-index:0;
   background:
+    var(--table-floor-near) 50% 100% / 88% 28% no-repeat,
+    var(--table-floor-far) 50% 24% / 68% 14% no-repeat,
     radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df0c,transparent 62%),
     radial-gradient(ellipse at 50% 50%,transparent 40%,#020a0833 80%,#01070566 100%);
   filter:none;
@@ -446,12 +446,13 @@ html.in-game #game.is-landscape {
     var(--table-felt-fuzz) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-felt-wear-center) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-felt-wear-touch) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-sheen) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-felt-lighting) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
     var(--table-wood-grain),
     var(--table-wood-growth);
   box-shadow:
     calc(var(--ui-unit) * -3.3) calc(var(--ui-unit) * .825) calc(var(--ui-unit) * .32) #22170f,
-    calc(var(--ui-unit) * -6) calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * 6) #1e1a12b3;
+    var(--table-ground-shadow);
   pointer-events:none;
   clip-path:inset(0 var(--table-frame-side-inset));
   transform:translateZ(-1px) scale(var(--table-frame-zoom));
