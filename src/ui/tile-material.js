@@ -43,6 +43,8 @@ export function syncTileMetric(node,box=null) {
   const point=(x,y)=>{const [px,py]=inverse((x-.5)*globalWidth,(y-.5)*globalHeight);return[clean((.5+px/width)*100),clean((.5+py/height)*100)];};
   const shine=point(.82,.08),grain=point(.18,.88);
   const values={'--tile-model-width':`${Math.min(width,height)}px`,'--tile-model-turn':`${angle}deg`,'--tile-model-light-x':lx,'--tile-model-light-y':ly,'--tile-model-occlusion-x':ox,'--tile-model-occlusion-y':oy,'--tile-model-shine-x':`${shine[0]}%`,'--tile-model-shine-y':`${shine[1]}%`,'--tile-model-grain-x':`${grain[0]}%`,'--tile-model-grain-y':`${grain[1]}%`,'--tile-model-top-paint':s+c>0?'var(--tile-model-plane-lit)':'var(--tile-model-plane-shade)'};
+  // 弧形顶边与直顶边共用同一次光照判定，旋转后不能出现一段亮、一段暗的接缝。
+  values['--tile-model-top-curve-tones']=s+c>0?'var(--tile-model-curve-lit)':'var(--tile-model-curve-shade)';
   values['--tile-model-axis-x']=ox;values['--tile-model-axis-y']=oy;
   const [downX,downY]=inverse(0,1);values['--tile-model-down-x']=downX;values['--tile-model-down-y']=downY;
   for(const prefix of ['shadow','main','soft']){values[`--tile-model-${prefix}-x`]=lx;values[`--tile-model-${prefix}-y`]=ly;}

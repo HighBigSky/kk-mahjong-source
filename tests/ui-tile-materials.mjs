@@ -14,7 +14,7 @@ const service=new RoomService({botDelayMs:600000}),server=createServer({roomServ
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const context=await browser.newContext({viewport:{width:640,height:360},reducedMotion:'reduce'});
 await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('fixed viewport'))});});
-const BASELINE='12428fb';
+const BASELINE='81c02f7';
 const sheets=['tiles-depth.css','landscape.css','styles.css','seats-layout.css','wall-layout.css'];
 for(const file of sheets)await context.route(`**/${file}?material-baseline=*`,route=>route.fulfill({body:execFileSync('git',['show',`${BASELINE}:${file}`]),contentType:'text/css'}));
 const page=await context.newPage(),report={passed:false,errors:[],cases:[],screenshots:0,note:`Client display fixtures only. Dialog and animation examples reuse existing markup classes; no product DOM or game actions are added. Geometry is compared to ${BASELINE}; no screenshot pixel sampling.`};
@@ -31,8 +31,8 @@ async function sheet(baseline) {
 async function checkPair(size,area,read) {
   const pair=[];for(const baseline of [true,false]){await sheet(baseline);pair.push(await read(baseline));}
   const shapes=rows=>Object.fromEntries(Object.entries(rows).map(([name,data])=>[name,data.map(row=>{
-    // 本轮只统一四角圆角；牌框、SVG尺寸、位置、间距与朝向严格不变。
-    return Object.fromEntries(Object.entries(row.shape).filter(([key])=>!['radius','rect'].includes(key)&&(area!=='animation'||key!=='svg'&&key!=='borderWidths')));
+    // 本轮只柔化可见边材质；圆角、牌框、SVG尺寸、位置、间距与朝向严格不变。
+    return Object.fromEntries(Object.entries(row.shape).filter(([key])=>key!=='rect'));
   })]));
   assert.deepEqual(shapes(pair[1]),shapes(pair[0]),`${JSON.stringify(size)} ${area} dimensions, positions, gaps and orientations unchanged`);
   let maxProjectionDelta=0;
@@ -41,13 +41,14 @@ async function checkPair(size,area,read) {
     // 透视矩阵可因重合成相差一个浮点尾数；0.001px仍小于1/64px布局量子，CSS宽高/间距保持严格相等。
     maxProjectionDelta=Math.max(maxProjectionDelta,...row.shape.rect.map((value,i)=>Math.abs(value-old.shape.rect[i])));
     assert.ok(maxProjectionDelta<=.001,`${name} projected geometry unchanged within floating-point precision: ${maxProjectionDelta}px`);
-    assert.ok(Math.abs(Math.max(...row.corners)-Math.max(...old.corners))<.0001,'original rounded-corner radius retained and applied to all four corners');
-    assert.equal(row.paint,old.paint,'glaze, texture and face color unchanged');assert.equal(row.coating[0],old.coating[0],'top and right side plane paints unchanged');assert.equal(row.topSizes,old.topSizes,'visible plane sizes unchanged');
+    assert.deepEqual(row.corners,old.corners,'all four rounded-corner radii unchanged');
+    assert.equal(row.paint,old.paint,'glaze, texture and face color unchanged');assert.equal(row.topSize,old.topSize,'visible top plane size unchanged');assert.equal(row.rightSize,old.rightSize,'visible right plane size unchanged');
     assert.equal(row.body,old.body,'tile body material unchanged');assert.deepEqual(row.ground,old.ground,'contact shadows unchanged');assert.deepEqual(row.bevel,old.bevel,'dual bevel shadow values unchanged');
     assert.deepEqual(row.glyph,old.glyph,'glyph recession unchanged');
   }
   if(pair[0].hand){const center=data=>(data[0].shape.rect[0]+data.at(-1).shape.rect[0]+data.at(-1).shape.rect[2])/2;assert.ok(Math.abs(center(pair[0].hand)-center(pair[1].hand))<.05,'hand row remains centered');}
-  report.cases.push({size,area,maxProjectionDelta,tiles:Object.values(pair[1]).reduce((n,a)=>n+a.length,0),groups:Object.fromEntries(Object.entries(pair[1]).map(([name,data])=>[name,{count:data.length,grade:data[0].grade,strength:data[0].strength,thickness:data[0].thickness,contactAlpha:data[0].ground[0].alpha,width:data[0].shape.width,height:data[0].shape.height,light:data[0].light,shadow:data[0].shadow,topSizes:data[0].topSizes,corners:data[0].corners,rotation:data[0].angle,leftGroundBounds:data[0].ground.slice(0,3).map(s=>{const t=data[0].angle*Math.PI/180;return s.px[0]*Math.cos(t)-s.px[1]*Math.sin(t)+s.px[3]+1.5*s.px[2];})}]))});
+  const edgeSample=rows=>{const row=rows.find(tile=>tile.rightSize>0)||rows[0];return {top:row.topSize,right:row.rightSize,paint:row.edgeLayers,sizes:row.edgeSizes,positions:row.edgePositions,shadow:row.edgeShadow};};
+  report.cases.push({size,area,maxProjectionDelta,tiles:Object.values(pair[1]).reduce((n,a)=>n+a.length,0),groups:Object.fromEntries(Object.entries(pair[1]).map(([name,data])=>[name,{count:data.length,grade:data[0].grade,strength:data[0].strength,thickness:data[0].thickness,contactAlpha:data[0].ground[0].alpha,width:data[0].shape.width,height:data[0].shape.height,light:data[0].light,shadow:data[0].shadow,topSizes:data[0].topSizes,corners:data[0].corners,rotation:data[0].angle,edge:edgeSample(data),leftGroundBounds:data[0].ground.slice(0,3).map(s=>{const t=data[0].angle*Math.PI/180;return s.px[0]*Math.cos(t)-s.px[1]*Math.sin(t)+s.px[3]+1.5*s.px[2];})}]))});
 }
 async function checkSvgCornerRefresh(selector) {
   const result=await page.locator(selector).first().evaluate(async node=>{

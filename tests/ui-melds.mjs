@@ -31,7 +31,7 @@ async function waitFor(test, label, timeout = 8000) {
   while (!await test()) { assert.ok(Date.now() < end, `Timed out: ${label}`); await sleep(20); }
 }
 async function sync(room) {
-  for (const page of pages) await waitFor(() => page.evaluate(version => window.mahjongRoom.room?.version >= version && !window.mahjongRoom.busy, room.version), 'all four SSE states rendered');
+  for (const page of pages) await waitFor(() => page.evaluate(version => window.mahjongRoom.room?.version >= version && !window.mahjongRoom.busy && document.querySelector('#dice-intro').hidden && !document.querySelector('#game').classList.contains('is-opening-deal'), room.version), 'all four SSE states rendered after the opening deal', 15000);
 }
 async function player(name) {
   const context = await browser.newContext({viewport:{width:844,height:390}}); contexts.push(context);

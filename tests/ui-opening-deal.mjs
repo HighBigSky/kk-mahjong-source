@@ -12,13 +12,16 @@ const service=new RoomService({botDelayMs:600000});
 const server=createServer({roomService:service});
 server.listen(0,'127.0.0.1'); await once(server,'listening');
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
-const report={passed:false,browser:browser.version(),cases:[],errors:[],note:'Real HTTP/SSE opening rooms; browser touch emulation, not physical phones. Server newRound/discard are used only to exercise round and snapshot boundaries.'};
+const report={passed:false,browser:browser.version(),cases:[],errors:[],note:'Real HTTP/SSE opening rooms; browser touch emulation, not physical phones. The dice auto-dismiss timeout is held for explicit test clicks; animation timing and game state are unchanged. Server newRound/discard are used only to exercise round and snapshot boundaries.'};
 mkdirSync('output',{recursive:true});
 const frames=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 const idle=page=>page.waitForFunction(()=>!document.querySelector('#game').classList.contains('is-opening-deal')&&document.querySelector('#opening-deal').children.length===0);
 async function setup(size,reducedMotion='no-preference') {
   const context=await browser.newContext({viewport:size,hasTouch:size.touch,isMobile:size.touch,reducedMotion});
   await context.addInitScript(()=>{
+    // 骰子原有1.5秒自动收起会抢在慢速浏览器的click前；仅测试里留出手动收起窗口。
+    const timeout=window.setTimeout.bind(window);
+    window.setTimeout=(callback,delay,...args)=>timeout(callback,typeof callback==='function'&&callback.name==='finishDiceIntro'&&delay===1500?60000:delay,...args);
     Object.defineProperty(Element.prototype,'requestFullscreen',{configurable:true,value:()=>Promise.reject(Error('viewport fixture'))});
     if(screen.orientation)Object.defineProperty(screen.orientation,'lock',{configurable:true,value:()=>Promise.reject(Error('viewport fixture'))});
   });
@@ -139,7 +142,7 @@ try {
     await page.setViewportSize({width:size.width-24,height:size.height});
     await idle(page); assert.equal(await page.locator('#opening-deal .deal-flight').count(),0);
     clearTimeout(room.botTimer); room.game.newRound('opening-animation-leave'); service._changed(room);
-    await page.waitForFunction(()=>document.querySelector('#game').classList.contains('is-opening-deal'));
+    await startFlight(page);
     await page.locator('#settings-btn').click(); await page.locator('#settings-home').click();
     await idle(page);
     // 主动离房可以中止进行中的牌局，也必须清理发牌动画和输入锁。

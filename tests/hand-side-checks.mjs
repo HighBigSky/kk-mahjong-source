@@ -35,7 +35,7 @@ export async function checkHandSides(page,size) {
       const gaps=nodes.slice(0,-1).map((n,i)=>{const a=n.getBoundingClientRect(),b=nodes[i+1].getBoundingClientRect(),x=(a.right+b.left)/2,y=(Math.max(a.top,b.top)+Math.min(a.bottom,b.bottom))/2;return {width:b.left-a.right,drawn:nodes[i+1].classList.contains('drawn'),covered:nodes.some(tile=>{const r=tile.getBoundingClientRect();return x>=r.left&&x<r.right&&y>=r.top&&y<r.bottom;})};});
       return {gap:getComputedStyle(hand).gap,wrap:getComputedStyle(hand).flexWrap,box:rect(hand),gaps,tiles:nodes.map(n=>{const s=getComputedStyle(n),after=getComputedStyle(n,'::after'),before=getComputedStyle(n,'::before'),layers=after.backgroundSize.split(','),svg=n.querySelector('svg'),faceLayers=splitPaint(before.backgroundImage);return {
         ...rect(n),width:s.width,height:s.height,radius:s.borderRadius,rightBorder:s.borderRightWidth,bottomBorder:s.borderBottomWidth,
-        topDepth:parseFloat(layers[0].trim().split(/\s+/)[1]),sideSizes:layers.slice(1).map(value=>parseFloat(value)),paint:after.backgroundImage,pointer:after.pointerEvents,z:after.zIndex,
+        topDepth:parseFloat(layers[9].trim().split(/\s+/)[1]),sideSizes:[layers[0],layers[10]].map(value=>parseFloat(value)),cornerSizes:layers.slice(1,9).map(value=>value.trim().split(/\s+/).map(parseFloat)),coatLayers:splitPaint(after.backgroundImage),paint:after.backgroundImage,pointer:after.pointerEvents,z:after.zIndex,
         coatRadius:after.borderRadius,coatInset:[after.top,after.right,after.bottom,after.left],coatBorder:after.borderWidth,
         faceBorder:before.borderBottomWidth,faceBackground:before.backgroundImage,svgBottomGap:n.getBoundingClientRect().bottom-svg.getBoundingClientRect().bottom,
         bodyDepth:s.getPropertyValue('--tile-depth').trim(),
@@ -64,7 +64,7 @@ export async function checkHandSides(page,size) {
       assert.equal(tile.bodyDepth,'0px',label);assert.equal(tile.bottomDepth,0,'face reaches the bottom without a bottom plane');
       assert.ok(Math.abs(tile.svgBottomGap)<.05,'SVG reaches the tile bottom');
       assert.ok(tile.topDepth>=1&&tile.topDepth<=2,'each hand tile has a 1–2px top plane');
-      assert.match(tile.paint,/linear-gradient\(rgb\(255, 254, 249\)/,label);
+      assert.match(tile.coatLayers[9],/^linear-gradient\(/,label);
       assert.match(tile.faceBackground,/at 82% 8%/,'glaze light comes from the upper right');
       assert.ok(Math.abs(tile.bevelOuter/parseFloat(tile.width)-.025)<.0001,label);
       assert.ok(Math.abs(tile.bevelInner/parseFloat(tile.width)-.015)<.0001,label);
@@ -80,8 +80,11 @@ export async function checkHandSides(page,size) {
       assert.equal(tile.coatRadius,tile.radius,'top and side share a rounded canvas');
       assert.deepEqual(tile.coatInset,['0px','0px','0px','0px'],label);assert.equal(tile.coatBorder,'0px',label);
       assert.equal(tile.pointer,'none',label);assert.equal(tile.z,'2',label);assert.equal(tile.hit,true,label);assert.deepEqual(tile.clipping,['clip','none'],label);
-      if(index>=scenario.count-2){assert.ok(tile.sideSizes.every(w=>w>=1&&w<=2),label);assert.match(tile.paint,/linear-gradient\(rgb\(105, 187, 136\)/,label);}
-      else {assert.ok(tile.sideSizes.every(w=>w===0),label);assert.doesNotMatch(tile.paint,/rgb\(105, 187, 136\)/,label);}
+      assert.equal(tile.coatLayers.length,11,'shared curved coating uses the existing pseudo-element');
+      const radius=parseFloat(tile.radius),topCorners=tile.cornerSizes.slice(4),sideCorners=tile.cornerSizes.slice(0,4);
+      assert.ok(topCorners.every(size=>size.length===2&&size.every(value=>Math.abs(value-radius)<.0001)),'top corner paint follows the unchanged rounded frame');
+      if(index>=scenario.count-2){assert.ok(tile.sideSizes.every(w=>w>=1&&w<=2),label);assert.ok(sideCorners.every(size=>size.length===2&&size.every(value=>Math.abs(value-radius)<.0001)),label);assert.match(tile.coatLayers[0],/^radial-gradient\(/,label);assert.match(tile.coatLayers[10],/^linear-gradient\(90deg/,label);}
+      else {assert.ok(tile.sideSizes.every(w=>w===0),label);assert.ok(sideCorners.every(size=>size.every(value=>value===0)),'hidden sides do not paint green corner caps');}
     }
     assert.deepEqual(data.tiles.at(-1).sideSizes,data.tiles.at(-2).sideSizes,label);
     assert.equal(data.tiles.at(-1).paint,data.tiles.at(-2).paint,label);

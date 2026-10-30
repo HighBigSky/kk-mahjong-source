@@ -25,7 +25,9 @@ export async function materialSnapshot(page,selector,validate=true) {
         thickness:px('--tile-model-thickness'),ground:split(s.boxShadow).map(v=>({inset:v.includes('inset'),px:[...v.matchAll(/(-?(?:\d*\.?\d+)(?:e[+-]?\d+)?)px/g)].map(m=>Number(m[1])),alpha:Number(v.match(/rgba\([^()]*,\s*([\d.]+)\)/)?.[1]??1)})),
         pseudoCount:[b,a].filter(style=>style.content!=='none'&&style.content!=='normal').length,
         filters:[s,b,a,...(svgStyle?[svgStyle]:[])].flatMap(style=>[style.filter,style.backdropFilter]),
-        topSizes:a.backgroundSize,topSize:parseFloat(a.backgroundSize.split(',')[0].trim().split(/\s+/)[1]),rightSize:parseFloat(a.backgroundSize.split(',')[2]||'0'),bottom:b.bottom,coating:[a.backgroundImage,a.borderRadius,a.boxShadow],
+        topSizes:a.backgroundSize,topSize:px('--tile-model-top-size'),rightSize:px('--tile-model-right-size'),backIvorySize:px('--tile-model-back-ivory-size'),bottom:b.bottom,coating:[a.backgroundImage,a.borderRadius,a.boxShadow],
+        edgeLayers:split(a.backgroundImage).map(v=>v.trim()),edgeSizes:a.backgroundSize.split(',').map(v=>v.trim()),edgePositions:a.backgroundPosition.split(',').map(v=>v.trim()),
+        edgeShadow:split(a.boxShadow).map(v=>({inset:v.includes('inset'),px:[...v.matchAll(/(-?(?:\d*\.?\d+)(?:e[+-]?\d+)?)px/g)].map(m=>Number(m[1]))})),edgeBorder:a.borderWidth,edgeInset:[a.top,a.right,a.bottom,a.left],
         groundCount:split(s.getPropertyValue('--tile-model-contact-shadow')).length,
         light:rotate(px('--tile-model-light-x'),px('--tile-model-light-y')),
         shadow:rotate(number('--tile-model-shadow-x'),number('--tile-model-shadow-y')),
@@ -37,7 +39,7 @@ export async function materialSnapshot(page,selector,validate=true) {
   });
   assert.ok(rows.length,`material area exists: ${selector}`);
   if(validate)for(const row of rows) {
-    assert.equal(row.version,'resin-v7',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
+    assert.equal(row.version,'resin-v8',selector);assert.ok(row.strength>0&&row.strength<=1,selector);
     const physicalWidth=Math.min(parseFloat(row.shape.width),parseFloat(row.shape.height)),radius=physicalWidth*.09;
     assert.ok(Math.abs(row.modelWidth-physicalWidth)<.0001,`${selector} radius is based on the actual physical tile width`);
     assert.ok(row.corners.every(v=>v>0&&Math.abs(v-radius)<.0001),`${selector} all four corners share the same radius at ${row.angle}deg`);
@@ -45,6 +47,32 @@ export async function materialSnapshot(page,selector,validate=true) {
     assert.deepEqual(row.coatCorners,row.corners,`${selector} top and side coating follows all four frame corners`);
     assert.ok(row.faceCorners.every((v,i)=>Math.abs(v-(row.back?Math.max(0,row.corners[i]-row.backInset):row.corners[i]))<.0001),`${selector} face bevel or inset back frame follows the same four-corner profile`);
     if(row.svgCorners)assert.ok(row.svgCorners.every(v=>Math.abs(v-radius)<.0001),`${selector} internal SVG keeps the same four rounded corners independently of rotation`);
+    const splitPaint=value=>{let depth=0,start=0;const layers=[];for(let i=0;i<value.length;i++){if(value[i]==='(')depth++;else if(value[i]===')')depth--;else if(value[i]===','&&!depth){layers.push(value.slice(start,i).trim());start=i+1;}}layers.push(value.slice(start).trim());return layers;};
+    const stops=paint=>splitPaint(paint.slice(paint.indexOf('(')+1,-1)).filter(part=>/^(?:rgba?\(|#|transparent\b)/.test(part));
+    const layers=row.edgeLayers,top=row.back?4:9,side=10;
+    assert.equal(layers.length,row.back?6:11,`${selector} visible edges share one rounded coating canvas`);
+    assert.match(layers[top],/^linear-gradient\(/,`${selector} curved top transition`);
+    assert.ok(stops(layers[top]).length>=5,`${selector} top edge has gradual highlight, middle and shade colors`);
+    if(row.rightSize>0){
+      assert.match(layers[side],/^linear-gradient\(90deg/,`${selector} side transitions from face to rear`);
+      assert.ok(stops(layers[side]).length>=5,`${selector} side transition has intermediate colors`);
+      assert.match(layers[0],/^radial-gradient\(/,`${selector} side curvature varies vertically and horizontally`);
+      assert.ok(stops(layers[0]).length>=5,`${selector} side curvature includes soft highlight and lower shade`);
+    }
+    const caps=row.back?[[0,'top',0,0,false],[1,'top',100,0,false],[2,'top',0,0,true],[3,'top',100,0,true]]:[[1,'side',100,0,false],[2,'side',100,100,false],[3,'side',100,0,true],[4,'side',100,100,true],[5,'top',0,0,false],[6,'top',100,0,false],[7,'top',0,0,true],[8,'top',100,0,true]];
+    for(const [index,kind,x,y,ring]of caps){
+      const size=row.edgeSizes[index].split(/\s+/).map(parseFloat),active=(kind==='top'?row.topSize:row.rightSize)>0,expected=active?radius:0;
+      assert.ok(size.length===2&&size.every(value=>Math.abs(value-expected)<.0001),`${selector} ${kind} corner cap follows the existing radius without widening the edge`);
+      assert.deepEqual(row.edgePositions[index].split(/\s+/).map(parseFloat),[x,y],`${selector} corner caps meet at the correct tangent`);
+      if(active){
+        assert.match(layers[index],/^radial-gradient\(/,`${selector} corner paint follows a circular arc`);
+        assert.ok(stops(layers[index]).length>=(ring?5:3),`${selector} curved ${kind} ${ring?'ring':'glaze'} has blended color stops`);
+        if(ring)assert.match(stops(layers[index])[0],/^rgba\([^()]*,\s*0\)/,`${selector} curved ring begins transparent toward the face`);
+      }
+    }
+    assert.equal(row.edgeBorder,'0px',`${selector} corner joins do not add a second border`);
+    assert.deepEqual(row.edgeInset,['0px','0px','0px','0px'],`${selector} curved edge remains inside the original tile frame`);
+    assert.ok(row.edgeShadow.length>=2&&row.edgeShadow.every(shadow=>shadow.inset),`${selector} soft continuous inner highlight never projects onto another tile`);
     assert.deepEqual([row.thickness,row.strength],({hand:[4,1],meld:[3,.8],wall:[2,.6],river:[1,.4]})[row.grade],`${selector} only four shared tiers`);
     assert.ok(row.bevel.length>=4&&row.bevel.every(shadow=>shadow.inset),selector);
     assert.equal((row.paint.match(/radial-gradient/g)||[]).length,2,selector);
@@ -88,7 +116,7 @@ export async function checkMaterialAreas(page,{baseline=false}={}) {
       const melds=result[`meld-${seat}`];assert.ok(melds.every(row=>row.topSize>0),'meld tops');assert.ok(melds.filter(row=>row.rightSize>0).length<=2,'only the terminal one or two melds expose a right side');
     }
     assert.ok([...result.wall,...result.indicator].every(row=>row.topSize>0),'wall tops are visible');
-    assert.ok(result.wall.every(row=>/100% 0px$/.test(row.topSizes)),'wall has no lower ivory plane');
+    assert.ok(result.wall.every(row=>row.backIvorySize===0),'wall has no lower ivory plane');
     const groups=[result.hand,result['meld-0'],result.wall,result['river-0']];
     assert.deepEqual(groups.map(rows=>rows[0].thickness),[4,3,2,1],'hand > meld > wall > river thickness');
     assert.deepEqual(groups.map(rows=>rows[0].strength),[1,.8,.6,.4],'contact shadow strength follows thickness');
