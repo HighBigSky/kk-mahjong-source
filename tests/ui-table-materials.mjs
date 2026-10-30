@@ -47,6 +47,10 @@ try {
   await page.locator('#room-name').fill('牌桌纹理验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
   for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
   await page.locator('#room-ready').click();await page.locator('#room-start').click();
+  report.startBeforeWait=await page.evaluate(()=>({room:window.mahjongRoom.room?.status,landscape:document.querySelector('#game').classList.contains('is-landscape')}));
+  // 公网响应到达前，等待页也满足“无骰子/发牌动画”；必须先确认真实开局与横屏对局生效。
+  await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&document.querySelector('#game').classList.contains('is-landscape'));
+  await page.locator('#room-dialog').waitFor({state:'hidden'});
   await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
   await page.evaluate(()=>{window.mahjongRoom.destroy();window.mahjongRoom.availableActions=()=>({chi:[],peng:false,gang:false,hu:false,pass:false,redGang:false,piziGang:false,wildGang:false,concealedGangs:[],addedGangs:[]});const game=window.mahjongGame;game.players.forEach((player,i)=>{player.hand=Array.from({length:i?10:14},(_,n)=>n);player.discards=Array.from({length:36},(_,n)=>(n+i*9)%34);player.redGangs=[];player.piziGangs=[];player.melds=[{kind:'peng',tiles:[20,20,20],from:1,concealed:false},{kind:'gang',tiles:[21,21,21,21],from:1,concealed:false}];});game.current=0;game.phase={kind:'discard',seat:0};game.pendingDiscard=null;game.lastDiscard=null;game.lastDraw=null;game.actionNotice=null;game.events=['牌桌纹理展示夹具'];window.renderMahjong();});await frames();
   for(const size of [{width:640,height:360},{width:844,height:390},{width:1920,height:1080}]) {
