@@ -439,17 +439,14 @@ html.in-game #game.is-landscape {
   border-left-color:#6d4c3273;
   border-radius:calc(var(--ui-unit) * 5);
   background:
-    var(--table-felt-groove-x) center / var(--table-trim-paint-width) var(--table-trim-paint-height) no-repeat,
-    var(--table-felt-groove-y) center / var(--table-trim-paint-width) var(--table-trim-paint-height) no-repeat,
-    var(--table-felt-warp) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
-    var(--table-felt-weft) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
-    var(--table-felt-fuzz) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
-    var(--table-felt-wear-center) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
-    var(--table-felt-wear-touch) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
-    var(--table-felt-sheen) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
-    var(--table-felt-lighting) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
-    var(--table-wood-grain),
-    var(--table-wood-growth);
+    var(--table-wood-polish),
+    var(--table-wood-corner-tl) left var(--table-frame-side-inset) top / var(--wood-radius) var(--wood-radius) no-repeat,
+    var(--table-wood-corner-tr) right var(--table-frame-side-inset) top / var(--wood-radius) var(--wood-radius) no-repeat,
+    var(--table-wood-corner-br) right var(--table-frame-side-inset) bottom / var(--wood-radius) var(--wood-radius) no-repeat,
+    var(--table-wood-corner-bl) left var(--table-frame-side-inset) bottom / var(--wood-radius) var(--wood-radius) no-repeat,
+    var(--table-wood-horizontal) center / var(--wood-straight-width) 100% no-repeat,
+    var(--table-wood-vertical) center / var(--wood-span) var(--wood-straight-height) no-repeat,
+    var(--table-felt-lighting) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat;
   box-shadow:
     calc(var(--ui-unit) * -3.3) calc(var(--ui-unit) * .825) calc(var(--ui-unit) * .32) #22170f,
     var(--table-ground-shadow);
@@ -462,14 +459,23 @@ html.in-game #game.is-landscape {
   inset:calc(var(--table-frame-size) * .07) calc(50% - var(--table-frame-size) * .46) calc(var(--board-height) - var(--table-frame-size) * .91);
   border:0;
   border-radius:calc(var(--ui-unit) * 2);
+  /* 沿用原桌框投影中心(.43F)对齐背景，绘制层重分配不动元素几何。 */
+  --table-felt-paint-width:calc(var(--table-frame-size) * .916 - var(--table-frame-side-inset) * 2);
+  --table-felt-paint-height:calc(var(--table-frame-size) * .916);
+  --table-trim-paint-width:calc(var(--table-felt-paint-width) + var(--table-inlay-track) * 2);
+  --table-trim-paint-height:calc(var(--table-felt-paint-height) + var(--table-inlay-track) * 2);
+  --felt-paint-top:calc(var(--table-frame-size) * .43 - var(--table-felt-paint-height) / 2);
+  --trim-paint-top:calc(var(--table-frame-size) * .43 - var(--table-trim-paint-height) / 2);
   background:
-    var(--table-far-soft),
-    radial-gradient(ellipse at 60% 40%,#fff5df06,transparent 45%) left top / 16% 16% no-repeat,
-    radial-gradient(ellipse at 60% 40%,#fff5df12,transparent 45%) right top / 16% 16% no-repeat,
-    radial-gradient(ellipse at 60% 40%,#fff5df06,transparent 45%) left bottom / 16% 16% no-repeat,
-    radial-gradient(ellipse at 60% 40%,#fff5df12,transparent 45%) right bottom / 16% 16% no-repeat,
-    var(--table-depth-light),var(--table-depth-shade);
-  box-shadow:var(--scene-ao-shadow),inset 0 0 1px 1px #fff5df0b;
+    var(--table-felt-groove-x) center var(--trim-paint-top) / var(--table-trim-paint-width) var(--table-trim-paint-height) no-repeat,
+    var(--table-felt-groove-y) center var(--trim-paint-top) / var(--table-trim-paint-width) var(--table-trim-paint-height) no-repeat,
+    var(--table-felt-warp) center var(--felt-paint-top) / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-weft) center var(--felt-paint-top) / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-wear-center) center var(--felt-paint-top) / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-wear-touch) center var(--felt-paint-top) / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-sheen) center var(--felt-paint-top) / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,
+    var(--table-felt-lighting) center var(--felt-paint-top) / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat;
+  box-shadow:var(--scene-ao-shadow),inset -1px 0 2px #fff0d22b;
   transform:scale(var(--table-frame-zoom));
   transform-origin:50% calc(var(--table-frame-size) * .43);
   clip-path:inset(0 max(0px,calc(var(--table-frame-side-inset) - var(--table-frame-size) * .04)));

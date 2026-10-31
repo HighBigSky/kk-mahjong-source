@@ -21,9 +21,9 @@
   --scene-contact-shadow:calc(var(--scene-contact-span) * var(--scene-shadow-x)) calc(var(--scene-contact-span) * var(--scene-shadow-y)) var(--scene-contact-span) #1e1a1238;
   --scene-main-shadow:calc(var(--scene-main-span) * var(--scene-shadow-x)) calc(var(--scene-main-span) * var(--scene-shadow-y)) var(--scene-main-span) #1e1a124d;
   --scene-ao-shadow:inset calc(var(--scene-ao-span) * var(--scene-shadow-x) * -.8) calc(var(--scene-ao-span) * var(--scene-shadow-y) * -.8) calc(var(--scene-ao-span) * 8) #1e1a123d;
-  --table-wood-light:#916b45;
-  --table-wood-mid:#60432e;
-  --table-wood-dark:#30241d;
+  --table-wood-light:#bd9664;
+  --table-wood-mid:#795939;
+  --table-wood-dark:#493426;
   --table-inlay:#d8b46d;
   --table-inlay-width:clamp(1px,.4cqw,2px);
   --table-apron-depth:.85cqw;
@@ -55,7 +55,6 @@
   --table-texture-width:var(--table-frame-size,100cqw);
   --felt-thread-step:calc(var(--table-texture-width) * .0018);
   --felt-fiber-width:calc(var(--felt-thread-step) * .24);
-  --felt-fuzz-step:calc(var(--table-texture-width) * .0011);
   --felt-groove-width:2.5px;
   --felt-groove-highlight-width:.6px;
   --felt-groove-feather:.6px;
@@ -76,11 +75,6 @@
   --table-metal-dark:#694625;
   --table-metal-edge-width:1px;
   --table-console-depth:1.5px;
-  --wood-fine-step:calc(var(--table-texture-width) * .005);
-  --wood-growth-step:calc(var(--table-texture-width) * .038);
-  --table-felt-warp:repeating-linear-gradient(90deg,#c8dfc309 0 var(--felt-fiber-width),#102f2505 var(--felt-fiber-width) calc(var(--felt-thread-step) * .55),transparent calc(var(--felt-thread-step) * .55) var(--felt-thread-step));
-  --table-felt-weft:repeating-linear-gradient(0deg,#061e1810 0 var(--felt-fiber-width),#b9d3b506 var(--felt-fiber-width) calc(var(--felt-thread-step) * .48),transparent calc(var(--felt-thread-step) * .48) var(--felt-thread-step));
-  --table-felt-fuzz:repeating-radial-gradient(ellipse at 32% 29%,#d4e5c403 0 calc(var(--felt-fuzz-step) * .3),#071d1804 calc(var(--felt-fuzz-step) * .3) var(--felt-fuzz-step),transparent var(--felt-fuzz-step) calc(var(--felt-fuzz-step) * 1.7));
   --table-felt-lighting:radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),var(--felt-light) 0%,var(--felt-base) 58%,var(--felt-shade) 100%);
   /* 宽幅低对比磨痕不重复、不硬收边；仅表达绒毛方向与常接触区的轻微不均。 */
   --table-felt-wear-center:radial-gradient(ellipse at 48% 52%,#e6d8b805 0%,#e6d8b803 18%,#e6d8b800 63%);
@@ -95,20 +89,34 @@
   /* 两轴各自反映四面受光，中央透明区和金属带共用；相交角没有空槽。 */
   --table-felt-groove-x:linear-gradient(90deg,var(--table-trim-start),var(--table-inner-wall-left) var(--table-inlay-track),var(--table-inner-wall-left-mid) calc(var(--table-inlay-track) + var(--table-inner-wall-width) * .5),var(--table-groove-middle) calc(var(--table-inlay-track) + var(--table-inner-wall-width)),var(--table-groove-glint) calc(var(--table-inlay-track) + var(--table-inner-wall-width)),var(--table-groove-clear) calc(var(--table-inlay-track) + var(--table-inner-wall-width) + var(--felt-groove-highlight-width) + var(--felt-groove-feather)),var(--table-groove-clear) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width) - var(--felt-groove-highlight-width) - var(--felt-groove-feather)),var(--table-groove-glint) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width)),var(--table-groove-middle) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width)),var(--table-inner-wall-right-mid) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width) * .5),var(--table-inner-wall-right) calc(100% - var(--table-inlay-track)),var(--table-trim-end));
   --table-felt-groove-y:linear-gradient(0deg,var(--table-trim-start),var(--table-inner-wall-near) var(--table-inlay-track),var(--table-inner-wall-near-mid) calc(var(--table-inlay-track) + var(--table-inner-wall-width) * .5),var(--table-groove-middle) calc(var(--table-inlay-track) + var(--table-inner-wall-width)),var(--table-groove-glint) calc(var(--table-inlay-track) + var(--table-inner-wall-width)),var(--table-groove-clear) calc(var(--table-inlay-track) + var(--table-inner-wall-width) + var(--felt-groove-highlight-width) + var(--felt-groove-feather)),var(--table-groove-clear) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width) - var(--felt-groove-highlight-width) - var(--felt-groove-feather)),var(--table-groove-glint) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width)),var(--table-groove-middle) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width)),var(--table-inner-wall-far-mid) calc(100% - var(--table-inlay-track) - var(--table-inner-wall-width) * .5),var(--table-inner-wall-far) calc(100% - var(--table-inlay-track)),var(--table-trim-end));
-  --table-depth-light:linear-gradient(var(--scene-light-angle),#fff5df0a 0%,transparent 42%,#1e1a1204 100%);
-  --table-depth-shade:linear-gradient(90deg,#1e1a1259 0%,#1e1a1220 22%,transparent 44% 62%,#fff5df08 82%,#fff5df1a 100%);
   --table-center-well:radial-gradient(ellipse at 50% 54%,#04171124 0%,#071b1414 48%,#071b1405 82%,transparent 100%);
-  /* 两条共心、同相位的连续椭圆场穿过四个斜接角；周期两端同色，不按四边切换方向。 */
-  --table-wood-grain:repeating-radial-gradient(ellipse at 50% 50%,#e2b67a0a 0,#e2b67a18 calc(var(--wood-fine-step) * .08),#e2b67a00 calc(var(--wood-fine-step) * .32),#20130c30 calc(var(--wood-fine-step) * .52),#e2b67a00 calc(var(--wood-fine-step) * .76),#e2b67a0a var(--wood-fine-step));
-  --table-wood-growth:repeating-radial-gradient(ellipse at 50% 50%,#3c2619 0,var(--table-wood-mid) calc(var(--wood-growth-step) * .31),#805733 calc(var(--wood-growth-step) * .56),#573823 calc(var(--wood-growth-step) * .81),#3c2619 var(--wood-growth-step));
-  --table-far-soft:linear-gradient(180deg,#221f1a4d 0%,#221f1a2e 12%,#221f1a0b 26%,#221f1a00 38% 100%);
+  /* 木纹等值线跟随圆角矩形：直边按内缩距离，角部按R-r；三处共用同一剖面和相位。 */
+  --wood-bevel:1.5px;
+  --wood-band:calc(var(--table-texture-width) * .042);
+  --wood-radius:max(calc(var(--ui-unit,1cqw) * 5),calc(var(--wood-band) + var(--wood-bevel) * 2));
+  --wood-span:calc(var(--table-texture-width) - var(--table-frame-side-inset,0px) * 2);
+  --wood-straight-width:calc(var(--wood-span) - var(--wood-radius) * 2);
+  --wood-straight-height:calc(var(--table-texture-width) - var(--wood-radius) * 2);
+  --wood-profile-head:var(--table-wood-dark) 0px,#765334 calc(var(--wood-bevel) * .35),#a17b50 calc(var(--wood-bevel) * .7),var(--table-wood-light) var(--wood-bevel),#94714a calc(var(--wood-bevel) * 2),var(--table-wood-mid) calc(var(--wood-band) * .24),#7e5e3d calc(var(--wood-band) * .3),var(--table-wood-mid) calc(var(--wood-band) * .36),#745436 calc(var(--wood-band) * .42),var(--table-wood-mid) calc(var(--wood-band) * .48),#7e5e3d calc(var(--wood-band) * .54),var(--table-wood-mid) calc(var(--wood-band) * .6),#745436 calc(var(--wood-band) * .65),var(--table-wood-mid) calc(var(--wood-band) - var(--wood-bevel) * 2),#b18b5d calc(var(--wood-band) - var(--wood-bevel)),#3f2e22 var(--wood-band),#3f2e2200 calc(var(--wood-band) + var(--wood-bevel));
+  --wood-profile-tail:#3f2e2200 calc(100% - calc(var(--wood-band) + var(--wood-bevel))),#3f2e22 calc(100% - var(--wood-band)),#b18b5d calc(100% - calc(var(--wood-band) - var(--wood-bevel))),var(--table-wood-mid) calc(100% - calc(var(--wood-band) - var(--wood-bevel) * 2)),#745436 calc(100% - calc(var(--wood-band) * .65)),var(--table-wood-mid) calc(100% - calc(var(--wood-band) * .6)),#7e5e3d calc(100% - calc(var(--wood-band) * .54)),var(--table-wood-mid) calc(100% - calc(var(--wood-band) * .48)),#745436 calc(100% - calc(var(--wood-band) * .42)),var(--table-wood-mid) calc(100% - calc(var(--wood-band) * .36)),#7e5e3d calc(100% - calc(var(--wood-band) * .3)),var(--table-wood-mid) calc(100% - calc(var(--wood-band) * .24)),#94714a calc(100% - calc(var(--wood-bevel) * 2)),var(--table-wood-light) calc(100% - var(--wood-bevel)),#a17b50 calc(100% - calc(var(--wood-bevel) * .7)),#765334 calc(100% - calc(var(--wood-bevel) * .35)),var(--table-wood-dark) calc(100% - 0px);
+  --wood-profile-round:#3f2e2200 calc(var(--wood-radius) - calc(var(--wood-band) + var(--wood-bevel))),#3f2e22 calc(var(--wood-radius) - var(--wood-band)),#b18b5d calc(var(--wood-radius) - calc(var(--wood-band) - var(--wood-bevel))),var(--table-wood-mid) calc(var(--wood-radius) - calc(var(--wood-band) - var(--wood-bevel) * 2)),#745436 calc(var(--wood-radius) - calc(var(--wood-band) * .65)),var(--table-wood-mid) calc(var(--wood-radius) - calc(var(--wood-band) * .6)),#7e5e3d calc(var(--wood-radius) - calc(var(--wood-band) * .54)),var(--table-wood-mid) calc(var(--wood-radius) - calc(var(--wood-band) * .48)),#745436 calc(var(--wood-radius) - calc(var(--wood-band) * .42)),var(--table-wood-mid) calc(var(--wood-radius) - calc(var(--wood-band) * .36)),#7e5e3d calc(var(--wood-radius) - calc(var(--wood-band) * .3)),var(--table-wood-mid) calc(var(--wood-radius) - calc(var(--wood-band) * .24)),#94714a calc(var(--wood-radius) - calc(var(--wood-bevel) * 2)),var(--table-wood-light) calc(var(--wood-radius) - var(--wood-bevel)),#a17b50 calc(var(--wood-radius) - calc(var(--wood-bevel) * .7)),#765334 calc(var(--wood-radius) - calc(var(--wood-bevel) * .35)),var(--table-wood-dark) calc(var(--wood-radius) - 0px);
+  --table-wood-horizontal:linear-gradient(180deg,var(--wood-profile-head),var(--wood-profile-tail));
+  --table-wood-vertical:linear-gradient(90deg,var(--wood-profile-head),var(--wood-profile-tail));
+  --table-wood-corner-tl:radial-gradient(circle at 100% 100%,var(--wood-profile-round));
+  --table-wood-corner-tr:radial-gradient(circle at 0% 100%,var(--wood-profile-round));
+  --table-wood-corner-br:radial-gradient(circle at 0% 0%,var(--wood-profile-round));
+  --table-wood-corner-bl:radial-gradient(circle at 100% 0%,var(--wood-profile-round));
+  /* 连续角向布光：右侧暖亮、近端暗；圆润剖面自身提供顶面/侧壁/下缘的明暗层次。 */
+  --table-wood-polish:conic-gradient(from 0deg at 50% 50%,#fff0d21f 0deg,#fff0d238 75deg,#fff0d214 115deg,#21160f00 140deg,#21160f52 180deg,#21160f34 270deg,#fff0d21f 360deg);
+  --table-felt-warp:repeating-linear-gradient(90deg,#c8dfc309 0 var(--felt-fiber-width),#102f2505 var(--felt-fiber-width) calc(var(--felt-thread-step) * .55),transparent calc(var(--felt-thread-step) * .55) var(--felt-thread-step));
+  --table-felt-weft:repeating-linear-gradient(0deg,#061e1810 0 var(--felt-fiber-width),#b9d3b506 var(--felt-fiber-width) calc(var(--felt-thread-step) * .48),transparent calc(var(--felt-thread-step) * .48) var(--felt-thread-step));
   --table-metal-ring:radial-gradient(ellipse closest-side,#bb965c00 calc(100% - var(--table-inlay-track)),var(--table-metal-dark) calc(100% - 3px),var(--table-metal-mid) calc(100% - 2px),var(--table-metal-light) calc(100% - 1px),var(--table-metal-dark) 100%);
   isolation:isolate;
   border-radius:var(--table-rim-radius);
   border:1px solid #af8b55;
   background:
-    var(--table-wood-grain),
-    var(--table-wood-growth);
+    var(--table-wood-horizontal),
+    var(--table-wood-vertical);
   box-shadow:
     inset -.15cqw .0375cqw .14cqw #fff5df40,
     var(--scene-main-shadow);
@@ -123,8 +131,8 @@
   border:1px solid #201911;
   border-radius:inherit;
   background:
-    var(--table-wood-grain),
-    var(--table-wood-growth);
+    var(--table-wood-horizontal),
+    var(--table-wood-vertical);
   box-shadow:inset 0 -.2cqw .2cqw #110e0bb3,0 .22cqw .2cqw #081c1370;
   pointer-events:none;
 }
@@ -140,8 +148,8 @@
   border-bottom-color:#927644;
   border-radius:calc(var(--table-rim-radius) - .43cqw);
   background:
-    var(--table-wood-grain),
-    var(--table-wood-growth);
+    var(--table-wood-horizontal),
+    var(--table-wood-vertical);
   box-shadow:inset -1px .25px 1px #fff5df26,var(--scene-contact-shadow);
   pointer-events:none;
 }
@@ -154,7 +162,6 @@
     var(--table-felt-groove-y),
     var(--table-felt-warp),
     var(--table-felt-weft),
-    var(--table-felt-fuzz),
     var(--table-felt-lighting);
   box-shadow:
     var(--scene-ao-shadow),
