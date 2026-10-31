@@ -425,14 +425,11 @@
   max-height:none;
 }
 
-.opponent-rack-left .tile svg,
-.opponent-rack-right .tile svg {
-  position:absolute;
-  left:50%;
-  top:50%;
-  width:var(--public-tile-width);
-  height:var(--public-tile-height);
-  transform:translate(-50%,-50%) rotate(90deg);
+.opponent-rack-left .tile,
+.opponent-rack-right .tile {
+  --tile-glyph-svg-width:var(--tile-glyph-face-height);
+  --tile-glyph-svg-height:var(--tile-glyph-face-width);
+  --tile-glyph-turn:90deg;
 }
 
 /* Single red/indicator kongs do not reduce the number of concealed tiles.

@@ -152,8 +152,8 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table .opponent-rack-top { top:calc(var(--table-depth-unit) * 5.6); left:calc(var(--table-unit) * 4.5); right:calc(var(--table-unit) * 4.5); }
 #game.is-landscape .table .opponent-rack-left,#game.is-landscape .table .opponent-rack-right { top:calc(var(--table-unit) * 6); bottom:calc(var(--table-unit) * 3.8); }
 /* 牌面朝向所属座位：本家 0°、右家 -90°、对家 180°、左家 90°；只转牌面，不动牌体。 */
-#game.is-landscape .table .opponent-rack-top .tile svg { transform:rotate(180deg); }
-#game.is-landscape .table .opponent-rack-right .tile svg { transform:translate(-50%,-50%) rotate(-90deg); }
+#game.is-landscape .table .opponent-rack-top .tile { --tile-glyph-turn:180deg; }
+#game.is-landscape .table .opponent-rack-right .tile { --tile-glyph-turn:-90deg; }
 .is-landscape .opponent-rack .back::before { inset:var(--tile-model-back-inset); border-radius:var(--tile-model-inner-radius); }
 .is-landscape .opponent-rack .wild-marker { display:none; }
 #game.is-landscape .table .wall-stack[data-side="top"] { left:calc(var(--table-unit) * 10.4 + (16 - var(--wall-stack-index)) * var(--wall-horizontal-step)); }
@@ -162,7 +162,6 @@ html.in-game #game.is-landscape {
 .is-landscape .wall-piece.tile { border-width:var(--tile-model-bevel); }
 .is-landscape .wall-piece.is-indicator { outline-width:calc(var(--table-unit) * .15); outline-offset:calc(-1px - var(--table-unit) * .15); }
 .is-landscape .wall-stack.is-next::after,.is-landscape .wall-stack.is-head::after { left:calc(50% - var(--table-unit) * .42); top:calc(var(--table-unit) * -.85); border-left-width:calc(var(--table-unit) * .42); border-right-width:calc(var(--table-unit) * .42); border-top-width:calc(var(--table-unit) * .6); }
-.is-landscape .wall-stack[data-side="left"] .wall-piece.tile svg,.is-landscape .wall-stack[data-side="right"] .wall-piece.tile svg { width:calc(var(--wall-piece-width) - var(--tile-side)); height:calc(var(--wall-piece-height) - var(--tile-depth)); }
 
 #game.is-landscape .table .river {
   position:absolute;

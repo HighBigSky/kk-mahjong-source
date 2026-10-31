@@ -14,7 +14,7 @@ const service=new RoomService({botDelayMs:600000}),server=createServer({roomServ
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const context=await browser.newContext({viewport:{width:640,height:360},reducedMotion:'reduce'});
 await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('fixed viewport'))});});
-const BASELINE='5bbe071';
+const BASELINE='3ad9bd9';
 const sheets=['tiles-depth.css','landscape.css','styles.css','seats-layout.css','wall-layout.css'];
 for(const file of sheets)await context.route(`**/${file}?material-baseline=*`,route=>route.fulfill({body:execFileSync('git',['show',`${BASELINE}:${file}`]),contentType:'text/css'}));
 const page=await context.newPage(),report={passed:false,errors:[],cases:[],screenshots:0,note:`Client display fixtures only. Dialog and animation examples reuse existing markup classes; no product DOM or game actions are added. Geometry is compared to ${BASELINE}; no screenshot pixel sampling.`};
@@ -31,8 +31,9 @@ async function sheet(baseline) {
 async function checkPair(size,area,read) {
   const pair=[];for(const baseline of [true,false]){await sheet(baseline);pair.push(await read(baseline));}
   const shapes=rows=>Object.fromEntries(Object.entries(rows).map(([name,data])=>[name,data.map(row=>{
-    // 本轮只改正面质感与图案清晰度；圆角、牌框、SVG尺寸、位置、间距与朝向严格不变。
-    return Object.fromEntries(Object.entries(row.shape).filter(([key])=>key!=='rect'));
+    // 牌框几何严格不变；图案视口允许按实际牌面居中，交由ui-tile-glyphs逐类验证。
+    const shape=Object.fromEntries(Object.entries(row.shape).filter(([key])=>key!=='rect'&&key!=='svg'));
+    if(row.shape.svg)shape.svgViewBox=row.shape.svg[3];return shape;
   })]));
   assert.deepEqual(shapes(pair[1]),shapes(pair[0]),`${JSON.stringify(size)} ${area} dimensions, positions, gaps and orientations unchanged`);
   let maxProjectionDelta=0;

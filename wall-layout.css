@@ -84,14 +84,11 @@
   outline:.15cqw solid #e7c77f;
   outline-offset:calc(-1px - .15cqw);
 }
-.wall-stack[data-side="left"] .wall-piece.tile svg,
-.wall-stack[data-side="right"] .wall-piece.tile svg {
-  position:absolute;
-  left:50%;
-  top:50%;
-  width:calc(var(--wall-piece-width) - var(--tile-side));
-  height:calc(var(--wall-piece-height) - var(--tile-depth));
-  transform:translate(-50%,-50%) rotate(90deg);
+.wall-stack[data-side="left"] .wall-piece.tile,
+.wall-stack[data-side="right"] .wall-piece.tile {
+  --tile-glyph-svg-width:var(--tile-glyph-face-height);
+  --tile-glyph-svg-height:var(--tile-glyph-face-width);
+  --tile-glyph-turn:90deg;
 }
 .wall-piece.is-next-piece {
   border-color:#e6c676;

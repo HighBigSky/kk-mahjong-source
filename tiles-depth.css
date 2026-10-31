@@ -57,7 +57,7 @@
 }
 
 /* 统一材质只在这里定义；区域规则仅选择强度、可见面与光照反旋转。
-   旧 --tile-depth/--tile-side 保留给现有 SVG 朝向和边框计算，不再绘制通用底面。 */
+   旧 --tile-depth/--tile-side 仅保留给材质参数，不再决定图案的可用区域。 */
 .tile, .back {
   --tile-model-version: resin-v10;
   --tile-model-grade: river;
@@ -206,6 +206,18 @@
   transition: var(--tile-model-color-transition);
 }
 .tile {
+  /* 图案与::before使用同一正面区域，顶部/侧面不再从另一套尺寸里扣减。 */
+  --tile-glyph-box-width: 100%;
+  --tile-glyph-box-height: 100%;
+  --tile-glyph-inset-top: var(--tile-model-top-size);
+  --tile-glyph-inset-right: var(--tile-model-right-size);
+  --tile-glyph-inset-bottom: 0px;
+  --tile-glyph-inset-left: 0px;
+  --tile-glyph-face-width: calc(var(--tile-glyph-box-width) - var(--tile-glyph-inset-left) - var(--tile-glyph-inset-right));
+  --tile-glyph-face-height: calc(var(--tile-glyph-box-height) - var(--tile-glyph-inset-top) - var(--tile-glyph-inset-bottom));
+  --tile-glyph-svg-width: var(--tile-glyph-face-width);
+  --tile-glyph-svg-height: var(--tile-glyph-face-height);
+  --tile-glyph-turn: 0deg;
   background: var(--tile-body);
   border: var(--tile-model-line-width) solid var(--tile-border);
   border-top-color: var(--tile-bone-light);
@@ -230,11 +242,16 @@
   z-index: 0;
 }
 .tile svg {
-  position: relative;
+  position: absolute;
+  left: calc((100% + var(--tile-glyph-inset-left) - var(--tile-glyph-inset-right)) / 2);
+  top: calc((100% + var(--tile-glyph-inset-top) - var(--tile-glyph-inset-bottom)) / 2);
   z-index: 1;
   display: block;
-  width: calc(100% - var(--tile-side));
-  height: calc(100% - var(--tile-depth));
+  width: var(--tile-glyph-svg-width);
+  height: var(--tile-glyph-svg-height);
+  /* 原viewBox默认xMidYMid meet保持等比；旋转牌只交换视口宽高，不拉伸图案。 */
+  transform: translate(-50%, -50%) rotate(var(--tile-glyph-turn));
+  object-fit: contain;
   filter: none;
   border-radius: var(--tile-model-radius);
   box-shadow: var(--tile-model-glyph-shadow);
@@ -325,6 +342,8 @@
   --hand-side-gloss: none;
   --hand-side-paint: none;
   --hand-face-width: calc(100% - var(--hand-visible-side));
+  --tile-glyph-inset-top: var(--hand-top-depth);
+  --tile-glyph-inset-right: var(--hand-visible-side);
   /* 手牌只选完整强度与可见面；倒角、釉面、缝隙和接地阴影均引用共享层。 */
   --tile-model-top-size: 2px;
   --tile-model-top-curve-size: var(--tile-model-radius);
@@ -346,15 +365,6 @@
   /* 左邻牌的遮蔽仅落在本张左缘；缝隙继续透出桌面与原有接地阴影，不铺树脂色。 */
   box-shadow: var(--tile-model-face-shadow);
   transform: none;
-}
-.hand .tile svg {
-  position: absolute;
-  top: var(--hand-top-depth);
-  left: 0;
-  width: var(--hand-face-width);
-  height: calc(100% - var(--hand-top-depth));
-  transform: none;
-  border-radius: var(--tile-model-radius);
 }
 .hand .tile::after {
   /* 顶面与侧面共用完整圆角画布及连续内高光，转角没有两个面各自收边的双线。

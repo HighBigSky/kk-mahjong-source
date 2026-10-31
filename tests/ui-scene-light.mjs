@@ -8,7 +8,7 @@ import {RoomService} from '../src/server/rooms.js';
 import {installVisualGeometry} from './browser-geometry.mjs';
 
 // 固定本轮基线；只比较真实DOM，不截图，也不把材质改动误当成几何例外。
-const BASELINE='5bbe071';
+const BASELINE='3ad9bd9';
 const sheets=['styles.css','table-depth.css','tiles-depth.css','seats-layout.css','laizi.css','landscape.css'];
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
 const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});
@@ -36,7 +36,7 @@ async function snapshot() {
   return page.evaluate(()=>{
     const properties=['position','display','width','height','padding','margin','gap','border-width','border-radius','box-sizing','top','right','bottom','left','transform','transform-origin','transform-style','clip-path','z-index','overflow','pointer-events'];
     const shape=s=>Object.fromEntries(properties.map(name=>[name,s.getPropertyValue(name)]));
-    const nodes=[...document.querySelectorAll('#game,#game *')].filter(n=>n.getClientRects().length&&!n.closest('.icon-defs,#tile-sprite'));
+    const nodes=[...document.querySelectorAll('#game,#game *')].filter(n=>n.getClientRects().length&&!n.closest('.icon-defs,#tile-sprite,.tile svg'));
     const geometry=nodes.map(n=>{const r=n.getBoundingClientRect();return {name:n.id||n.className?.baseVal||String(n.className),rect:[r.x,r.y,r.width,r.height],shape:shape(getComputedStyle(n)),pseudos:['::before','::after'].map(p=>shape(getComputedStyle(n,p)))};});
     const style=(node,pseudo)=>{const s=getComputedStyle(node,pseudo);return {background:s.backgroundImage,shadow:s.boxShadow,filter:s.filter,backdrop:s.backdropFilter,transition:s.transitionProperty};};
     const surfaces=Object.fromEntries([['table','.table','::before'],['felt','.table-border'],['scene','#game'],['environment','#game','::before'],['center','.table-center'],['dice','.table-die'],['seat','.player-seat'],['hud','.wallet-pill'],['button','.action-button:not(:disabled)']].map(([name,selector,pseudo])=>[name,style(document.querySelector(selector),pseudo)]));
