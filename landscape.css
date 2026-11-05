@@ -442,14 +442,17 @@ html.in-game #game.is-landscape {
   border-left-color:#6d4c3273;
   border-radius:calc(var(--ui-unit) * 5);
   background:
-    var(--table-wood-polish),
+    /* 四条1px暗缝垂直计宽；0.35px双侧反光，方形绘制块保证45度。 */
+    var(--table-joint-tl-br) left calc(var(--table-frame-side-inset) + var(--table-joint-inset)) top var(--table-joint-inset) / var(--table-joint-reach) var(--table-joint-reach) no-repeat,
+    var(--table-joint-tr-bl) right calc(var(--table-frame-side-inset) + var(--table-joint-inset)) top var(--table-joint-inset) / var(--table-joint-reach) var(--table-joint-reach) no-repeat,
+    var(--table-joint-tl-br) right calc(var(--table-frame-side-inset) + var(--table-joint-inset)) bottom var(--table-joint-inset) / var(--table-joint-reach) var(--table-joint-reach) no-repeat,
+    var(--table-joint-tr-bl) left calc(var(--table-frame-side-inset) + var(--table-joint-inset)) bottom var(--table-joint-inset) / var(--table-joint-reach) var(--table-joint-reach) no-repeat,
     var(--table-wood-corner-tl) left var(--table-frame-side-inset) top / var(--wood-radius) var(--wood-radius) no-repeat,
     var(--table-wood-corner-tr) right var(--table-frame-side-inset) top / var(--wood-radius) var(--wood-radius) no-repeat,
     var(--table-wood-corner-br) right var(--table-frame-side-inset) bottom / var(--wood-radius) var(--wood-radius) no-repeat,
     var(--table-wood-corner-bl) left var(--table-frame-side-inset) bottom / var(--wood-radius) var(--wood-radius) no-repeat,
     var(--table-wood-horizontal) center / var(--wood-straight-width) 100% no-repeat,
-    var(--table-wood-vertical) center / var(--wood-span) var(--wood-straight-height) no-repeat,
-    var(--table-felt-lighting) center / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat;
+    var(--table-wood-vertical) center / var(--wood-span) var(--wood-straight-height) no-repeat;
   box-shadow:
     calc(var(--ui-unit) * -3.3) calc(var(--ui-unit) * .825) calc(var(--ui-unit) * .32) #22170f,
     var(--table-ground-shadow);
@@ -470,6 +473,8 @@ html.in-game #game.is-landscape {
   --felt-paint-top:calc(var(--table-frame-size) * .43 - var(--table-felt-paint-height) / 2);
   --trim-paint-top:calc(var(--table-frame-size) * .43 - var(--table-trim-paint-height) / 2);
   background:
+    /* 同一连续光场覆盖木框和压边，留出四条拼缝的绘制预算。 */
+    var(--table-trim-lighting) center calc(var(--table-frame-size) * -.07) / var(--wood-span) var(--table-frame-size) no-repeat,
     var(--table-felt-groove-x) center var(--trim-paint-top) / var(--table-trim-paint-width) var(--table-trim-paint-height) no-repeat,
     var(--table-felt-groove-y) center var(--trim-paint-top) / var(--table-trim-paint-width) var(--table-trim-paint-height) no-repeat,
     var(--table-felt-warp) center var(--felt-paint-top) / var(--table-felt-paint-width) var(--table-felt-paint-height) no-repeat,

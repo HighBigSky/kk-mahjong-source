@@ -6,7 +6,7 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
 
-const BASELINE='b62f133';
+const BASELINE='a46cb58';
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
 const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});
 server.listen(0,'127.0.0.1');await once(server,'listening');
@@ -41,31 +41,12 @@ async function snapshot() {
     const layer=(n,p)=>{const s=getComputedStyle(n,p);return{shape:shape(s),background:s.backgroundImage,size:s.backgroundSize,position:s.backgroundPosition,origin:s.backgroundOrigin,shadow:s.boxShadow,filters:[s.filter,s.backdropFilter],colors:[s.borderTopColor,s.borderRightColor,s.borderBottomColor,s.borderLeftColor]};};
     const table=document.querySelector('.table'),border=document.querySelector('.table-border'),center=document.querySelector('.table-center'),die=document.querySelector('#table-dice .table-die'),s=getComputedStyle(table);
     const painted=Array.from(document.querySelectorAll('.table,.table *')).filter(n=>n.getClientRects().length).flatMap(n=>['','::before','::after'].map(p=>{const s=getComputedStyle(n,p||null);return{name:n.id||n.className,p,content:s.content,shadow:s.boxShadow,filter:s.filter,backdrop:s.backdropFilter};}));
-    return{geometry,frameRect:rect(table),consoleRect:rect(center),diceRects:Array.from(document.querySelectorAll('#table-dice .table-die')).map(rect),frame:layer(table,'::before'),border:layer(border),inlay:layer(border,'::after'),console:layer(center),well:layer(center,'::before'),dice:layer(die),pip:layer(die.querySelector('i')),room:layer(document.querySelector('#game')),environment:layer(document.querySelector('#game'),'::before'),painted,frameSize:parseFloat(getComputedStyle(table,'::before').width),params:Object.fromEntries(['--table-console-depth','--table-metal-edge-width','--table-inlay-track','--felt-groove-width','--table-metal-light','--table-metal-mid','--table-metal-dark','--wood-bevel','--wood-band','--wood-radius','--table-inner-wall-width','--table-inner-wall-left','--table-inner-wall-right','--table-inner-wall-near','--table-inner-wall-far'].map(k=>[k,s.getPropertyValue(k).trim()]))};
+    return{geometry,frameRect:rect(table),consoleRect:rect(center),diceRects:Array.from(document.querySelectorAll('#table-dice .table-die')).map(rect),frame:layer(table,'::before'),border:layer(border),inlay:layer(border,'::after'),console:layer(center),well:layer(center,'::before'),dice:layer(die),pip:layer(die.querySelector('i')),room:layer(document.querySelector('#game')),environment:layer(document.querySelector('#game'),'::before'),painted,frameSize:parseFloat(getComputedStyle(table,'::before').width),params:Object.fromEntries(['--table-console-depth','--table-metal-edge-width','--table-inlay-track','--felt-groove-width','--table-metal-light','--table-metal-mid','--table-metal-dark','--wood-bevel','--wood-band','--wood-radius','--table-inner-wall-width','--table-inner-wall-left','--table-inner-wall-right','--table-inner-wall-near','--table-inner-wall-far','--table-trim-width','--table-joint-width','--table-joint-glint-width','--table-patina-light','--table-patina-shade','--tile-model-ivory'].map(k=>[k,s.getPropertyValue(k).trim()]))};
   });
 }
 function stopData(gradient){
   const args=split(gradient.slice(gradient.indexOf('(')+1,-1));
-  return args.filter(s=>/^rgba?\(/.test(s)).map(s=>({color:colors(s.match(/rgba?\([^()]*\)/)[0]),px:Number(s.match(/(-?[\d.]+)px/)?.[1]||0)}));
-}
-function interpolate(stops,t){
-  if(t<=stops[0][0])return stops[0][1];if(t>=stops.at(-1)[0])return stops.at(-1)[1];
-  const i=stops.findIndex(s=>s[0]>=t),a=stops[i-1],b=stops[i],f=(t-a[0])/(b[0]-a[0]);
-  const aa=a[1][3]??1,ba=b[1][3]??1,alpha=aa*(1-f)+ba*f;
-  const rgb=a[1].slice(0,3).map((v,j)=>alpha?(v*aa*(1-f)+b[1][j]*ba*f)/alpha:0);return [...rgb,alpha];
-}
-function roomLight(room,width,height){
-  const layers=split(room.background),ink=layers.map(gradientColors);
-  // CSS默认ellipse farthest-corner的归一化半径；只算渐变场，不读取或生成图像。
-  const radius=(x,y,cx,cy)=>Math.hypot((x-cx)/(Math.max(cx,1-cx)*Math.SQRT2),(y-cy)/(Math.max(cy,1-cy)*Math.SQRT2));
-  const at=x=>{const y=.32;let c=interpolate([[0,ink[4][0]],[.6,ink[4][1]],[1,ink[4][2]]],y);
-    c=composite(interpolate([[.48,ink[3][0]],[1,ink[3][1]]],y),c);
-    c=composite(interpolate([[0,ink[2][0]],[.68,ink[2][1]]],x),c);
-    c=composite(interpolate([[0,ink[1][0]],[.62,ink[1][1]]],radius(x,y,.92,.32)),c);
-    return composite(interpolate([[.22,ink[0][0]],[.62,ink[0][1]],[1,ink[0][2]]],radius(x,y,.58,.46)),c);
-  };
-  const left=at(.15),right=at(.85);assert.ok(luminance(right)>luminance(left),'computed room gradients light the right side more than the left');
-  return{left,right,leftLuminance:luminance(left),rightLuminance:luminance(right),width,height,method:'analytic CSS gradient samples, no pixel sampling'};
+  return args.filter(s=>/^rgba?\(/.test(s)).map(s=>({color:colors(s.match(/rgba?\([^()]*\)/)[0]),px:(s.includes('calc(50% -')?-1:1)*Number(s.match(/(-?[\d.]+)px/)?.[1]||0)}));
 }
 try {
   await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill('牌桌工艺验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
@@ -77,51 +58,90 @@ try {
     await page.setViewportSize(size);await frames();await load(true);const before=await snapshot();await load(false);const after=await snapshot();
     assert.deepEqual(after.geometry,before.geometry,'all table/tile/HUD/dice/direction rectangles, pseudo geometry, radii, transforms and click bounds remain exactly unchanged: '+JSON.stringify(size));
     for(const key of ['frame','border','inlay','console','well','dice','pip','room','environment']){
-      assert.deepEqual(after[key].shape,before[key].shape,key+' geometry unchanged');assert.deepEqual(after[key].filters,['none','none']);assert.ok(split(after[key].shadow).length<=2,key+' at most two shadows');
-      assert.ok(split(after[key].background).length<=8);assert.doesNotMatch(after[key].background,/url\(|image-set\(/);
+      assert.deepEqual(after[key].shape,before[key].shape,key+' geometry unchanged');
+      assert.deepEqual(after[key].filters,['none','none']);
+      assert.ok(split(after[key].shadow).length<=2,key+' at most two shadows');
+      const images=split(after[key].background);
+      assert.ok(images.length<=10,key+' at most ten gradients');
+      assert.ok(images.every(g=>/^(?:repeating-)?(?:linear|radial|conic)-gradient\(/.test(g)),key+' gradients only');
     }
     for(const p of after.painted){if(p.p&&['none','normal'].includes(p.content))continue;assert.ok(split(p.shadow).length<=2,String(p.name)+' shadow budget');assert.deepEqual([p.filter,p.backdrop],['none','none']);}
-    const layers=split(after.frame.background),old=split(before.frame.background),surface=split(after.border.background);
-    report.paint={frame:after.frame,border:after.border};
-    assert.equal(layers.length,8,'wood frame stays within eight gradient layers');assert.equal(surface.length,8,'existing felt/inlay layer stays within eight gradients');
-    assert.match(layers[0],/^conic-gradient/);assert.ok(layers.slice(1,5).every(g=>g.startsWith('radial-gradient(circle')));assert.match(layers[5],/^linear-gradient\((?:180deg, )?rgb/);assert.match(layers[6],/^linear-gradient\(90deg/);
-    assert.equal(layers[7],old[8],'original felt main light and palette retained');
-    for(const [now,prior]of [[0,0],[1,1],[2,2],[3,3],[4,5],[5,6],[6,7],[7,8]])assert.equal(surface[now],old[prior],'retain original inlay, weave, wear, sheen and main felt light');
-    const sizes=split(after.frame.size),rimRadius=parseFloat(sizes[1]),frameSize=parseFloat(sizes[7].split(' ')[1])/.916,span=parseFloat(sizes[6]),straightWidth=parseFloat(sizes[5]),straightHeight=Number(sizes[6].split(' ')[1].replace('px',''));
-    assert.ok(Math.abs(straightWidth+2*rimRadius-span)<.01);assert.ok(Math.abs(straightHeight+2*rimRadius-frameSize)<.01,'six paint patches tile one rounded-rectangle field');
-    assert.ok(Math.abs(frameSize-after.frameSize)<.017,'CSS paint dimensions agree with the DOM after layout subpixel quantization');
-    const head=stopData(layers[5]).slice(0,17),vertical=stopData(layers[6]).slice(0,17),bevel=head[3].px,band=head[15].px;
-    assert.deepEqual(vertical,head,'all four straight sides use one cross-section');assert.ok(bevel>=1&&bevel<=2);assert.ok(rimRadius>=band+2*bevel-.002,'grain inner curves retain a positive radius without altering the DOM outer radius');assert.ok(head.every((p,i)=>i===0||p.px>=head[i-1].px),'profile stops remain ordered at the smallest screen');
-    const value=d=>interpolate(head.map(p=>[p.px,p.color]),d);let maxColorDelta=0,maxTangentDelta=0,samples=0;
-    for(const gradient of layers.slice(1,5)){
-      const corner=stopData(gradient);assert.equal(corner.length,head.length);assert.deepEqual(corner.map(p=>p.color).reverse(),head.map(p=>p.color));
-      for(let i=0;i<corner.length;i++)assert.ok(Math.abs(rimRadius-corner[i].px-head[head.length-1-i].px)<.002,'corner R-r and straight inset d share the same phase');
-      for(const d of [bevel*.5,bevel,band*.3,band*.5,band-bevel])for(const sign of [-1,1]){
-        const e=rimRadius*.0001,radial=Math.hypot(e,rimRadius-d),c=interpolate(corner.map(p=>[p.px,p.color]),radial),v=value(d);
-        maxColorDelta=Math.max(maxColorDelta,...v.map((n,i)=>Math.abs(n-c[i])));maxTangentDelta=Math.max(maxTangentDelta,Math.abs(Math.atan2(sign*e,rimRadius-d))*180/Math.PI);samples++;
+    const wood=split(after.frame.background),felt=split(after.border.background);
+    assert.equal(wood.length,10);assert.equal(felt.length,9);
+    assert.equal(Number.parseFloat(after.params['--table-trim-width']),2);
+    assert.equal(Number.parseFloat(after.params['--table-joint-width']),1);
+    assert.equal(Number.parseFloat(after.params['--table-joint-glint-width']),.35);
+    // Four square, mirrored patches: the diagonal dark strip is one CSS pixel
+    // measured perpendicular to its 45-degree line, with two .35px glints.
+    const woodSizes=split(after.frame.size).map(v=>v.split(' ').map(parseFloat));
+    const woodPositions=split(after.frame.position);
+    const jointStops=wood.slice(0,4).map(stopData);
+    for(let i=0;i<4;i++){
+      assert.ok(wood[i].startsWith('linear-gradient('+([45,135,45,135][i])+'deg'));
+      assert.deepEqual(jointStops[i],jointStops[0]);
+      assert.equal(jointStops[i][4].px-jointStops[i][3].px,1,'one-pixel dark joint');
+      assert.ok(Math.abs(jointStops[i][2].px-jointStops[i][1].px-.35)<.001);
+      assert.ok(Math.abs(jointStops[i][6].px-jointStops[i][5].px-.35)<.001);
+      assert.equal(woodSizes[i][0],woodSizes[i][1],'square seam patch preserves 45 degrees');
+    }
+    assert.notEqual(woodPositions[0],woodPositions[1]);assert.notEqual(woodPositions[0],woodPositions[3]);
+    const head=stopData(wood[8]).slice(0,18),corners=wood.slice(4,8).map(stopData);
+    const radius=woodSizes[4][0],band=head[16].px,bevel=head[3].px;
+    assert.ok(Math.abs(woodSizes[0][0]-(band-2)/Math.SQRT2)<.002,'joint ends before the continuous metal ring');
+    const inset=radius*(1-1/Math.SQRT2),outerPoint=radius-Math.hypot(radius-inset,radius-inset);
+    assert.ok(Math.abs(outerPoint)<.002,'joint begins on rounded outer edge, with no protruding line');
+    assert.ok(Math.abs(radius-Math.SQRT2*(radius-inset-woodSizes[0][0])-(band-2))<.002,'joint meets metal outer edge without cutting the ring');
+    let maxGrainDelta=0;
+    for(const corner of corners){
+      assert.equal(corner.length,head.length);
+      for(let i=0;i<corner.length;i++){
+        const straight=head[head.length-1-i];
+        assert.ok(Math.abs(radius-corner[i].px-straight.px)<.002,'corner and straight grain share the same distance profile');
+        if(straight.px>=bevel*2){
+          maxGrainDelta=Math.max(maxGrainDelta,...corner[i].color.map((c,j)=>Math.abs(c-straight.color[j])));
+        }
       }
     }
-    assert.ok(maxColorDelta<.05&&maxTangentDelta<.1,'grain colors and tangents cross all eight straight/corner joins without a seam');
-    const polishStops=split(layers[0].slice(layers[0].indexOf('(')+1,-1)).filter(p=>/^rgba?\(/.test(p)).map(p=>[Number(p.match(/([\d.]+)deg$/)[1])/360,colors(p.match(/rgba?\([^()]*\)/)[0])]);
-    assert.deepEqual(polishStops[0][1],polishStops.at(-1)[1],'continuous polish wraps without a lighting seam');
-    const lit=(angle,d)=>composite(interpolate(polishStops,angle/360),value(d));
-    const lighting={right:luminance(lit(90,bevel)),left:luminance(lit(270,bevel)),far:luminance(lit(0,bevel)),near:luminance(lit(180,bevel)),top:luminance(lit(90,bevel)),side:luminance(lit(90,bevel*.35)),lower:luminance(lit(90,0))};
-    assert.ok(lighting.right>lighting.left&&lighting.far>lighting.near&&lighting.top>lighting.side&&lighting.side>lighting.lower,'right light and rounded top/side/lower profile agree');
-    const cornerLuminance=layers.slice(1,5).map(g=>stopData(g).length);assert.ok(cornerLuminance.every(n=>n>=15));
-    const oldSizes=split(before.frame.size),felt=sizes[7].split(' ').map(parseFloat),trim=split(after.border.size)[0].split(' ').map(parseFloat);
-    assert.equal(sizes[7],oldSizes[8]);assert.ok(trim.every((v,i)=>Math.abs(v-felt[i]-8)<.001),'inlay still occupies its original 4px wood track');
-    const edgeSizes=split(after.border.size);assert.ok(edgeSizes.slice(2).every(v=>v===oldSizes[2]),'felt paint width/height remain unchanged');
-    const borderHeight=parseFloat(after.border.shape.height),origin=after.border.shape['transform-origin'].split(' ').map(parseFloat),positions=split(after.border.position);
-    const paintTop=parseFloat(positions[7].split(' ')[1]);assert.ok(Math.abs(paintTop+felt[1]/2-frameSize*.43)<.002,'felt image stays at the existing projection origin');
-    const ring=split(after.inlay.background);assert.equal(ring.length,2);assert.match(ring[0],/^radial-gradient/);assert.equal(gradientColors(ring[0])[0][3],0);
-    const edges=split(after.inlay.shadow).map(g=>[...g.matchAll(/(-?[\d.]+)px/g)].map(m=>Number(m[1])));assert.deepEqual(edges,[[0,1,0,0],[0,-1,0,0]],'embedded gold retains 1px bright/dark edges');
-    const depth=parseFloat(after.params['--table-console-depth']);assert.ok(depth>=1&&depth<=2);assert.match(after.console.background,/at 92% 32%/);assert.match(after.dice.background,/at 92% 32%/);
-    for(const key of ['frame','console','dice'])for(const shadow of split(after[key].shadow).filter(g=>!g.includes('inset')))assert.ok(Number(shadow.match(/(-?[\d.]+)px/)[1])<0,'cast shadows stay leftward');
-    assert.equal(after.room.background,before.room.background);assert.equal(after.environment.background,before.environment.background,'room and ground contact retained');
-    const roomSamples=roomLight(after.room,size.width,size.height);
-    report.cases.push({size,rectangles:after.geometry.length,geometryExactlyEqual:true,backgroundLayers:8,feltLayers:8,maxShadows:2,bevel,band,rimRadius,joins:{samples,maxColorDelta,maxTangentDelta},lighting,feltPaint:felt,trimPaint:trim,projectionOrigin:origin,borderHeight,consoleDepth:depth,roomSamples,frameRect:after.frameRect});
+    assert.equal(maxGrainDelta,0,'grain phase and colors remain continuous; patina only warms the outer bevel');
+    const patina=corners[0].find(p=>Math.abs(p.px-(radius-bevel))<.002).color;
+    const oldCorner=stopData(split(before.frame.background)[1]);
+    assert.notDeepEqual(corners[0],oldCorner,'rounded outer corner has warm highlight and shade');
+    const face=await page.locator('#hand .tile').first().evaluate(n=>getComputedStyle(n,'::before').backgroundImage);
+    const faceColors=gradientColors(face).filter(c=>(c[3]??1)===1);
+    assert.ok(faceColors.length);const faceHighlight=Math.max(...faceColors.map(luminance));
+    assert.ok(luminance(patina)<faceHighlight,'patina remains below the ivory face highlight');
+    // The metal lives in the original six wood patches. Straight and radial
+    // stops share a 2px distance profile, including all eight arc tangents.
+    const metal=head.slice(14,17);
+    assert.equal(metal[2].px-metal[0].px,2);
+    assert.equal(metal[1].px-metal[0].px,1);
+    assert.ok(luminance(metal[1].color)>luminance(metal[0].color)&&luminance(metal[1].color)>luminance(metal[2].color),'dark-gold / bright-gold / dark-gold');
+    const woodVertical=stopData(wood[9]).slice(0,18);
+    assert.deepEqual(woodVertical,head,'metal and grain use the same profile on both axes');
+    for(const corner of corners)for(const stop of metal){
+      const arc=corner.find(p=>Math.abs(p.px-(radius-stop.px))<.002);
+      assert.ok(arc,'continuous rounded metal cross-section');assert.deepEqual(arc.color,stop.color);
+    }
+    assert.ok(Math.abs(woodSizes[8][0]+2*radius-woodSizes[9][0])<.002,'horizontal and curved patches tile without gaps');
+    assert.ok(Math.abs(woodSizes[9][1]+2*radius-after.frameSize)<.02,'vertical and curved patches tile without gaps');
+    const lightColors=gradientColors(felt[0]);
+    const right=composite(lightColors[1],metal[1].color),left=composite(lightColors[3],metal[1].color);
+    assert.ok(luminance(right)>luminance(left),'right-hand metal catches more light');
+    assert.ok(Math.max(...lightColors.map(ink=>luminance(composite(ink,patina))))<faceHighlight,'even illuminated patina remains below the face highlight');
+    const lightingSize=split(after.border.size)[0].split(' ').map(parseFloat);
+    assert.equal(lightingSize[0],woodSizes[9][0]);
+    assert.ok(Math.abs(lightingSize[1]-after.frameSize)<.02,'continuous light spans the existing wooden frame');
+    const oldFelt=split(before.border.background);
+    for(let i=3;i<9;i++){
+      assert.equal(felt[i],oldFelt[i-1],'retain original weave, wear, sheen and main felt light');
+      assert.equal(split(after.border.size)[i],split(before.border.size)[i-1],'original felt paint dimensions retained');
+      assert.equal(split(after.border.position)[i],split(before.border.position)[i-1],'original felt paint origin retained');
+    }
+    assert.deepEqual(after.inlay,before.inlay);assert.deepEqual(after.console,before.console);assert.deepEqual(after.dice,before.dice);
+    assert.deepEqual(after.room,before.room);assert.deepEqual(after.environment,before.environment);
+    report.cases.push({size,rectangles:after.geometry.length,geometryExactlyEqual:true,woodLayers:10,feltLayers:9,maxShadows:2,jointWidth:1,jointGlints:.35,trimWidth:2,trimRadius:radius-band,maxGrainDelta,patinaLuminance:luminance(patina),faceHighlight,rightLuminance:luminance(right),leftLuminance:luminance(left),frame:after.frame,border:after.border});
   }
-  assert.deepEqual(report.errors,[]);report.passed=true;console.log(JSON.stringify({passed:true,cases:report.cases.length,rectangles:report.cases.reduce((n,c)=>n+c.rectangles,0),backgroundLayers:8,maxShadows:2,screenshots:0}));
+  assert.deepEqual(report.errors,[]);report.passed=true;console.log(JSON.stringify({passed:true,cases:report.cases.length,rectangles:report.cases.reduce((n,c)=>n+c.rectangles,0),backgroundLayers:10,maxShadows:2,screenshots:0}));
 }catch(error){report.failure=error.stack;throw error;}finally{
   if(process.env.KK_UI_TARGET_URL)try{report.testRoomLeft=await page.evaluate(()=>window.mahjongRoom.leave());}catch(error){report.cleanupError=error.message;}
   writeFileSync(process.env.KK_UI_TARGET_URL?'output/wood-rim-online.json':'output/wood-rim-verification.json',JSON.stringify(report,null,2));await browser.close();service.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
