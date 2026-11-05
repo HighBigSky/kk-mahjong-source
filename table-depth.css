@@ -21,6 +21,23 @@
   --scene-ground-back-strength:.36;
   --scene-ground-dice-strength:.72;
   --scene-ground-dice-ratio:.085;
+  /* 中央物件共用右侧灯：刻字沉入、骰子凸出，头尾标记只保留贴桌的柔光。 */
+  --center-letter-ink:#163b2e;
+  --center-letter-light:#365641;
+  --center-letter-shade:#0c291f;
+  --center-letter-paint:linear-gradient(var(--scene-light-angle),var(--center-letter-light),var(--center-letter-ink) 52%,var(--center-letter-shade));
+  --center-letter-cut:-.5px .125px .5px #03150fb3,0 1px 0 #c1d3b238;
+  --center-letter-active-glow:-.5px .125px .5px #03150f99,0 0 .32em #ffe8aa59;
+  --center-dice-light:#fffdf7;
+  --center-dice-ivory:#f2eee4;
+  --center-dice-shade:#d8d4c9;
+  --center-dice-face:radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fffdf72e,transparent 68%),linear-gradient(var(--scene-light-angle),var(--center-dice-light),var(--center-dice-ivory) 56%,var(--center-dice-shade));
+  --center-dice-key:#ecd087;
+  --center-pip-face:radial-gradient(circle at 85% 64%,#85735b,#3c3022 58%,#1a1510);
+  --center-tail-ink:var(--wall-tail-gold,#d8b46d);
+  --center-tail-glow:#d8b46d38;
+  --center-head-ink:var(--wall-head-jade,#b4dbc4);
+  --center-head-glow:#b4dbc438;
   --scene-ao-ratio:.09;
   /* AO留给场景容器；单张牌只保留贴地与短投影，正常态均收进牌框。 */
   --scene-surface:linear-gradient(var(--scene-light-angle),#fff5df12,transparent 44%,#1e1a121c);

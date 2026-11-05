@@ -582,11 +582,17 @@ html.in-game #game.is-landscape {
   background:radial-gradient(circle at var(--scene-light-x) var(--scene-light-y),#4b5146,#172b25 80%);
   box-shadow:inset var(--table-console-depth) -.375px 2px #07181080,inset -1px .25px 1px #fff5df26;
 }
-#game.is-landscape .table-center .direction { display:grid; color:#bbc3b1; font-family:"KaiTi","STKaiti",serif; }
+#game.is-landscape .table-center .direction { display:grid; color:var(--center-letter-ink); font-family:"KaiTi","STKaiti",serif; }
 #game.is-landscape .table-center .direction.active { color:#ffe8aa; background:#b7563e70; border-radius:calc(var(--table-unit) * .45); }
 #game.is-landscape .table-die {
+  --center-pip-depth:clamp(.5px,calc(var(--dice-contact-width) * .055),1.5px);
+  --center-pip-cut:inset var(--center-pip-depth) calc(var(--center-pip-depth) * -.25) calc(var(--center-pip-depth) * 1.4) #0d0b08bd,inset calc(var(--center-pip-depth) * -.65) calc(var(--center-pip-depth) * .4) 0 #fff7df5c;
   border-radius:calc(var(--table-unit) * .55);
-  background:radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df12,transparent 70%),linear-gradient(var(--scene-light-angle),var(--tile-face-normal-light),var(--tile-ivory) 58%,var(--tile-face-normal-shade));
+  background:var(--center-dice-face);
+  border-top-color:#e4dfd3;
+  border-right-color:var(--center-dice-light);
+  border-bottom-color:#aca395;
+  border-left-color:#9e9382;
   /* 中控骰子的短影按自身宽度缩放，强于牌；包围范围始终留在面板内。 */
   --dice-contact-width:calc(var(--table-unit) * 2.4);
   --dice-contact-span:calc(var(--dice-contact-width) * var(--scene-ground-dice-ratio));
@@ -594,8 +600,8 @@ html.in-game #game.is-landscape {
     calc(var(--dice-contact-span) * var(--scene-shadow-x)) calc(var(--dice-contact-span) * var(--scene-shadow-y)) var(--dice-contact-span) calc(var(--dice-contact-span) * -.25) rgb(var(--scene-shadow-ink) / var(--scene-ground-dice-strength));
 }
 #game.is-landscape .table-die i {
-  background:radial-gradient(circle at 78% 28%,#67533b,#33261a 60%,#1a130c);
-  box-shadow:inset 1px -.25px 1px #120d08a6,inset -1px .25px 1px #fff5df1f;
+  background:var(--center-pip-face);
+  box-shadow:var(--center-pip-cut);
 }
 #game.is-landscape .table-dice { gap:calc(var(--table-unit) * .7); }
 
@@ -756,7 +762,19 @@ html.in-game #game.is-landscape {
 .is-landscape .table-labels { position:absolute; inset:0; z-index:4; pointer-events:none; user-select:none; }
 .table-labels .table-label { position:absolute; display:block; margin:0; padding:0; white-space:nowrap; font-size:clamp(7px,calc(var(--stage-height) * .022),14px); font-weight:500; line-height:1.05; letter-spacing:0; text-shadow:0 1px 2px #001a15; }
 .table-labels .table-label-direction { font-family:"KaiTi","STKaiti",serif; font-size:clamp(8px,calc(var(--stage-height) * .025),18px); font-weight:700; }
-.table-labels .table-label-direction.is-active { text-shadow:0 0 4px #ffe8aa70,0 1px 2px #001a15; }
+.table-labels .table-label-direction.is-active { text-shadow:var(--center-letter-active-glow); }
+/* 可见镜像与桌内源字共用字形内渐变：CSS文字没有inset text-shadow，
+   用字形内右亮左暗的切口与下缘微高光形成沉刻，避免给文字套矩形凹框。 */
+#game.is-landscape .table-center .direction:not(.active),
+.table-labels .table-label-direction:not(.is-active) {
+  background-image:var(--center-letter-paint);
+  background-clip:text;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:var(--center-letter-cut);
+}
+#game.is-landscape .table-center .direction.active { text-shadow:var(--center-letter-active-glow); }
+#game.is-landscape .table-die.is-key { outline-color:var(--center-dice-key); }
 #game.is-landscape.has-table-labels .table .direction { opacity:0; }
 #game.is-landscape .hand .tile.selected { --tile-face-light:var(--tile-face-selected-strong-light); --tile-face-base:var(--tile-face-selected-strong-base); --tile-face-shade:var(--tile-face-selected-strong-shade); --tile-face-stop:72%; --tile-face-angle:var(--scene-light-angle); outline:calc(var(--ui-unit) * .45) solid #fff2a8; outline-offset:calc(var(--ui-unit) * .15); box-shadow:var(--tile-model-raised-shadow); }
 
@@ -832,11 +850,11 @@ html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.se
 /* 牌墙的取牌描边使用outline之外的第二层内环，不再叠成三层阴影。 */
 #game.is-landscape .wall-piece:is(.is-next-piece,.is-head-piece) {
   box-shadow:inset calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-x) * -1) calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-y) * -1) var(--tile-model-contact-unit) rgb(var(--scene-shadow-ink) / calc(.55 * var(--tile-model-strength))),
-    inset 0 0 0 .14cqw #e8c676b3;
+    inset 0 0 calc(var(--tile-model-width) * .055) calc(var(--tile-model-width) * .025) var(--center-tail-glow);
 }
 #game.is-landscape .wall-piece.is-head-piece:not(.is-next-piece) {
   box-shadow:inset calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-x) * -1) calc(var(--tile-model-contact-unit) * var(--tile-model-shadow-y) * -1) var(--tile-model-contact-unit) rgb(var(--scene-shadow-ink) / calc(.55 * var(--tile-model-strength))),
-    inset 0 0 0 .13cqw #b4dbc499;
+    inset 0 0 calc(var(--tile-model-width) * .055) calc(var(--tile-model-width) * .025) var(--center-head-glow);
 }
 
 .rotate-guide {
@@ -861,3 +879,23 @@ html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.se
 .rotate-guide p { margin:0; max-width:22em; color:#bdcbb6; }
 .rotate-device { font-size:72px; line-height:1; color:var(--gold); }
 .rotate-guide .secondary-button { width:min(100%,220px); min-height:44px; margin-top:12px; font-size:16px; }
+
+/* 保留原0×0三角的边框宽度、坐标和层级，只替换其绘制。
+   两条软斜边与顶部细线构成描边，不再使用整块纯色三角。 */
+#game.is-landscape .wall-stack:is(.is-next,.is-head)::after {
+  --wall-pointer-ink:var(--center-tail-ink);
+  --wall-pointer-glow:var(--center-tail-glow);
+  --wall-pointer-width:calc(var(--table-unit) * .84);
+  border-top-color:transparent;
+  background:
+    linear-gradient(180deg,var(--wall-pointer-ink),var(--wall-pointer-glow) .7px,transparent 1.4px),
+    conic-gradient(from 0deg at 50% 100%,transparent 0deg 28deg,var(--wall-pointer-ink) 32deg,transparent 35.2deg 324.8deg,var(--wall-pointer-ink) 328deg,transparent 332deg 360deg),
+    radial-gradient(ellipse at 55% 58%,var(--wall-pointer-glow),transparent 72%);
+  background-origin:border-box;
+  background-clip:border-box;
+  box-shadow:calc(var(--wall-pointer-width) * -.12) calc(var(--wall-pointer-width) * .03) calc(var(--wall-pointer-width) * .18) calc(var(--wall-pointer-width) * -.12) #1e1a1240;
+}
+#game.is-landscape .wall-stack.is-head::after {
+  --wall-pointer-ink:var(--center-head-ink);
+  --wall-pointer-glow:var(--center-head-glow);
+}
