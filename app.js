@@ -67,6 +67,15 @@ let actionNoticeDeadline = 0;
 let voiceAnnouncing = false;
 let diceIntroKey = null;
 let diceIntroTimer = null;
+let diceRollTimer = null;
+let diceIntroFrame = null;
+let diceIntroPhase = 'idle';
+const diceIntroSeen = new Set();
+const diceIntroMotion = matchMedia('(prefers-reduced-motion: reduce)');
+try {
+  const keys = JSON.parse(sessionStorage.getItem('kk-dice-intro-seen') || '[]');
+  if (Array.isArray(keys)) for (const key of keys) if (typeof key === 'string') diceIntroSeen.add(key);
+} catch { /* 存储不可用时，本页仍按 diceIntroKey 去重。 */ }
 const discardFocusState = createDiscardFocusState({storage:(() => {
   try { return sessionStorage; } catch { return null; }
 })()});
@@ -85,7 +94,7 @@ let specialGangPending = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
 const tableLabelNodes = new Map();
 const openingDeal = createOpeningDeal({stage:$('#game'), storage:(()=>{try{return sessionStorage;}catch{return null;}})(),
-  canPlay:()=>$('#dice-intro').hidden && !$('#rotate-guide').open,
+  canPlay:()=>!diceIntroActive() && $('#dice-intro').hidden && !$('#rotate-guide').open,
   onLockChange:()=>interactionChanged(),
   onFinish:()=>requestAnimationFrame(()=>{selected=-1;hinted=-1;handTap=null;render();}),
 });
@@ -264,6 +273,8 @@ function roomChanged() {
   // 发牌动画暂缓 render 时也记录连接边沿，重连后允许重新首次展开。
   hintDisclosure.update({session:`${room?.code || ''}:${game.round}`, connected:network.status === 'connected'});
   // 发牌期间只暂缓画面更新，网络与服务端照常推进；结束后一次性绘制最新快照。
+  if (diceIntroActive() && (network.status !== 'connected' || room?.status !== 'playing' || room.paused || game.phase.kind === PHASE.ENDED ||
+      diceIntroKey !== `${room.code}:${game.round}:${(game.wallInfo?.dice || []).join(',')}`)) dismissDiceIntro();
   const retainOpening = openingDeal.retain(room,game,network.status === 'connected');
   roomFullscreen.setInRoom(Boolean(room));
   roomOrientation.setRoomState(room?.status);
@@ -449,7 +460,7 @@ function syncSettings() {
   $('#sound-btn').setAttribute('aria-pressed', String(preferences.sound));
 }
 
-function humanTurn() { return network.canAct() && !specialGangPending && !openingDeal.active && game.phase.kind === PHASE.DISCARD && game.current === 0; }
+function humanTurn() { return network.canAct() && !specialGangPending && !diceIntroActive() && !openingDeal.active && game.phase.kind === PHASE.DISCARD && game.current === 0; }
 function modalOpen() { return Boolean(document.querySelector('dialog[open]')); }
 
 // Keep existing SVG instances mounted when a snapshot has no visual changes.
@@ -459,14 +470,106 @@ function setHTMLIfChanged(element, html) {
   renderedHTML.set(element, html);
 }
 
+function diceIntroActive() { return diceIntroPhase !== 'idle'; }
+
+function setDiceIntroPhase(phase) {
+  diceIntroPhase = phase;
+  $('#game').classList.toggle('is-dice-intro', diceIntroActive());
+  $('#dice-intro').dataset.phase = phase;
+  $('#table-dice').dataset.introPhase = phase;
+}
+
+function restoreIntroDice() {
+  clearInterval(diceRollTimer); diceRollTimer = null;
+  cancelAnimationFrame(diceIntroFrame); diceIntroFrame = null;
+  $('#table-dice').classList.remove('is-rolling');
+  // 摇动时只改固定点位的 opacity；停稳一次性还原真实点数结构。
+  renderedHTML.delete($('#table-dice'));
+  setHTMLIfChanged($('#table-dice'), diceHTML(game.wallInfo?.dice || []));
+}
+
 function dismissDiceIntro() {
-  clearTimeout(diceIntroTimer);
-  diceIntroTimer = null;
+  clearTimeout(diceIntroTimer); diceIntroTimer = null;
+  if (diceIntroActive()) restoreIntroDice();
+  else { clearInterval(diceRollTimer); diceRollTimer = null; }
   $('#dice-intro').hidden = true;
+  setDiceIntroPhase('idle');
 }
 
 function finishDiceIntro() {
-  dismissDiceIntro(); openingDeal.play(); interactionChanged();
+  if (!diceIntroActive()) return;
+  dismissDiceIntro();
+  openingDeal.play();
+  if (!openingDeal.active) render();
+  interactionChanged();
+}
+
+function showDiceIntro() {
+  clearTimeout(diceIntroTimer); diceIntroTimer = null;
+  restoreIntroDice();
+  setDiceIntroPhase('settled');
+  $('#dice-intro').hidden = false;
+  // 阶段切换时只批量读取一次锚点；动画帧不读写任何布局属性。
+  const dice = [...$('#table-dice').children].map(node => node.getBoundingClientRect());
+  const target = $('#dice-intro-dice').getBoundingClientRect();
+  const left = Math.min(...dice.map(r=>r.left)), right = Math.max(...dice.map(r=>r.right));
+  const centerY = (Math.min(...dice.map(r=>r.top)) + Math.max(...dice.map(r=>r.bottom))) / 2;
+  const fromScale = (right-left) / target.width;
+  const row = $('#dice-intro-dice');
+  row.style.setProperty('--dice-intro-from-x', `${(left+right)/2-target.left-target.width/2}px`);
+  row.style.setProperty('--dice-intro-from-y', `${centerY-target.top-target.height/2}px`);
+  row.style.setProperty('--dice-intro-zoom-from', String(fromScale));
+  row.style.setProperty('--dice-intro-zoom-to', String(fromScale*1.8));
+  const showing = () => {
+    setDiceIntroPhase('showing');
+    diceIntroFrame = requestAnimationFrame(() => {
+      diceIntroFrame = null;
+      diceIntroTimer = setTimeout(finishDiceIntro, 1500);
+    });
+  };
+  if (diceIntroMotion.matches) showing();
+  else {
+    setDiceIntroPhase('enlarging');
+    diceIntroTimer = setTimeout(showing, 300);
+  }
+  interactionChanged();
+}
+
+function rollIntroDice() {
+  const holder = $('#table-dice');
+  setHTMLIfChanged(holder, diceHTML([6,6]));
+  const center = document.createElement('template');
+  center.innerHTML = diceHTML([1,1]);
+  const dice = [...holder.children];
+  dice.forEach((die,index) => {
+    die.classList.remove('is-key');
+    die.append(center.content.children[index].firstElementChild.cloneNode(true));
+  });
+  // 七个固定点位覆盖所有骰面；帧内既不增删节点，也不读布局。
+  let frame = 0;
+  const tick = () => {
+    dice.forEach((die,index) => {
+      const value = (frame + index * 3) % 6 + 1;
+      const visible = new Set(DIE_PIPS[value].map(([row,column]) => row + ' / ' + column));
+      for (const pip of die.children) pip.style.opacity = visible.has(pip.style.gridArea) ? '1' : '0';
+      die.dataset.value = String(value);
+    });
+    frame++;
+  };
+  tick();
+  holder.classList.add('is-rolling');
+  setDiceIntroPhase('rolling');
+  // 首次 render 还要布置牌墙和手牌；等首帧再计时，保证玩家实际看到一秒摇动。
+  diceIntroFrame = requestAnimationFrame(() => {
+    diceIntroFrame = null;
+    diceRollTimer = setInterval(tick, 80);
+    diceIntroTimer = setTimeout(() => {
+      restoreIntroDice();
+      setDiceIntroPhase('settled');
+      // 先保留一拍中央真实点数，再进入可读展示。
+      diceIntroTimer = setTimeout(showDiceIntro, 120);
+    }, 1000);
+  });
 }
 
 function renderDiceIntro() {
@@ -479,15 +582,26 @@ function renderDiceIntro() {
   }
   const key = `${room.code}:${game.round}:${values.join(',')}`;
   if (key === diceIntroKey) return;
-  diceIntroKey = key;
   dismissDiceIntro();
+  diceIntroKey = key;
   // A restored game already in progress does not replay its opening overlay.
-  if ((game.events || []).some(event => /打出.+?。$/.test(event))) return;
+  if (diceIntroSeen.has(key) || (game.events || []).some(event => /打出.+?。$/.test(event))) return;
+  diceIntroSeen.add(key);
+  while (diceIntroSeen.size > 16) diceIntroSeen.delete(diceIntroSeen.values().next().value);
+  try { sessionStorage.setItem('kk-dice-intro-seen',JSON.stringify([...diceIntroSeen])); } catch { /* 本页去重仍然有效。 */ }
+  if (document.hidden) return;
   setHTMLIfChanged($('#dice-intro-dice'), diceHTML(values));
   $('#dice-intro-note').textContent = `${values[0]} 点 · ${values[1]} 点，取 ${Math.min(...values)} 点翻痞`;
-  $('#dice-intro').hidden = false;
-  diceIntroTimer = setTimeout(finishDiceIntro, 1500);
+  $('#dice-intro').setAttribute('aria-label', $('#dice-intro-note').textContent + '，点击收起');
+  if (diceIntroMotion.matches) showDiceIntro();
+  else rollIntroDice();
 }
+
+diceIntroMotion.addEventListener('change', () => {
+  if (diceIntroMotion.matches && diceIntroActive() && diceIntroPhase !== 'showing') showDiceIntro();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) finishDiceIntro(); });
+window.addEventListener('pagehide', dismissDiceIntro);
 
 function stageRect(element) {
   const stage = $('#game').getBoundingClientRect();
@@ -631,7 +745,7 @@ function renderDiscardFocus() {
 function renderTing() {
   const seat = game.players[0];
   const visibleTiles = [...game.players.flatMap(player => [...player.discards, ...player.redGangs, ...(player.piziGangs || []), ...player.melds.flatMap(meld => meld.tiles)]), ...(game.indicatorTile == null || game.indicatorTaken ? [] : [game.indicatorTile])];
-  const eligible = network.status === 'connected' && network.room?.status === 'playing' && !network.room.paused && !network.busy && !specialGangPending && !openingDeal.active && game.phase.kind !== PHASE.DEALING && $('#dice-intro').hidden;
+  const eligible = network.status === 'connected' && network.room?.status === 'playing' && !network.room.paused && !network.busy && !specialGangPending && !diceIntroActive() && !openingDeal.active && game.phase.kind !== PHASE.DEALING && $('#dice-intro').hidden;
   hintState = eligible ? calculateHints({hand:seat.hand, melds:seat.melds, wildTile:game.wildTile, indicatorTile:game.indicatorTile, visibleTiles}) : {mode:'none', candidates:[]};
   // 第四张已经打出时仍可接胡，但不能伪称墙内还有该牌。
   const claimTile = eligible && game.phase.kind === PHASE.CLAIM && network.availableActions().hu ? game.pendingDiscard?.tile : null;
@@ -780,6 +894,7 @@ function updateTurnMessage(actions = network.availableActions()) {
   else if (network.status !== 'connected') message = '连接中断，正在重新连接房间…';
   else if (room.paused) message = '有好友离线，10分钟未重连将解散房间';
   else if (game.phase.kind === PHASE.ENDED) message = game.winner === null ? '牌墙已空，本局流局' : game.winner === 0 ? '好牌，胡了！' : `${displayNames[game.winner]}${game.result.selfDraw ? '自摸' : '胡牌'}，下局再来`;
+  else if (diceIntroActive()) message = diceIntroPhase === 'rolling' ? '正在掷骰…' : '开局点数展示中…';
   else if (openingDeal.active) message = DEAL_TEXT.progress;
   else if (actions.pass) message = specialName ? `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}；手中有${specialName}，不能胡牌` : `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}，请选择操作`;
   else if (myTurn) message = actions.hu ? '好牌来了，可以自摸胡牌！' : selected >= 0 ? specialGangKind(hand[selected], game.indicatorTile, game.wildTile) ? `${PLAY_TEXT[specialGangKind(hand[selected], game.indicatorTile, game.wildTile)]}：${PLAY_TEXT.single}` : `已选${tileName(hand[selected])}，再点一次打出` : specialName ? `${specialName}只能杠出，全部杠出后才能胡牌` : '轮到你了，请选择一张牌打出';
@@ -796,7 +911,7 @@ function renderSelection() {
 }
 
 function render() {
-  if (openingDeal.active) return;
+  if (openingDeal.active || diceIntroActive()) return;
   const room = network.room;
   const active = Boolean(room && room.status !== 'waiting');
   const revealHands = game.phase.kind === PHASE.ENDED && game.result?.kind === 'win';
@@ -928,7 +1043,7 @@ function updateActionControls() {
   const enabled = { chi: actions.chi.length > 0, peng: actions.peng, gang: actions.redGang || actions.piziGang || actions.wildGang || actions.gang || actions.concealedGangs.length > 0 || actions.addedGangs.length > 0, hu: actions.hu, pass: actions.pass };
   for (const [action, available] of Object.entries(enabled)) {
     const button = $(`#action-${action}`);
-    button.disabled = !available || network.busy || specialGangPending || openingDeal.active;
+    button.disabled = !available || network.busy || specialGangPending || diceIntroActive() || openingDeal.active;
     button.hidden = !available;
   }
   const canNextRound = game.phase.kind === PHASE.ENDED && room?.owner === 0;
@@ -980,7 +1095,7 @@ function selectOptions(title, options) {
 }
 
 function performAction(action) {
-  if (openingDeal.active) return;
+  if (openingDeal.active || diceIntroActive()) return;
   if (!network.canAct() || specialGangPending) return;
   const actions = game.getActions(0);
   if (action === 'pass') return moveDone(game.pass(0));

@@ -1,0 +1,144 @@
+import assert from 'node:assert/strict';
+import {once} from 'node:events';
+import {createRequire} from 'node:module';
+import {execFileSync} from 'node:child_process';
+import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+import {createServer} from '../server.js';
+import {RoomService} from '../src/server/rooms.js';
+
+const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
+const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});
+server.listen(0,'127.0.0.1');await once(server,'listening');
+const target=process.env.KK_UI_TARGET_URL||`http://127.0.0.1:${server.address().port}`;
+const baseline=execFileSync('git',['show','c633c0c:landscape.css'],{encoding:'utf8'});
+const current=process.env.KK_UI_TARGET_URL?await(await fetch(target+'/landscape.css')).text():readFileSync('landscape.css','utf8');
+const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
+const contexts=[],report={passed:false,cases:[],errors:[],screenshots:0};mkdirSync('output',{recursive:true});
+async function setup(size,reducedMotion='no-preference'){
+  const context=await browser.newContext({viewport:size,hasTouch:size.width<1000,reducedMotion});contexts.push(context);
+  await context.addInitScript(()=>{
+    localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));
+    Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('dice fixture'))});
+    if(screen.orientation)Object.defineProperty(screen.orientation,'lock',{value:()=>Promise.reject(Error('dice fixture'))});
+    document.addEventListener('DOMContentLoaded',()=>{
+      window.__diceHistory=[];window.__diceSamples=[];
+      let last='idle';
+      const intro=document.querySelector('#dice-intro'),holder=document.querySelector('#table-dice');
+      new MutationObserver(()=>{
+        const phase=intro.dataset.phase||'idle';if(phase===last)return;last=phase;
+        const row={phase,time:performance.now(),round:window.mahjongGame.round,hidden:intro.hidden,
+          values:[...holder.children].map(n=>n.children.length),truth:[...window.mahjongGame.wallInfo.dice]};
+        if(phase==='enlarging')row.zoom=document.querySelector('#dice-intro-dice').getAnimations().map(a=>({duration:a.effect.getTiming().duration,frames:a.effect.getKeyframes()}));
+        window.__diceHistory.push(row);
+        if(phase==='rolling'){
+          const dice=[...holder.children],pips=dice.flatMap(n=>[...n.children]);
+          const sample=()=>{
+            if(intro.dataset.phase!=='rolling')return;
+            const p=document.querySelector('.table-center').getBoundingClientRect();
+            window.__diceSamples.push({inside:dice.every(n=>{const r=n.getBoundingClientRect();return r.left>=p.left&&r.right<=p.right&&r.top>=p.top&&r.bottom<=p.bottom;}),
+              stable:holder.children[0]===dice[0]&&holder.children[1]===dice[1]&&pips.every(n=>n.isConnected),
+              faces:dice.map(n=>[Number(n.dataset.value),[...n.children].filter(p=>p.style.opacity==='1').length]),
+              properties:dice.flatMap(n=>n.getAnimations().flatMap(a=>a.effect.getKeyframes().flatMap(f=>Object.keys(f).filter(k=>!['offset','computedOffset','easing','composite'].includes(k))))) });
+            requestAnimationFrame(sample);
+          };requestAnimationFrame(sample);
+        }
+      }).observe(intro,{attributes:true,attributeFilter:['data-phase']});
+    });
+  });
+  const page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));
+  const actions=[];page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/action'))actions.push(r.postDataJSON());});
+  await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill('两段掷骰验收');await page.locator('#room-create').click();
+  await page.locator('#room-waiting:not([hidden])').waitFor();
+  const code=(await page.locator('#room-current-code').textContent()).trim();
+  for(const seat of[1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
+  await page.locator('#room-ready').click();await page.locator('#room-start').click();
+  await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing');
+  return {page,context,actions,room:service.rooms.get(code)};
+}
+async function sameGeometry(page){
+  return page.evaluate(({baseline,current})=>{
+    const selector='#game,.table,.table-border,.table-center,#table-dice,#dice-intro,.river,.wall-stack,.opponent-rack,.hand-zone,#hand,.my-melds';
+    const read=()=>[...document.querySelectorAll(selector)].map(n=>{const r=n.getBoundingClientRect(),s=getComputedStyle(n);return [n.id||n.className,[r.x,r.y,r.width,r.height],...['width','height','padding','transform','clip-path','z-index','border-radius'].map(k=>s.getPropertyValue(k))];});
+    const before=read(),old=document.querySelector('[data-dice-sheet]')||[...document.querySelectorAll('link[rel=stylesheet]')].find(n=>new URL(n.href).pathname.endsWith('/landscape.css'));
+    const style=document.createElement('style');style.dataset.diceSheet='true';style.textContent=baseline;old.replaceWith(style);
+    const prior=read();style.textContent=current;return {before,prior,after:read()};
+  },{baseline,current});
+}
+async function idle(page){await page.waitForFunction(()=>!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'));}
+try{
+  for(const size of[{width:640,height:360},{width:1920,height:1080}]){
+    const {page,context,actions,room}=await setup(size);
+    await page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');
+    assert.equal(await page.locator('#dice-intro').isVisible(),false);
+    assert.equal(await page.locator('#hand button:enabled').count(),0);
+    await page.evaluate(()=>{document.querySelector('#hand button')?.click();document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));});
+    if(room){service._changed(room);service._changed(room);}
+    await page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='showing');
+    const geometry=await sameGeometry(page);assert.deepEqual(geometry.before,geometry.prior);assert.deepEqual(geometry.after,geometry.prior);
+    const values=await page.evaluate(()=>({central:[...document.querySelector('#table-dice').children].map(n=>n.children.length),shown:[...document.querySelector('#dice-intro-dice').children].map(n=>n.children.length),truth:window.mahjongGame.wallInfo.dice}));
+    assert.deepEqual(values.central,values.truth);assert.deepEqual(values.shown,values.truth);
+    const measuredZoom=await page.evaluate(()=>{
+      const dice=[...document.querySelector('#table-dice').children].map(n=>n.getBoundingClientRect());
+      const width=Math.max(...dice.map(r=>r.right))-Math.min(...dice.map(r=>r.left));
+      return document.querySelector('#dice-intro-dice').getBoundingClientRect().width/width;
+    });
+    assert.ok(Math.abs(measuredZoom-1.8)<1e-4,'final visible dice group is 1.8 times the actual center group');
+    assert.equal(await page.locator('.deal-flight').count(),0);
+    if(size.width>1000)await page.locator('#dice-intro').click();
+    await idle(page);
+    const data=await page.evaluate(()=>({history:window.__diceHistory,samples:window.__diceSamples}));
+    const phases=data.history.map(r=>r.phase);assert.deepEqual(phases,['rolling','settled','enlarging','showing','idle']);
+    const duration=data.history[1].time-data.history[0].time;assert.ok(duration>=800&&duration<1600,'about one second of tumbling');
+    assert.ok(data.history[2].time>data.history[1].time+80,'final values settle before enlargement');
+    if(size.width<1000)assert.ok(data.history[4].time-data.history[3].time>=1400,'result is held for 1.5 seconds');
+    const zoom=data.history[2].zoom[0];assert.equal(zoom.duration,300);
+    const scales=zoom.frames.map(f=>Number(f.transform.match(/scale\(([^)]+)\)/)?.[1]));
+    assert.ok(Math.abs(scales.at(-1)/scales[0]-1.8)<1e-5,'1.8 times enlargement within the unchanged display slot');
+    assert.ok(data.samples.length>=5&&data.samples.every(s=>s.inside&&s.stable));
+    assert.ok(data.samples.every(s=>s.faces.every(([value,count])=>value===count)),'all temporary faces use the correct existing pip positions');
+    assert.ok(new Set(data.samples.map(s=>s.faces[0][0])).size>=3,'points change rapidly');
+    assert.ok(data.samples.every(s=>s.properties.every(k=>['transform','opacity'].includes(k))));
+    assert.equal(actions.length,0);report.cases.push({size,phases,rollDuration:duration,samples:data.samples.length,insidePanel:true,exactGeometry:true,enlargement:1.8,noInput:true});
+    await page.evaluate(()=>window.mahjongRoom.reconnect());await page.waitForFunction(()=>window.mahjongRoom.status==='connected');
+    assert.equal(await page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0);
+    await page.reload({waitUntil:'networkidle'});await page.waitForFunction(()=>window.mahjongRoom.status==='connected');
+    assert.equal(await page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0);
+    if(room){
+      clearTimeout(room.botTimer);room.game.newRound('dice-live-snapshot');service._changed(room);
+      await page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');
+      const counts=await page.evaluate(()=>[...document.querySelectorAll('.opponent-rack .backs')].map(n=>n.children.length));
+      const dealer=room.game.dealer,index=room.game.players[dealer].hand.findIndex(t=>t!==31&&t!==room.game.indicatorTile&&t!==room.game.wildTile);
+      assert.equal(room.game.discard(dealer,index),true);service._changed(room);
+      await page.waitForFunction(version=>window.mahjongRoom.room.version>=version,room.version);
+      assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('.opponent-rack .backs')].map(n=>n.children.length)),counts,'server advances while presentation keeps its opening fixture');
+      await page.locator('#dice-intro').click();await idle(page);
+      for(let seat=1;seat<4;seat++)assert.equal(await page.locator(`#backs-${seat} .back`).count(),room.game.players[seat].hand.length);
+      report.cases.push({size,serverAdvancedDuringRoll:true,latestSnapshotAfterDeal:true});
+      clearTimeout(room.botTimer);room.game.newRound('dice-refresh-mid-roll');service._changed(room);
+      await page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');
+      await page.reload({waitUntil:'networkidle'});await page.waitForFunction(()=>window.mahjongRoom.status==='connected');
+      assert.equal(await page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'refresh mid-roll never replays either animation');
+      clearTimeout(room.botTimer);room.game.newRound('dice-reconnect-mid-roll');service._changed(room);
+      await page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');
+      await page.evaluate(()=>window.mahjongRoom.reconnect());await page.waitForFunction(()=>window.mahjongRoom.status==='connected');
+      assert.equal(await page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'reconnect mid-roll clears lock without replay');
+      report.cases.push({size,refresh:true,reconnect:true,newRound:true,midRollCleanup:true});
+    }
+    await page.evaluate(()=>window.mahjongRoom.leave());await context.close();
+  }
+  const reduced=await setup({width:640,height:360},'reduce');
+  assert.equal(await reduced.page.locator('#dice-intro').getAttribute('data-phase'),'showing');
+  assert.equal(await reduced.page.locator('#table-dice.is-rolling').count(),0);
+  assert.equal(await reduced.page.locator('#hand button:enabled').count(),0);
+  await idle(reduced.page);
+  const reducedHistory=await reduced.page.evaluate(()=>window.__diceHistory);
+  assert.deepEqual(reducedHistory.map(r=>r.phase),['showing','idle']);
+  assert.ok(reducedHistory[1].time-reducedHistory[0].time>=1400);
+  assert.equal(await reduced.page.locator('#hand button:enabled').count(),14);
+  report.cases.push({reducedMotion:true,noShake:true,noZoomAnimation:true,holdDuration:reducedHistory[1].time-reducedHistory[0].time});
+  await reduced.page.evaluate(()=>window.mahjongRoom.leave());
+  assert.deepEqual(report.errors,[]);report.passed=true;console.log(JSON.stringify(report));
+}catch(error){report.failure=error.stack;throw error;}finally{
+  writeFileSync(process.env.KK_UI_TARGET_URL?'output/dice-intro-online.json':'output/dice-intro-verification.json',JSON.stringify(report,null,2));
+  await Promise.allSettled(contexts.map(c=>c.close()));await browser.close();service.close();server.closeAllConnections();await new Promise(r=>server.close(r));
+}

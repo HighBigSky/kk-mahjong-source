@@ -15,7 +15,7 @@ const browser=await chromium.launch({headless:true,executablePath:'C:/Program Fi
 const report={passed:false,browser:browser.version(),cases:[],errors:[],note:'Real HTTP/SSE opening rooms; browser touch emulation, not physical phones. The dice auto-dismiss timeout is held for explicit test clicks; animation timing and game state are unchanged. Server newRound/discard are used only to exercise round and snapshot boundaries.'};
 mkdirSync('output',{recursive:true});
 const frames=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-const idle=page=>page.waitForFunction(()=>!document.querySelector('#game').classList.contains('is-opening-deal')&&document.querySelector('#opening-deal').children.length===0);
+const idle=page=>page.waitForFunction(()=>!document.querySelector('#game').classList.contains('is-opening-deal')&&!document.querySelector('#game').classList.contains('is-dice-intro')&&document.querySelector('#opening-deal').children.length===0);
 async function setup(size,reducedMotion='no-preference') {
   const context=await browser.newContext({viewport:size,hasTouch:size.touch,isMobile:size.touch,reducedMotion});
   await context.addInitScript(()=>{
@@ -155,6 +155,10 @@ try {
   const reduced=await setup({width:640,height:360,touch:true},'reduce');
   assert.equal(await reduced.page.locator('#game.is-opening-deal').count(),0);
   assert.equal(await reduced.page.locator('.deal-flight').count(),0);
+  assert.equal(await reduced.page.locator('#dice-intro').isVisible(),true);
+  assert.equal(await reduced.page.locator('#table-dice.is-rolling').count(),0);
+  assert.equal(await reduced.page.locator('#hand button:enabled').count(),0,'reduced motion keeps the result display locked');
+  await reduced.page.locator('#dice-intro').click(); await idle(reduced.page);
   assert.equal(await reduced.page.locator('#hand button:enabled').count(),14);
   report.cases.push({reducedMotion:true,animationSkippedWithoutLock:true});
   await reduced.context.close();

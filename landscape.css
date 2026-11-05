@@ -727,7 +727,7 @@ html.in-game #game.is-landscape {
 .is-landscape .dice-intro small { font-size:calc(var(--ui-unit) * 2); }
 
 /* 开局重放使用独立屏幕层；落点取真实 DOM，不推动手牌或牌墙重新排版。 */
-.is-landscape.is-opening-deal :is(#hand,.opponent-rack,.my-melds,.action-zone,#play-assist) { visibility:hidden; pointer-events:none; }
+.is-landscape:is(.is-opening-deal,.is-dice-intro) :is(#hand,.opponent-rack,.my-melds,.action-zone,#play-assist) { visibility:hidden; pointer-events:none; }
 .opening-deal { position:absolute; inset:0; z-index:8; pointer-events:none; overflow:clip; }
 .opening-deal[hidden] { display:none; }
 .deal-flight,.deal-source { position:absolute; margin:0; transform-origin:0 0; pointer-events:none; }
@@ -826,6 +826,33 @@ html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.se
   background-image:var(--ui-panel-coat);
   box-shadow:var(--ui-panel-shadow);
   transition:var(--ui-panel-transition);
+}
+
+/* 开局掷骰只改变合成属性；幅度按骰子自身宽度计，留在原中控内。 */
+#table-dice.is-rolling > .table-die { animation:dice-table-tumble 200ms ease-in-out infinite; }
+#table-dice.is-rolling > .table-die:nth-child(2) { animation-name:dice-table-tumble-back; animation-delay:-90ms; }
+#table-dice:is([data-intro-phase="enlarging"],[data-intro-phase="showing"]) { opacity:0; }
+@keyframes dice-table-tumble {
+  0%,100% { transform:translate(0,0) rotate(0deg) scale(1); }
+  25% { transform:translate(-12%,-14%) rotate(-16deg) scale(1.06); }
+  50% { transform:translate(10%,-6%) rotate(14deg) scale(.97); }
+  75% { transform:translate(-5%,-11%) rotate(-8deg) scale(1.03); }
+}
+@keyframes dice-table-tumble-back {
+  0%,100% { transform:translate(0,0) rotate(0deg) scale(1); }
+  25% { transform:translate(12%,-12%) rotate(16deg) scale(1.06); }
+  50% { transform:translate(-10%,-5%) rotate(-14deg) scale(.97); }
+  75% { transform:translate(5%,-10%) rotate(8deg) scale(1.03); }
+}
+/* 相对中央骰子的实测宽度放大1.8倍；展示框与行高沿用原预留尺寸。 */
+#dice-intro[data-phase="showing"] #dice-intro-dice { transform:scale(var(--dice-intro-zoom-to,1)); }
+#dice-intro[data-phase="enlarging"] #dice-intro-dice { animation:dice-intro-enlarge 300ms cubic-bezier(.2,.65,.3,1) both; }
+@keyframes dice-intro-enlarge {
+  from { transform:translate(var(--dice-intro-from-x,0px),var(--dice-intro-from-y,0px)) scale(var(--dice-intro-zoom-from,.5555555556)); opacity:.25; }
+  to { transform:translateY(0) scale(var(--dice-intro-zoom-to,1)); opacity:1; }
+}
+@media (prefers-reduced-motion:reduce) {
+  #table-dice.is-rolling > .table-die,#dice-intro[data-phase="enlarging"] #dice-intro-dice { animation:none; }
 }
 #game.is-landscape button:is(.action-button,.icon-button,.hint-button,.hint-close):not(:disabled):hover,
 html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.setting-link,.choice-option,.room-bot-button):not(:disabled):hover {

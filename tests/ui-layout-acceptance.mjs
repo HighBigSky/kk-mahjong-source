@@ -64,7 +64,7 @@ async function player(mobile) {
   await page.locator('#room-ready:enabled').click(); await until(() => room.seats.every(seat => seat?.ready), 'all ready');
   await page.locator('#room-start:visible:enabled').click(); await until(() => !!room.game, 'real round begins');
   await page.locator('#room-dialog:not([open])').waitFor({ state: 'attached' });
-  await until(() => page.evaluate(() => !document.querySelector('#dice-intro') || document.querySelector('#dice-intro').hidden), 'opening dice overlay finishes');
+  await until(() => page.evaluate(() => !document.querySelector('#game').classList.contains('is-dice-intro') && (!document.querySelector('#dice-intro') || document.querySelector('#dice-intro').hidden)), 'opening dice overlay finishes');
   return { page, room };
 }
 async function applyFixture(page, fixture, actions = false) {
