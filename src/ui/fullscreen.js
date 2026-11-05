@@ -1,6 +1,6 @@
 // @ts-check
 
-/** Fullscreen follows room membership, independently of lobby/game direction. */
+/** Fullscreen follows room membership; the landscape canvas never changes mode. */
 export function createRoomFullscreen() {
   const root = document.documentElement;
   const standalone = matchMedia('(display-mode:standalone)');

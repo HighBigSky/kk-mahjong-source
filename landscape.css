@@ -1,5 +1,5 @@
 /* One landscape layout: fill wide screens, contain the canvas in tall windows. */
-html.in-game {
+html.landscape-app {
   --screen-width:calc(100dvw - env(safe-area-inset-left) - env(safe-area-inset-right));
   --screen-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   --stage-width:var(--screen-width);
@@ -8,9 +8,8 @@ html.in-game {
   --stage-center-y:calc(env(safe-area-inset-top) + var(--screen-height) / 2);
 }
 
-html:not(.in-game) #game > :not(dialog) { display:none!important; }
-html.in-game,
-html.in-game body {
+html.landscape-app,
+html.landscape-app body {
   width:100%;
   height:100%;
   min-height:0;
@@ -18,17 +17,17 @@ html.in-game body {
   overscroll-behavior:none;
 }
 
-html.in-game,
-html.in-game body,
-html.in-game #game.is-landscape {
+html.landscape-app,
+html.landscape-app body,
+html.landscape-app #game.is-landscape {
   /* A selected/discarded tile can expose the rack beneath the next tap.
      Cover the full room so rapid taps never become browser double-tap zoom. */
   touch-action:manipulation;
 }
 
-html.in-game body { padding:0; }
+html.landscape-app body { padding:0; }
 
-html.in-game #game.is-landscape {
+html.landscape-app #game.is-landscape {
   --ui-unit:calc(var(--stage-height) / 100);
   --seat-avatar-size:calc(var(--ui-unit) * 7);
   --board-width:var(--board-size);
@@ -115,11 +114,10 @@ html.in-game #game.is-landscape {
 }
 /* 标题只作装饰，横屏让位给上家座位卡：牌桌放大后上家卡必须整块落在桌沿之上，
    否则会压住对面的手牌背与摸牌标记。 */
-.is-landscape .room-heading { display:none; }
 .is-landscape .room-meta { justify-content:flex-start; letter-spacing:0; }
 
 /* Four seat badges surround the rectangular board instead of occupying the
-   vertical portrait bands. Their independent bounds keep the felt clear. */
+   vertical avatar bands. Their independent bounds keep the felt clear. */
 .is-landscape .player-seat {
   width:calc(var(--ui-unit) * 31);
   height:calc(var(--ui-unit) * 10.2);
@@ -291,8 +289,9 @@ html.in-game #game.is-landscape {
 .is-landscape .action-hu:not(:disabled) { box-shadow:var(--scene-contact-shadow),var(--scene-main-shadow); }
 .is-landscape .toast { top:64%; padding:calc(var(--ui-unit) * 1.6) calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 1.5); font-size:calc(var(--ui-unit) * 2.8); }
 
-/* Game dialogs share the single landscape canvas. Lobby dialogs use rooms.css. */
-html.in-game .modal {
+/* 所有关联界面沿用横屏弹窗；房间入口由 rooms.css 提供双栏布局。 */
+
+html.landscape-app .modal:not(.room-modal) {
   --dialog-unit:calc(var(--stage-height) / 100);
   position:fixed;
   inset:auto;
@@ -310,44 +309,45 @@ html.in-game .modal {
   line-height:1.5;
   overscroll-behavior:contain;
 }
-html.in-game .modal-close { top:calc(var(--dialog-unit) * 2.5); right:calc(var(--dialog-unit) * 2.5); width:calc(var(--dialog-unit) * 8); height:calc(var(--dialog-unit) * 8); }
-html.in-game .modal-close svg { width:calc(var(--dialog-unit) * 4); height:calc(var(--dialog-unit) * 4); }
-html.in-game .modal-eyebrow { font-size:clamp(9px,calc(var(--dialog-unit) * 1.9),13px); letter-spacing:calc(var(--dialog-unit) * .3); }
-html.in-game .modal h2 { font-size:clamp(24px,calc(var(--dialog-unit) * 5.6),40px); margin:calc(var(--dialog-unit) * 1.5) 0; }
-html.in-game .modal .modal-lead { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); line-height:1.6; margin:calc(var(--dialog-unit) * 1.5) 0 calc(var(--dialog-unit) * 2.5); }
-html.in-game .modal .primary-button,html.in-game .modal .secondary-button { min-height:calc(var(--dialog-unit) * 9); padding:calc(var(--dialog-unit) * 1.4) calc(var(--dialog-unit) * 2); font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); border-radius:calc(var(--dialog-unit) * 1.5); margin-top:calc(var(--dialog-unit) * 2); }
-html.in-game .rules-list p { padding:calc(var(--dialog-unit) * 2) 0; gap:calc(var(--dialog-unit) * 2.5); }
-html.in-game .rules-list b { width:calc(var(--dialog-unit) * 10); }
-html.in-game .rules-list span { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
-html.in-game .rule-note { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),16px); }
-html.in-game .setting-row { padding:calc(var(--dialog-unit) * 3) 0; gap:calc(var(--dialog-unit) * 2); }
-html.in-game .setting-row>span { gap:calc(var(--dialog-unit) * 1); }
-html.in-game .setting-row b { font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); }
-html.in-game .setting-row small { font-size:clamp(11px,calc(var(--dialog-unit) * 2.3),17px); }
-html.in-game .setting-row input { width:calc(var(--dialog-unit) * 5); height:calc(var(--dialog-unit) * 5); }
-html.in-game .setting-links { gap:calc(var(--dialog-unit) * 2); margin-top:calc(var(--dialog-unit) * 3); }
-html.in-game .setting-link { min-height:calc(var(--dialog-unit) * 10); padding:0 calc(var(--dialog-unit) * 2); gap:calc(var(--dialog-unit) * 1.2); border-radius:calc(var(--dialog-unit) * 1.5); font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); }
-html.in-game .setting-link svg { width:calc(var(--dialog-unit) * 3.6); height:calc(var(--dialog-unit) * 3.6); }
-html.in-game .choice-option { padding:calc(var(--dialog-unit) * 1.8); gap:calc(var(--dialog-unit) * .6); margin:calc(var(--dialog-unit) * 1.5) 0; border-radius:calc(var(--dialog-unit) * 1.5); }
-html.in-game .choice-option .tile { width:calc(var(--dialog-unit) * 9); height:calc(var(--dialog-unit) * 12.6); }
-html.in-game .choice-option>span:last-child { margin-left:calc(var(--dialog-unit) * 3); font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
-html.in-game .history-tiles { grid-template-columns:repeat(12,1fr); gap:calc(var(--dialog-unit) * .8); margin:calc(var(--dialog-unit) * 2) 0; }
-html.in-game .result-avatar { width:calc(var(--dialog-unit) * 12); height:calc(var(--dialog-unit) * 12); margin:calc(var(--dialog-unit) * .8) auto; }
-html.in-game .result-hand { margin:calc(var(--dialog-unit) * 1.2) 0; gap:calc(var(--dialog-unit) * .6); }
-html.in-game .result-hand .tile { width:calc(var(--dialog-unit) * 5.4); height:calc(var(--dialog-unit) * 7.6); }
-html.in-game .result-scores { margin-top:calc(var(--dialog-unit) * 1); display:grid; grid-template-columns:1fr 1fr; column-gap:calc(var(--dialog-unit) * 4); }
-html.in-game .result-score-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:calc(var(--dialog-unit) * .5) calc(var(--dialog-unit) * 1); padding:calc(var(--dialog-unit) * .8) 0; font-size:clamp(12px,calc(var(--dialog-unit) * 2.5),18px); }
-html.in-game .result-score-row .score-name { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-html.in-game .result-score-row strong { font-size:clamp(12px,calc(var(--dialog-unit) * 2.8),18px); white-space:nowrap; font-variant-numeric:tabular-nums; }
-html.in-game .result-score-breakdown { grid-column:1 / -1; display:flex; flex-wrap:wrap; justify-content:space-between; gap:2px calc(var(--dialog-unit) * 1); font-size:clamp(9px,calc(var(--dialog-unit) * 1.8),13px); line-height:1.35; color:#9fb49f; font-variant-numeric:tabular-nums; }
-html.in-game .result-score-breakdown span { white-space:nowrap; }
+html.landscape-app .modal:not(.room-modal) .modal-close { top:calc(var(--dialog-unit) * 2.5); right:calc(var(--dialog-unit) * 2.5); width:calc(var(--dialog-unit) * 8); height:calc(var(--dialog-unit) * 8); }
+html.landscape-app .modal:not(.room-modal) .modal-close svg { width:calc(var(--dialog-unit) * 4); height:calc(var(--dialog-unit) * 4); }
+html.landscape-app .modal:not(.room-modal) .modal-eyebrow { font-size:clamp(9px,calc(var(--dialog-unit) * 1.9),13px); letter-spacing:calc(var(--dialog-unit) * .3); }
+html.landscape-app .modal:not(.room-modal) h2 { font-size:clamp(24px,calc(var(--dialog-unit) * 5.6),40px); margin:calc(var(--dialog-unit) * 1.5) 0; }
+html.landscape-app .modal:not(.room-modal) .modal-lead { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); line-height:1.6; margin:calc(var(--dialog-unit) * 1.5) 0 calc(var(--dialog-unit) * 2.5); }
+html.landscape-app .modal:not(.room-modal) .primary-button,html.landscape-app .modal:not(.room-modal) .secondary-button { min-height:calc(var(--dialog-unit) * 9); padding:calc(var(--dialog-unit) * 1.4) calc(var(--dialog-unit) * 2); font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); border-radius:calc(var(--dialog-unit) * 1.5); margin-top:calc(var(--dialog-unit) * 2); }
+html.landscape-app .modal:not(.room-modal) .rules-list p { padding:calc(var(--dialog-unit) * 2) 0; gap:calc(var(--dialog-unit) * 2.5); }
+html.landscape-app .modal:not(.room-modal) .rules-list b { width:calc(var(--dialog-unit) * 10); }
+html.landscape-app .modal:not(.room-modal) .rules-list span { font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
+html.landscape-app .modal:not(.room-modal) .rule-note { font-size:clamp(11px,calc(var(--dialog-unit) * 2.2),16px); }
+html.landscape-app .modal:not(.room-modal) .setting-row { padding:calc(var(--dialog-unit) * 3) 0; gap:calc(var(--dialog-unit) * 2); }
+html.landscape-app .modal:not(.room-modal) .setting-row>span { gap:calc(var(--dialog-unit) * 1); }
+html.landscape-app .modal:not(.room-modal) .setting-row b { font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); }
+html.landscape-app .modal:not(.room-modal) .setting-row small { font-size:clamp(11px,calc(var(--dialog-unit) * 2.3),17px); }
+html.landscape-app .modal:not(.room-modal) .setting-row input { width:calc(var(--dialog-unit) * 5); height:calc(var(--dialog-unit) * 5); }
+html.landscape-app .modal:not(.room-modal) .setting-links { gap:calc(var(--dialog-unit) * 2); margin-top:calc(var(--dialog-unit) * 3); }
+html.landscape-app .modal:not(.room-modal) .setting-link { min-height:calc(var(--dialog-unit) * 10); padding:0 calc(var(--dialog-unit) * 2); gap:calc(var(--dialog-unit) * 1.2); border-radius:calc(var(--dialog-unit) * 1.5); font-size:clamp(13px,calc(var(--dialog-unit) * 2.8),20px); }
+html.landscape-app .modal:not(.room-modal) .setting-link svg { width:calc(var(--dialog-unit) * 3.6); height:calc(var(--dialog-unit) * 3.6); }
+html.landscape-app .modal:not(.room-modal) .choice-option { padding:calc(var(--dialog-unit) * 1.8); gap:calc(var(--dialog-unit) * .6); margin:calc(var(--dialog-unit) * 1.5) 0; border-radius:calc(var(--dialog-unit) * 1.5); }
+html.landscape-app .modal:not(.room-modal) .choice-option .tile { width:calc(var(--dialog-unit) * 9); height:calc(var(--dialog-unit) * 12.6); }
+html.landscape-app .modal:not(.room-modal) .choice-option>span:last-child { margin-left:calc(var(--dialog-unit) * 3); font-size:clamp(12px,calc(var(--dialog-unit) * 2.6),18px); }
+html.landscape-app .modal:not(.room-modal) .history-tiles { grid-template-columns:repeat(12,1fr); gap:calc(var(--dialog-unit) * .8); margin:calc(var(--dialog-unit) * 2) 0; }
+html.landscape-app .modal:not(.room-modal) .result-avatar { width:calc(var(--dialog-unit) * 12); height:calc(var(--dialog-unit) * 12); margin:calc(var(--dialog-unit) * .8) auto; }
+html.landscape-app .modal:not(.room-modal) .result-hand { margin:calc(var(--dialog-unit) * 1.2) 0; gap:calc(var(--dialog-unit) * .6); }
+html.landscape-app .modal:not(.room-modal) .result-hand .tile { width:calc(var(--dialog-unit) * 5.4); height:calc(var(--dialog-unit) * 7.6); }
+html.landscape-app .modal:not(.room-modal) .result-scores { margin-top:calc(var(--dialog-unit) * 1); display:grid; grid-template-columns:1fr 1fr; column-gap:calc(var(--dialog-unit) * 4); }
+html.landscape-app .modal:not(.room-modal) .result-score-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:calc(var(--dialog-unit) * .5) calc(var(--dialog-unit) * 1); padding:calc(var(--dialog-unit) * .8) 0; font-size:clamp(12px,calc(var(--dialog-unit) * 2.5),18px); }
+html.landscape-app .modal:not(.room-modal) .result-score-row .score-name { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+html.landscape-app .modal:not(.room-modal) .result-score-row strong { font-size:clamp(12px,calc(var(--dialog-unit) * 2.8),18px); white-space:nowrap; font-variant-numeric:tabular-nums; }
+html.landscape-app .modal:not(.room-modal) .result-score-breakdown { grid-column:1 / -1; display:flex; flex-wrap:wrap; justify-content:space-between; gap:2px calc(var(--dialog-unit) * 1); font-size:clamp(9px,calc(var(--dialog-unit) * 1.8),13px); line-height:1.35; color:#9fb49f; font-variant-numeric:tabular-nums; }
+html.landscape-app .modal:not(.room-modal) .result-score-breakdown span { white-space:nowrap; }
+
 
 @media(prefers-reduced-motion:reduce) {
-  .is-landscape,.is-landscape *,html.in-game .modal { transition:none!important; animation:none!important; }
+  .is-landscape,.is-landscape *,html.landscape-app .modal { transition:none!important; animation:none!important; }
 }
 
 /* 四家牌区围绕方桌中心，共用桌面相机；本家手牌与 HUD 保留正视操作平面。 */
-html.in-game #game.is-landscape {
+html.landscape-app #game.is-landscape {
   /* 轻微坐席透视：桌面倾斜 46°、焦距为桌深两倍；本家手牌保持屏幕平面。 */
   /* 按屏宽确定方桌，按可用高度封顶；桌上牌列和相机同步等比缩放。 */
   --board-height:min(calc(var(--stage-width) * .64),calc(var(--stage-height) * 1.35));
@@ -460,7 +460,6 @@ html.in-game #game.is-landscape {
   clip-path:inset(0 var(--table-frame-side-inset));
   transform:translateZ(-1px) scale(var(--table-frame-zoom));
 }
-#game.is-landscape .table::after { content:none; }
 #game.is-landscape .table-border {
   inset:calc(var(--table-frame-size) * .07) calc(50% - var(--table-frame-size) * .46) calc(var(--board-height) - var(--table-frame-size) * .91);
   border:0;
@@ -502,7 +501,6 @@ html.in-game #game.is-landscape {
     inset 0 calc(var(--table-metal-edge-width) * -1) 0 #69462580;
   pointer-events:none;
 }
-#game.is-landscape .table-caption { display:none; }
 
 /* 三家暗手在绒布外圈，牌墙在内一圈；各区按桌深统一定位，避开木边。 */
 #game.is-landscape .table .opponent-rack-left,
@@ -794,7 +792,7 @@ html.in-game #game.is-landscape {
   box-shadow:var(--ui-panel-recess-shadow);
 }
 #game.is-landscape :is(.hint-details),
-html.in-game .modal {
+html.landscape-app .modal {
   background:var(--ui-panel-coat) var(--ui-panel-base);
   box-shadow:var(--ui-panel-shadow);
 }
@@ -822,7 +820,7 @@ html.in-game .modal {
   text-shadow:-1px 0 1px #1e1a1240;
 }
 #game.is-landscape button:is(.action-button,.icon-button,.hint-button,.hint-close),
-html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.setting-link,.choice-option,.room-bot-button) {
+html.landscape-app .modal button:is(.primary-button,.secondary-button,.modal-close,.setting-link,.choice-option,.room-bot-button) {
   background-image:var(--ui-panel-coat);
   box-shadow:var(--ui-panel-shadow);
   transition:var(--ui-panel-transition);
@@ -855,18 +853,18 @@ html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.se
   #table-dice.is-rolling > .table-die,#dice-intro[data-phase="enlarging"] #dice-intro-dice { animation:none; }
 }
 #game.is-landscape button:is(.action-button,.icon-button,.hint-button,.hint-close):not(:disabled):hover,
-html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.setting-link,.choice-option,.room-bot-button):not(:disabled):hover {
+html.landscape-app .modal button:is(.primary-button,.secondary-button,.modal-close,.setting-link,.choice-option,.room-bot-button):not(:disabled):hover {
   --ui-panel-shine-x:98%;
   background-image:var(--ui-panel-coat);
   box-shadow:var(--ui-panel-shadow);
 }
 #game.is-landscape button:is(.action-button,.icon-button,.hint-button,.hint-close):not(:disabled):active,
-html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.setting-link,.choice-option,.room-bot-button):not(:disabled):active {
+html.landscape-app .modal button:is(.primary-button,.secondary-button,.modal-close,.setting-link,.choice-option,.room-bot-button):not(:disabled):active {
   --ui-panel-gloss:.025;
   box-shadow:var(--ui-panel-pressed-shadow);
 }
 #game.is-landscape button:is(.action-button,.icon-button,.hint-button,.hint-close):disabled,
-html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.setting-link,.choice-option,.room-bot-button):disabled {
+html.landscape-app .modal button:is(.primary-button,.secondary-button,.modal-close,.setting-link,.choice-option,.room-bot-button):disabled {
   background-image:none;
   box-shadow:inset 1px 0 1px #1e1a1226;
 }
@@ -889,28 +887,6 @@ html.in-game .modal button:is(.primary-button,.secondary-button,.modal-close,.se
     inset 0 0 calc(var(--tile-model-width) * .055) calc(var(--tile-model-width) * .025) var(--center-head-glow);
 }
 
-.rotate-guide {
-  position:fixed;
-  inset:0;
-  margin:0;
-  width:100dvw;
-  height:100dvh;
-  max-width:none;
-  max-height:none;
-  border:0;
-  padding:24px;
-  background:radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#234e3e,#0c241e 80%);
-  color:var(--cream);
-  text-align:center;
-  font:16px/1.7 "Microsoft YaHei","PingFang SC",sans-serif;
-  touch-action:manipulation;
-}
-.rotate-guide[open] { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
-.rotate-guide::backdrop { background:rgb(0 0 0 / .72); }
-.rotate-guide h2 { margin:0; color:var(--gold-light); font-size:28px; }
-.rotate-guide p { margin:0; max-width:22em; color:#bdcbb6; }
-.rotate-device { font-size:72px; line-height:1; color:var(--gold); }
-.rotate-guide .secondary-button { width:min(100%,220px); min-height:44px; margin-top:12px; font-size:16px; }
 
 /* 保留原0×0三角的边框宽度、坐标和层级，只替换其绘制。
    两条软斜边与顶部细线构成描边，不再使用整块纯色三角。 */

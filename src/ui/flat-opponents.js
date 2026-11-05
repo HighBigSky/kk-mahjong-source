@@ -48,7 +48,6 @@ export function createFlatOpponentView(stage) {
   stage.style.setProperty('--river-long-count',String(RIVER_LAYOUT.columns));
   stage.style.setProperty('--river-short-count',String(RIVER_LAYOUT.rows));
   return function layout() {
-    if(!stage.classList.contains('is-landscape'))return;
     const wall=stage.querySelector('#wall-tail'),stacks=wall?.querySelector('.wall-tail-stacks');
     if(stacks&&!wall.hidden)for(const side of ['top','left','right','bottom']) {
       if(runs.get(side)?.isConnected)continue;

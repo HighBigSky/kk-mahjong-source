@@ -1,158 +1,92 @@
-/* Friend-room controls reuse the table's ink green, warm ivory and gold. */
-.room-modal {
+/* 开局、建房与候房共用横屏房间面板；不保留窄版竖向弹窗。 */
+html.landscape-app .modal.room-modal {
+  --room-unit:clamp(3px,calc(var(--stage-height) / 100),7px);
+  --room-gap:clamp(6px,calc(var(--room-unit) * 1.5),12px);
   --room-line:#b59b5b50;
   --room-text:#bdcbb6;
-  width:min(88cqw,460px);
-  max-height:calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
-  padding:clamp(20px,5.5cqw,30px);
-  overscroll-behavior:contain;
-  scrollbar-gutter:stable;
-  font-size:clamp(12px,2.7cqw,15px);
-  line-height:1.55;
-  background:
-    linear-gradient(145deg,#315a3a26,transparent 55%),
-    #153d30;
-}
-
-.room-modal [hidden] { display:none !important; }
-.room-modal .modal-eyebrow { font-size:clamp(9px,1.8cqw,11px); }
-.room-modal h2 { font-size:clamp(24px,6cqw,32px); margin:8px 0 4px; }
-.room-modal .modal-lead { font-size:clamp(12px,2.7cqw,15px); margin:0 0 18px; }
-
-.room-field { display:block; }
-.room-field>span {
-  display:block;
-  color:#e8d7ac;
-  font-size:clamp(12px,2.7cqw,14px);
-  margin-bottom:7px;
-}
-
-.room-modal input {
-  display:block;
-  width:100%;
-  min-width:0;
-  min-height:44px;
-  padding:10px 12px;
-  border:1px solid #92a27b80;
-  border-radius:8px;
-  background:#0c2f27;
-  color:#f6efdd;
-  box-shadow:inset 0 2px 3px #061b1540;
-  font-size:16px;
-  line-height:1.3;
-  caret-color:var(--gold-light);
-}
-.room-modal input::placeholder { color:#91aa94; opacity:1; font-size:13px; }
-.room-modal input:disabled { color:#91aa94; opacity:.7; }
-
-.room-modal .primary-button,.room-modal .secondary-button {
-  min-height:44px;
-  margin-top:12px;
-  padding:9px 12px;
-  border-radius:8px;
-  font-size:clamp(13px,3cqw,16px);
+  position:fixed;
+  inset:auto;
+  left:var(--stage-center-x);
+  top:var(--stage-center-y);
+  transform:translate(-50%,-50%);
+  width:min(calc(var(--stage-width) * .94),1120px);
+  height:min(calc(var(--stage-height) * .96),650px);
+  max-width:none;
+  max-height:calc(var(--stage-height) * .96);
+  margin:0;
+  padding:clamp(10px,calc(var(--room-unit) * 3),24px);
+  flex-direction:column;
+  gap:var(--room-gap);
+  overflow:hidden;
+  border:1px solid #bca267;
+  border-radius:clamp(12px,calc(var(--room-unit) * 3),22px);
+  color:var(--cream);
+  background:linear-gradient(120deg,#315a3a26,transparent 58%),#153d30;
+  font-size:clamp(12px,calc(var(--room-unit) * 3.6),16px);
   line-height:1.4;
+  overscroll-behavior:contain;
 }
+html.landscape-app .modal.room-modal[open] { display:flex; }
+.room-modal [hidden] { display:none!important; }
+.room-modal .room-header,.room-modal .room-rule-summary,.room-modal .room-footer,.room-modal .room-error,.room-modal .room-fullscreen-note { flex:none; }
+.room-header { display:flex; align-items:center; justify-content:space-between; gap:var(--room-gap); padding-right:38px; }
+.room-header>div { flex:none; }
+.room-modal .room-header .modal-eyebrow { font-size:clamp(8px,calc(var(--room-unit) * 2.4),11px); letter-spacing:1px; }
+.room-modal .room-header h2 { margin:1px 0 0; font-size:clamp(22px,calc(var(--room-unit) * 6),32px); line-height:1.05; }
+.room-modal .room-header .modal-lead { margin:0; color:#c8d2be; font-size:clamp(11px,calc(var(--room-unit) * 3),15px); line-height:1.4; text-align:right; }
+html.landscape-app .room-modal .modal-close { top:10px; right:10px; width:30px; height:30px; }
+html.landscape-app .room-modal .modal-close svg { width:16px; height:16px; }
+.room-rule-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; overflow:hidden; border:1px solid var(--room-line); border-radius:8px; background:var(--room-line); }
+.room-rule-summary>div { display:flex; align-items:center; justify-content:center; gap:8px; min-width:0; padding:6px 4px; background:#12362d; }
+.room-rule-summary b { color:#e8d4a4; font-size:clamp(11px,calc(var(--room-unit) * 3.1),16px); font-weight:600; white-space:nowrap; }
+.room-rule-summary span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a6bda7; font-size:clamp(9px,calc(var(--room-unit) * 2.5),12px); }
+#room-entry,#room-waiting { display:grid; grid-template-rows:minmax(0,1fr) auto; gap:var(--room-gap); flex:1; min-height:0; }
+.room-entry-content,.room-waiting-main { min-height:0; overflow:auto; scrollbar-width:thin; scrollbar-gutter:stable; overscroll-behavior:contain; }
+.room-entry-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--room-gap); }
+.room-field { display:grid; grid-template-rows:auto auto; align-content:start; gap:6px; min-width:0; padding:clamp(8px,calc(var(--room-unit) * 2.5),16px); border:1px solid var(--room-line); border-radius:10px; background:#0c302766; }
+.room-field>span { display:block; color:#e8d7ac; font-size:clamp(11px,calc(var(--room-unit) * 3.1),15px); }
+.room-modal input { display:block; width:100%; min-width:0; min-height:44px; padding:9px 10px; border:1px solid #92a27b80; border-radius:7px; background:#0c2f27; color:#f6efdd; box-shadow:inset 0 2px 3px #061b1540; font-size:16px; line-height:1.3; caret-color:var(--gold-light); }
+.room-modal input::placeholder { color:#91aa94; opacity:1; font-size:12px; }
+.room-modal input:disabled { color:#91aa94; opacity:.7; }
+#room-code { letter-spacing:2px; font-variant-numeric:tabular-nums; }
+html.landscape-app .room-modal :is(.primary-button,.secondary-button) { min-width:0; min-height:44px; margin:0; padding:8px 12px; border-radius:8px; font-size:clamp(13px,calc(var(--room-unit) * 3.6),16px); line-height:1.3; }
 .room-modal button:disabled { opacity:.55; }
 .room-modal button:not(:disabled):active { transform:translateY(1px); }
-
-.room-separator {
-  display:flex;
-  align-items:center;
-  gap:12px;
-  color:#b5c2a7;
-  font-size:11px;
-  margin:20px 0 14px;
-}
-.room-separator::before,.room-separator::after { content:""; flex:1; height:1px; background:var(--room-line); }
-.room-join-row { display:flex; gap:10px; align-items:stretch; }
-.room-join-row input { flex:1; letter-spacing:3px; font-variant-numeric:tabular-nums; }
-.room-join-row .secondary-button { width:auto; flex-shrink:0; margin:0; }
-
-.room-note { color:var(--room-text); font-size:clamp(11px,2.45cqw,13px); margin:14px 0 0; line-height:1.75; }
-.room-status { color:#e2cd9d; font-size:clamp(11px,2.5cqw,13px); margin:16px 0 0; min-height:1.55em; }
-.room-error { color:#ffceaf; padding:10px 12px; border:1px solid #b46a4f99; border-radius:8px; background:#62382a55; margin:10px 0 0; }
-
-.room-invite {
-  text-align:center;
-  border:1px solid var(--room-line);
-  border-radius:12px;
-  padding:12px 14px;
-  background:#0c302780;
-}
-.room-invite-label { display:block; color:#b9c6ac; font-size:11px; letter-spacing:2px; }
-#room-current-code {
-  display:block;
-  margin:8px auto;
-}
-.room-invite .secondary-button { width:auto; margin:8px auto 0; min-height:36px; padding:6px 18px; font-size:12px; }
-.room-invite small { display:block; color:#a9bc9f; margin-top:7px; font-size:11px; }
-
-.room-members { list-style:none; padding:0; margin:14px 0 0; }
-.room-members li { display:flex; gap:10px; align-items:center; min-height:44px; padding:7px 0; border-bottom:1px solid #78916d33; }
-.room-member-seat { display:grid; place-items:center; width:28px; height:28px; border:1px solid #a2925c99; border-radius:8px; color:#ebd393; font:16px "KaiTi","SimSun",serif; flex-shrink:0; }
-.room-member-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#f0e7ce; }
-.room-member-state { font-size:11px; color:#a3bc9e; white-space:nowrap; }
+.room-entry-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--room-gap); }
+.room-note { color:var(--room-text); font-size:clamp(10px,calc(var(--room-unit) * 2.7),13px); margin:8px 0 0; line-height:1.6; }
+.room-waiting-main { display:grid; grid-template-columns:minmax(130px,.7fr) minmax(0,1.7fr); gap:var(--room-gap); align-items:start; }
+.room-invite { display:grid; justify-items:center; align-content:start; gap:6px; min-width:0; padding:10px; text-align:center; border:1px solid var(--room-line); border-radius:10px; background:#0c302780; }
+.room-invite-label { color:#b9c6ac; font-size:11px; letter-spacing:2px; }
+#room-current-code { --stat-digit-size:clamp(22px,calc(var(--room-unit) * 6.5),40px); display:block; margin:0; }
+html.landscape-app .room-modal .room-invite .secondary-button { min-height:32px; width:100%; padding:6px 8px; font-size:12px; }
+.room-invite small { color:#a9bc9f; font-size:10px; line-height:1.4; }
+.room-seats { min-width:0; }
+.room-members { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; list-style:none; padding:0; margin:0; }
+.room-members li { display:grid; grid-template-columns:20px minmax(0,1fr) auto; align-items:center; gap:4px; min-width:0; min-height:68px; padding:6px; border:1px solid #78916d55; border-radius:8px; background:#0c30274d; }
+.room-member-seat { display:grid; place-items:center; grid-column:1; grid-row:1; width:20px; height:20px; border:1px solid #a2925c99; border-radius:5px; color:#ebd393; font:13px "KaiTi","SimSun",serif; }
+.room-member-name { grid-column:2 / 4; grid-row:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#f0e7ce; font-size:clamp(11px,calc(var(--room-unit) * 3.1),15px); }
+.room-member-state { grid-column:1 / 3; grid-row:2; min-width:0; font-size:10px; color:#a3bc9e; white-space:nowrap; }
 .room-members li.is-ready .room-member-state { color:#d7dea8; }
 .room-members li.is-offline .room-member-state { color:#d3a58c; }
 .room-members li.is-bot .room-member-state { color:#ddc18b; }
-.room-bot-button {
-  flex-shrink:0;
-  min-width:68px;
-  min-height:44px;
-  padding:7px 8px;
-  border:1px solid #b59b5b80;
-  border-radius:7px;
-  background:#254f3a;
-  color:#ead6a4;
-  font-size:11px;
-  line-height:1.3;
-  white-space:nowrap;
-}
+.room-bot-button { grid-column:3; grid-row:2; min-width:58px; min-height:30px; padding:4px 6px; border:1px solid #b59b5b80; border-radius:6px; background:#254f3a; color:#ead6a4; font-size:10px; line-height:1.3; white-space:nowrap; }
 .room-bot-remove { background:#13392f; color:#c7b996; }
 .room-bot-kick { background:#3a2f1f; color:#e0c08a; }
 .room-bot-button:focus-visible { outline:2px solid var(--gold-light); outline-offset:2px; }
-.room-play-controls { display:flex; gap:10px; }
+.room-play-controls { display:flex; align-items:stretch; gap:var(--room-gap); }
 .room-play-controls>button { flex:1; }
-.room-leave { display:block; margin:10px auto 0; min-height:36px; padding:7px 12px; color:#c8b798; border:0; background:none; font-size:12px; text-decoration:underline; text-underline-offset:3px; }
-
-/* 离房独立于设置文字链；多出的8px由原上边距补偿，再移回原位，不推移状态行或弹窗。 */
-.room-leave.room-leave-danger {
-  position:relative;
-  top:8px;
-  width:min(80%,160px);
-  min-height:44px;
-  margin-top:2px;
-  border:1px solid #a17468;
-  border-radius:8px;
-  background:var(--ui-panel-coat) #422e2b;
-  color:#f0c2b4;
-  box-shadow:var(--ui-panel-shadow);
-  font-size:14px;
-  font-weight:600;
-  line-height:1.4;
-  white-space:nowrap;
-  text-decoration:none;
-  transition:var(--ui-panel-transition);
-}
-.room-leave-danger:not(:disabled):hover {
-  --ui-panel-shine-x:98%;
-  background-color:#503833;
-}
-.room-leave-danger:not(:disabled):active {
-  --ui-panel-gloss:.025;
-  box-shadow:var(--ui-panel-pressed-shadow);
-}
+.room-play-controls>.room-leave { flex:0 0 auto; }
+.room-leave.room-leave-danger { position:static; width:auto; min-height:44px; margin:0; padding:8px 12px; border:1px solid #a17468; border-radius:8px; background:var(--ui-panel-coat) #422e2b; color:#f0c2b4; box-shadow:var(--ui-panel-shadow); font-size:13px; font-weight:600; line-height:1.3; white-space:nowrap; text-decoration:none; transition:var(--ui-panel-transition); }
+.room-leave-danger:not(:disabled):hover { --ui-panel-shine-x:98%; background-color:#503833; }
+.room-leave-danger:not(:disabled):active { --ui-panel-gloss:.025; box-shadow:var(--ui-panel-pressed-shadow); }
 .room-leave-danger:focus-visible { outline:2px solid var(--gold-light); outline-offset:3px; }
-.room-modal .room-leave-danger:disabled {
-  background-image:none;
-  background-color:#39322f;
-  border-color:#765e56;
-  color:#c1a79c;
-  box-shadow:inset 1px 0 1px #1e1a1230;
-  opacity:1;
-}
-
+.room-modal .room-leave-danger:disabled { background-image:none; background-color:#39322f; border-color:#765e56; color:#c1a79c; box-shadow:inset 1px 0 1px #1e1a1230; opacity:1; }
+.room-footer { display:flex; align-items:center; justify-content:space-between; gap:var(--room-gap); padding-top:6px; border-top:1px solid var(--room-line); }
+.room-message { flex:1; min-width:0; }
+.room-status { flex:1; min-width:0; color:#e2cd9d; font-size:clamp(10px,calc(var(--room-unit) * 2.8),13px); line-height:1.4; margin:0; }
+.room-options { flex:none; min-height:32px; padding:5px 10px; border:1px solid var(--room-line); border-radius:7px; color:#d6c59e; background:#12362d; font-size:12px; line-height:1.3; }
+.room-fullscreen-note { margin:0; color:#b6bba0; font-size:10px; line-height:1.35; }
+.room-error { color:#ffceaf; padding:6px 10px; border:1px solid #b46a4f99; border-radius:7px; background:#62382a55; margin:0; font-size:11px; line-height:1.4; }
 .connection[data-state="offline"] i,.connection[data-state="error"] i { background:#bd8e73; }
 .connection[data-state="connecting"] i,.connection[data-state="reconnecting"] i { background:#d8b46d; }
 .connection[data-state="connected"] i { background:#a0c58d; }
@@ -161,8 +95,6 @@
 .voice-button.is-active { color:#d9efc4; border-color:#9fc383; background:#214938; }
 .voice-button.is-muted { color:#e2b58f; border-color:#b58562; }
 .voice-modal {
-  width:min(88cqw,420px);
-  padding:clamp(20px,5.5cqw,30px);
   background:linear-gradient(145deg,#315a3a26,transparent 55%),#153d30;
   color:#d8e2cf;
   font-size:clamp(12px,2.7cqw,15px);
@@ -171,9 +103,10 @@
 .voice-modal h2 { margin:8px 0 6px; color:#f2dfb5; font-size:clamp(24px,6cqw,30px); }
 .voice-modal .modal-lead { margin:0 0 8px; color:#e2cd9d; }
 .voice-participants { min-height:1.6em; margin:0 0 14px; color:#b5c2a7; font-size:clamp(11px,2.5cqw,13px); }
-.voice-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.voice-actions { display:flex; flex-wrap:nowrap; gap:10px; }
 .voice-actions button {
-  flex:1 1 120px;
+  flex:1 1 0;
+  min-width:0;
   min-height:44px;
   margin-top:0;
   padding:9px 12px;

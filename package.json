@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "KK麻将 · 国风四人好友房，竖屏建房、横屏对局",
+  "description": "KK麻将 · 国风四人好友房，全流程横屏布局",
   "engines": {
     "node": ">=18"
   },

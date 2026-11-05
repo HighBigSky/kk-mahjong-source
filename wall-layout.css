@@ -19,25 +19,6 @@
   width:var(--wall-piece-width);
   height:calc(var(--wall-piece-height) + var(--wall-stack-depth));
 }
-
-/* Tail-to-head order: bottom left-to-right, right bottom-to-top,
-   top right-to-left, then left top-to-bottom. Slots never reflow. */
-.wall-stack[data-side="bottom"] {
-  left:calc(10.4cqw + var(--wall-stack-index) * var(--wall-stack-step));
-  bottom:1.65cqw;
-}
-.wall-stack[data-side="right"] {
-  right:4.65cqw;
-  top:calc(11.2cqw + (16 - var(--wall-stack-index)) * var(--wall-stack-step));
-}
-.wall-stack[data-side="top"] {
-  left:calc(10.4cqw + (16 - var(--wall-stack-index)) * var(--wall-stack-step));
-  top:5.1cqw;
-}
-.wall-stack[data-side="left"] {
-  left:4.65cqw;
-  top:calc(11.2cqw + var(--wall-stack-index) * var(--wall-stack-step));
-}
 .wall-stack[data-side="left"],.wall-stack[data-side="right"] {
   width:var(--wall-piece-height);
   height:calc(var(--wall-piece-width) + var(--wall-stack-depth));
@@ -58,13 +39,7 @@
   height:var(--wall-piece-width);
 }
 .wall-piece.back {
-  border-width:var(--tile-model-bevel);
   box-shadow:var(--tile-model-contact-shadow);
-}
-.wall-piece.back::before {
-  inset:var(--tile-model-back-inset);
-  border-width:var(--tile-model-bevel);
-  border-radius:var(--tile-model-inner-radius);
 }
 /* Consumed slots recede into the felt but retain the indicator's location. */
 .wall-piece.is-empty {
@@ -75,14 +50,12 @@
 .wall-piece.tile {
   --tile-depth:var(--tile-model-thin-depth);
   --tile-side:calc(var(--tile-depth) * .45);
-  border-width:var(--tile-model-bevel);
   border-radius:var(--tile-model-radius);
   box-shadow:var(--tile-model-contact-shadow);
 }
 .wall-piece.is-indicator {
   z-index:3;
   outline:.15cqw solid #e7c77f;
-  outline-offset:calc(-1px - .15cqw);
 }
 .wall-stack[data-side="left"] .wall-piece.tile,
 .wall-stack[data-side="right"] .wall-piece.tile {
@@ -102,8 +75,6 @@
   content:"";
   position:absolute;
   z-index:4;
-  left:calc(50% - .42cqw);
-  top:-.85cqw;
   width:0;
   height:0;
   border-left:.42cqw solid transparent;
@@ -114,9 +85,6 @@
 
 .wall-tail-heading {
   position:absolute;
-  left:calc(50% - 11.5cqw);
-  top:44.8cqw;
-  width:23cqw;
   text-align:center;
 }
 /* Keep the existing compass as the one visible live counter. */
@@ -153,4 +121,3 @@
   height:18cqw;
 }
 .table:has(.wall-tail:not([hidden])) .bot-melds-top { left:-13.4cqw; top:2.5cqw; }
-.table:has(.wall-tail:not([hidden])) .table-caption { display:none; }

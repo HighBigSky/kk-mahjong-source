@@ -5,7 +5,7 @@ import { RED_DRAGON } from './src/domain/tile.js';
 import { PHASE } from './src/domain/model.js';
 import { SCORING_TEXT } from './src/domain/scoring.js';
 import { renderWall } from './src/network/wall-view.js';
-import { createRoomOrientation } from './src/ui/orientation.js';
+import { createLandscapeLayout } from './src/ui/landscape.js';
 import { createRoomFullscreen } from './src/ui/fullscreen.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
 import { createHintCalculator, createHintDisclosure, hintText, specialGangKind, settlementCoins, PLAY_TEXT } from './src/ui/play-assist.js';
@@ -99,13 +99,13 @@ let specialGangPending = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
 const tableLabelNodes = new Map();
 const openingDeal = createOpeningDeal({stage:$('#game'), storage:(()=>{try{return sessionStorage;}catch{return null;}})(),
-  canPlay:()=>!diceIntroBlocked() && $('#dice-intro').hidden && !$('#rotate-guide').open,
+  canPlay:()=>!diceIntroBlocked() && $('#dice-intro').hidden,
   onLockChange:()=>interactionChanged(),
   onFinish:()=>requestAnimationFrame(()=>{selected=-1;hinted=-1;handTap=null;render();}),
 });
 const layoutOpponentView = createFlatOpponentView($('#game'));
 const positionOverlays = () => { layoutOpponentView(); positionActionNotice(); positionDiscardFocus(); positionTableLabels(); openingDeal.layoutChanged(); };
-const roomOrientation = createRoomOrientation({onLayout:positionOverlays});
+const landscapeLayout = createLandscapeLayout({onLayout:positionOverlays});
 const roomFullscreen = createRoomFullscreen();
 
 try {
@@ -282,7 +282,6 @@ function roomChanged() {
       diceIntroKey !== `${room.code}:${game.round}:${(game.wallInfo?.dice || []).join(',')}`)) dismissDiceIntro();
   const retainOpening = openingDeal.retain(room,game,network.status === 'connected');
   roomFullscreen.setInRoom(Boolean(room));
-  roomOrientation.setRoomState(room?.status);
   const changedRoom = (room?.code || null) !== previousRoomCode;
   const changedRound = changedRoom || game.round !== previousRound;
   if (changedRound) { clearTimeout(resultTimer); resultShown = 0; }
@@ -315,7 +314,7 @@ function roomChanged() {
   $('.my-seat').textContent = seats[0];
   if (changedRound || previousStatus === 'waiting' && room?.status === 'playing') {
     const keepLobby = $('#room-dialog').open && previousStatus !== 'waiting' && !changedRoom;
-    document.querySelectorAll('dialog[open]:not(#rotate-guide)').forEach(dialog => {
+    document.querySelectorAll('dialog[open]').forEach(dialog => {
       if (!keepLobby || dialog.id !== 'room-dialog') dialog.close();
     });
     if (!room || room.status === 'waiting') openModal('#room-dialog');
@@ -601,10 +600,10 @@ function startDiceIntro(key, values) {
 }
 
 function canShowDiceIntro() {
-  return !document.hidden && !$('#rotate-guide').open && network.status === 'connected' && !network.room?.paused;
+  return !document.hidden && network.status === 'connected' && !network.room?.paused;
 }
 
-// 页面恢复可见或横屏提示关闭后，仅补播仍未推进的本局开场。
+// 页面恢复可见后，仅补播仍未推进的本局开场。
 function replayDiceIntro() {
   if (!canShowDiceIntro() || diceIntroActive() || openingDeal.active) return;
   const room = network.room;
@@ -632,7 +631,7 @@ function renderDiceIntro() {
   diceIntroKey = key;
   // A restored game already in progress does not replay its opening overlay.
   if (diceIntroSeen.has(key) || (game.events || []).some(event => /打出.+?。$/.test(event))) return;
-  // 玩家暂时看不到牌桌时只记「待播」，避免在后台或横屏提示后方消耗开场。
+  // 玩家暂时看不到牌桌时只记「待播」，避免在后台消耗开场。
   if (!canShowDiceIntro()) { rememberDiceIntro(diceIntroPending, 'kk-dice-intro-pending', key); return; }
   startDiceIntro(key, values);
 }
@@ -644,7 +643,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { finishDiceIntro(); return; }
   replayDiceIntro();
 });
-$('#rotate-guide').addEventListener('close', replayDiceIntro);
+
 window.addEventListener('pagehide', dismissDiceIntro);
 
 function stageRect(element) {
@@ -659,7 +658,7 @@ function positionTableLabels() {
   const stage = $('#game'), holder = $('#table-labels');
   // 静态文件热更新期间兼容尚未刷新的旧页面结构，避免入口中断。
   if (!holder) return;
-  const active = stage.classList.contains('is-landscape') && network.room && network.room.status !== 'waiting';
+  const active = network.room && network.room.status !== 'waiting';
   holder.hidden = !active;
   stage.classList.toggle('has-table-labels', Boolean(active));
   if (!active) return;
@@ -1115,9 +1114,8 @@ async function moveDone(operation) {
 }
 
 function openModal(id) {
-  if (id === '#room-dialog') roomOrientation.setLobby(true);
   if (!$(id).open) $(id).showModal();
-  roomOrientation.refresh();
+  landscapeLayout.refresh();
 }
 
 function selectOptions(title, options) {
@@ -1309,9 +1307,9 @@ $('#room-members').addEventListener('click', event => {
 $('#room-leave').addEventListener('click', () => roomOperation(() => network.leave()));
 $('#room-close').addEventListener('click', () => {
   $('#room-dialog').close();
-  roomOrientation.setLobby(false);
+  
 });
-$('#rotate-return').addEventListener('click', () => openModal('#room-dialog'));
+
 $('#room-options').addEventListener('click', () => openModal('#settings-dialog'));
 $('#room-copy').addEventListener('click', () => roomOperation(async () => {
   const url = new URL(location.href); url.search = ''; url.hash = ''; url.searchParams.set('room', network.room.code);
@@ -1406,7 +1404,7 @@ if (/^\d{6}$/.test(invitedRoom || '')) $('#room-code').value = invitedRoom;
 $('#room-dialog').addEventListener('cancel', event => {
   if (!network.room || network.room.status === 'waiting') event.preventDefault();
 });
-$('#room-dialog').addEventListener('close', () => { roomOrientation.setLobby(false); render(); });
+$('#room-dialog').addEventListener('close', () => {  render(); });
 roomChanged();
 const actionNoticeLayout = new ResizeObserver(positionOverlays);
 for (const element of [$('#game'), ...document.querySelectorAll('.opponent-rack,.hand-zone')]) actionNoticeLayout.observe(element);

@@ -73,10 +73,9 @@ export function observeTileMetrics(root) {
       for(const node of record.removedNodes)for(const card of cards(node))if(!card.isConnected)resize.unobserve(card);
       for(const node of record.addedNodes)for(const card of cards(node))watch(card);
     }else if(record.target.matches('.tile,.back'))watch(record.target);
-    else if(record.target===root&&String(record.oldValue).split(/\s+/).includes('is-landscape')!==root.classList.contains('is-landscape'))for(const node of cards(root))watch(node);
     if(records.some(record=>record.target===hand||hand?.contains(record.target)))paintHandSeams(hand);
   });
-  mutations.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class'],attributeOldValue:true});
+  mutations.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
   paintHandSeams(hand);
   return {disconnect(){resize.disconnect();mutations.disconnect();}};
 }

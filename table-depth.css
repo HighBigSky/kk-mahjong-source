@@ -75,9 +75,6 @@
   --table-floor-far:radial-gradient(ellipse at 50% 50%,#00000024 0%,#0000000a 32%,#00000000 70%);
 }
 
-.opponent-top { top:16%; }
-.opponent-top>.opponent-state { top:9.4cqw; min-height:0; line-height:1; }
-
 .table {
   /* 纹距基于实体桌框宽度；不按屏幕或像素密度另做一套纹理。 */
   --table-texture-width:var(--table-frame-size,100cqw);
@@ -159,86 +156,24 @@
   --table-felt-warp:repeating-linear-gradient(90deg,#c8dfc309 0 var(--felt-fiber-width),#102f2505 var(--felt-fiber-width) calc(var(--felt-thread-step) * .55),transparent calc(var(--felt-thread-step) * .55) var(--felt-thread-step));
   --table-felt-weft:repeating-linear-gradient(0deg,#061e1810 0 var(--felt-fiber-width),#b9d3b506 var(--felt-fiber-width) calc(var(--felt-thread-step) * .48),transparent calc(var(--felt-thread-step) * .48) var(--felt-thread-step));
   --table-metal-ring:radial-gradient(ellipse closest-side,#bb965c00 calc(100% - var(--table-inlay-track)),var(--table-metal-dark) calc(100% - 3px),var(--table-metal-mid) calc(100% - 2px),var(--table-metal-light) calc(100% - 1px),var(--table-metal-dark) 100%);
-  isolation:isolate;
-  border-radius:var(--table-rim-radius);
-  border:1px solid #af8b55;
-  background:
-    var(--table-wood-horizontal),
-    var(--table-wood-vertical);
-  box-shadow:
-    inset -.15cqw .0375cqw .14cqw #fff5df40,
-    var(--scene-main-shadow);
-}
-
-/* A continuous rounded apron avoids joints where the curved corners turn. */
-.table::before {
-  content:"";
-  position:absolute;
-  inset:.08cqw .03cqw calc(-1 * var(--table-apron-depth));
-  z-index:-2;
-  border:1px solid #201911;
-  border-radius:inherit;
-  background:
-    var(--table-wood-horizontal),
-    var(--table-wood-vertical);
-  box-shadow:inset 0 -.2cqw .2cqw #110e0bb3,0 .22cqw .2cqw #081c1370;
-  pointer-events:none;
-}
-
-/* Return lines seat the gold inlay inside the wood instead of above it. */
-.table::after {
-  content:"";
-  position:absolute;
-  inset:.43cqw;
-  z-index:-1;
-  border:var(--table-inlay-width) solid var(--table-inlay);
-  border-right-color:#a48551;
-  border-bottom-color:#927644;
-  border-radius:calc(var(--table-rim-radius) - .43cqw);
-  background:
-    var(--table-wood-horizontal),
-    var(--table-wood-vertical);
-  box-shadow:inset -1px .25px 1px #fff5df26,var(--scene-contact-shadow);
-  pointer-events:none;
 }
 
 .table-border {
   z-index:0;
   border-color:#0d3428;
-  background:
-    var(--table-felt-groove-x),
-    var(--table-felt-groove-y),
-    var(--table-felt-warp),
-    var(--table-felt-weft),
-    var(--table-felt-lighting);
-  box-shadow:
-    var(--scene-ao-shadow),
-    inset -1px .25px 1px #fff5df12;
   pointer-events:none;
 }
-
-.table>.backs,.table>.river,.table>.bot-melds,.table>.table-caption { z-index:1; }
+.table>.backs,.table>.river,.table>.bot-melds { z-index:1; }
 
 /* Specificity retains circles when seats-layout.css loads later. */
 .table .table-center {
   z-index:1;
   border-color:#c6b47e99;
-  border-radius:50%;
-  background:
-    radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df14,transparent 67%),
-    linear-gradient(var(--scene-light-angle),var(--compass-highlight),var(--compass-ink) 72%,#102f26);
-  box-shadow:
-    inset var(--table-console-depth) -.375px 2px #07181099,
-    var(--scene-contact-shadow);
 }
 
 .table .table-center::before {
   content:"";
   position:absolute;
-  inset:.8cqw;
-  border:1px solid #b5c08c26;
-  border-radius:50%;
-  box-shadow:inset .14cqw -.035cqw .3cqw #1e1a1280;
   pointer-events:none;
 }
 
@@ -275,25 +210,21 @@
 }
 
 .direction-n.active::after {
-  top:-1cqw;
   left:calc(50% - var(--compass-pointer));
   border-bottom-color:var(--table-inlay);
 }
 
 .direction-s.active::after {
-  bottom:-1cqw;
   left:calc(50% - var(--compass-pointer));
   border-top-color:var(--table-inlay);
 }
 
 .direction-w.active::after {
-  left:-1cqw;
   top:calc(50% - var(--compass-pointer));
   border-right-color:var(--table-inlay);
 }
 
 .direction-e.active::after {
-  right:-1cqw;
   top:calc(50% - var(--compass-pointer));
   border-left-color:var(--table-inlay);
 }

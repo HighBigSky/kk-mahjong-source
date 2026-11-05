@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="landscape-app">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,7 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="KK麻将，竖屏建房、横屏对局的国风好友麻将。创建房间，分享房间码，与远方好友一起吃碰杠胡。">
+  <meta name="description" content="KK麻将，全流程横屏的国风好友麻将。创建房间，分享房间码，与远方好友一起吃碰杠胡。">
   <title>KK麻将</title>
   <link rel="icon" href="assets/avatar-player.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -31,7 +31,7 @@
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 3.6l8.5 7.4M6 9.4V20h12V9.4M10 20v-5.6h4V20"/></symbol>
   </svg>
-  <main class="game" aria-label="KK麻将对局" id="game">
+  <main class="game is-landscape" aria-label="KK麻将对局" id="game">
     <header class="topbar">
       <div class="top-left">
         <div class="wallet-pill" aria-label="我的对局金币">
@@ -44,8 +44,6 @@
       </div>
       <div class="top-tools"><span class="connection" id="connection-status" data-state="offline" role="status" aria-live="polite"><i></i><span id="connection-text">未连接</span></span><button class="icon-button voice-button" id="voice-btn" aria-label="开黑语音" title="开黑语音"><svg><use href="#i-mic"></use></svg></button><button class="icon-button" id="sound-btn" aria-label="开启音效" title="音效"><svg><use href="#i-mute"></use></svg></button><button class="icon-button" id="settings-btn" aria-label="设置"><svg><use href="#i-settings"></use></svg></button></div>
     </header>
-
-    <div class="room-heading"><span class="room-line"></span><h1>KK<span>麻将</span></h1><span class="room-line"></span></div>
     <div class="room-meta"><span id="round-label">邀请好友，一起上桌</span><span data-fullscreen-note hidden>视口模式 · 可添加到主屏幕</span></div>
 
     <div class="opponent player-seat seat-top" id="opponent-2" aria-label="上方，阿福，西家">
@@ -78,7 +76,6 @@
         <span class="direction direction-n" data-player="2">西</span><span class="direction direction-w" data-player="3">北</span><span class="direction direction-e" data-player="1">南</span><span class="direction direction-s" data-player="0">东</span>
         <div class="table-dice" id="table-dice" aria-hidden="true"></div>
       </div>
-      <span class="table-caption">闲来一局 · 好牌常来</span>
       <section class="wall-tail" id="wall-tail" role="group" aria-label="四方剩余牌墙、翻痞位置与摸补牌位置" hidden></section>
       <div class="discard-focus" id="discard-focus" role="status" aria-live="polite" aria-atomic="true" hidden></div>
     </section>
@@ -153,32 +150,39 @@
     <dialog id="history-dialog" class="modal"><button class="modal-close" data-close aria-label="关闭出牌记录"><svg><use href="#i-close"></use></svg></button><span class="modal-eyebrow">DISCARD HISTORY</span><h2 id="history-title">出牌记录</h2><p class="modal-lead" id="history-description"></p><div class="history-tiles" id="history-tiles"></div><div id="history-red-record" hidden><p class="modal-lead">已杠红中、痞子与癞子</p><div class="history-tiles" id="history-red-tiles"></div></div><button class="primary-button" data-close>返回牌桌</button></dialog>
     <dialog id="room-dialog" class="modal room-modal" aria-labelledby="room-title" aria-describedby="room-intro">
       <button class="modal-close" id="room-close" aria-label="返回牌桌" hidden><svg aria-hidden="true"><use href="#i-close"></use></svg></button>
-      <span class="modal-eyebrow">FRIENDS AT THE TABLE</span>
-      <h2 id="room-title">好友来一桌</h2>
-      <p class="modal-lead" id="room-intro">相隔再远，好牌一起打。</p>
-      <p class="fullscreen-note" data-fullscreen-note role="status" hidden>当前浏览器未进入全屏，已使用完整视口布局；可通过浏览器菜单「添加到主屏幕」后打开。</p>
+      <header class="room-header">
+        <div><span class="modal-eyebrow">FRIENDS AT THE TABLE</span><h2 id="room-title">好友来一桌</h2></div>
+        <p class="modal-lead" id="room-intro">相隔再远，好牌一起打。</p>
+      </header>
+      <div class="room-rule-summary" aria-label="固定房间玩法">
+        <div><b>四人</b><span>好友同桌</span></div><div><b>136 张</b><span>完整牌组</span></div><div><b>翻痞定癞</b><span>固定开启</span></div><div><b>好友 / 人机</b><span>自由补位</span></div>
+      </div>
       <div id="room-entry">
-        <label class="room-field" for="room-name"><span>你的昵称</span><input id="room-name" name="nickname" type="text" maxlength="12" autocomplete="nickname" placeholder="给好友一个熟悉的名字" required></label>
-        <button class="primary-button" id="room-create">创建好友房间</button>
-        <div class="room-separator"><span>已有房间码</span></div>
-        <label class="room-field" for="room-code"><span>输入 6 位房间码</span></label>
-        <div class="room-join-row"><input id="room-code" name="room-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" enterkeyhint="go" placeholder="6 位数字" aria-label="6 位数字房间码"><button class="secondary-button" id="room-join">加入房间</button></div>
-        <p class="room-note">邀请好友同桌，也可由房主添加人机补足四席。翻痞子定癞子为固定玩法，开局前可在设置中调整音效。</p>
-        <button class="room-leave" id="room-options">打开设置：音效、玩法说明</button>
+        <div class="room-entry-content">
+          <div class="room-entry-fields">
+            <label class="room-field" for="room-name"><span>你的昵称 · 创建好友房</span><input id="room-name" name="nickname" type="text" maxlength="12" autocomplete="nickname" placeholder="给好友一个熟悉的名字" required></label>
+            <label class="room-field" for="room-code"><span>已有房间码 · 加入好友</span><input id="room-code" name="room-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" enterkeyhint="go" placeholder="6 位数字房间码" aria-label="6 位数字房间码"></label>
+          </div>
+          <p class="room-note">房主可邀请好友或添加人机补足四席。翻痞子定癞子为固定玩法；音效与完整玩法说明可在下方设置中查看。</p>
+        </div>
+        <div class="room-entry-actions"><button class="primary-button" id="room-create">创建好友房间</button><button class="secondary-button" id="room-join">加入房间</button></div>
       </div>
       <div id="room-waiting" hidden>
-        <div class="room-invite"><span class="room-invite-label">房间码</span><strong class="hud-number" id="room-current-code" aria-label="当前房间码">------</strong><button class="secondary-button" id="room-copy">复制邀请</button><small>将网址与房间码一起发送给好友</small></div>
-        <ol class="room-members" id="room-members" aria-label="房间内的四个座位">
-          <li data-seat="0"><span class="room-member-seat">东</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
-          <li data-seat="1"><span class="room-member-seat">南</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
-          <li data-seat="2"><span class="room-member-seat">西</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
-          <li data-seat="3"><span class="room-member-seat">北</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
-        </ol>
-        <div class="room-play-controls"><button class="secondary-button" id="room-ready">准备</button><button class="primary-button" id="room-start" hidden>房主开始对局</button></div>
-        <p class="room-note">房主可在开局前添加或移除人机；有真人离线且无法重连时，房主可点击「移除离线」清出座位。人机自动准备，真人准备后由房主开始；真人断线时整桌暂停，重连后继续。</p>
-        <button class="room-leave room-leave-danger" id="room-leave" aria-label="离开房间（对局中会中止本局，其他玩家返回等待房间）">离开房间</button>
+        <div class="room-waiting-main">
+          <div class="room-invite"><span class="room-invite-label">房间码</span><strong class="hud-number" id="room-current-code" aria-label="当前房间码">------</strong><button class="secondary-button" id="room-copy">复制邀请</button><small>将网址与房间码发送给好友</small></div>
+          <div class="room-seats">
+            <ol class="room-members" id="room-members" aria-label="房间内的四个座位">
+              <li data-seat="0"><span class="room-member-seat">东</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
+              <li data-seat="1"><span class="room-member-seat">南</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
+              <li data-seat="2"><span class="room-member-seat">西</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
+              <li data-seat="3"><span class="room-member-seat">北</span><span class="room-member-name">等待好友</span><span class="room-member-state">空位</span></li>
+            </ol>
+            <p class="room-note">房主可在开局前添加或移除人机，也可移除无法重连的离线好友。人机自动准备，真人准备后由房主开局；真人断线时整桌暂停，重连后继续。</p>
+          </div>
+        </div>
+        <div class="room-play-controls"><button class="secondary-button" id="room-ready">准备</button><button class="primary-button" id="room-start" hidden>房主开始对局</button><button class="room-leave room-leave-danger" id="room-leave" aria-label="离开房间（对局中会中止本局，其他玩家返回等待房间）">离开房间</button></div>
       </div>
-      <p class="room-status" id="room-status" role="status" aria-live="polite">创建房间，或输入好友发来的房间码。</p>
+      <footer class="room-footer"><div class="room-message"><p class="room-status" id="room-status" role="status" aria-live="polite">创建房间，或输入好友发来的房间码。</p><p class="fullscreen-note room-fullscreen-note" data-fullscreen-note role="status" hidden>当前使用完整视口布局；也可通过浏览器菜单「添加到主屏幕」打开。</p></div><button class="room-options" id="room-options">音效与玩法</button></footer>
       <p class="room-error" id="room-error" role="alert" hidden></p>
     </dialog>
     <dialog id="voice-dialog" class="modal voice-modal" aria-labelledby="voice-title">
@@ -196,13 +200,6 @@
     </dialog>
     <dialog id="result-dialog" class="modal result-modal"><span class="modal-eyebrow">ROUND COMPLETE</span><img class="result-avatar" id="result-avatar" src="assets/avatar-player.svg" alt="本局结果头像"><h2 id="result-title">好牌，胡了！</h2><p class="modal-lead" id="result-detail"></p><div class="result-hand" id="result-hand"></div><div class="result-scores" id="result-scores"></div><button class="primary-button" id="next-round">房主开始下一局</button><button class="secondary-button" data-close>查看牌桌</button></dialog>
   </main>
-  <dialog id="rotate-guide" class="rotate-guide" aria-labelledby="rotate-title" aria-describedby="rotate-description">
-    <span class="rotate-device" aria-hidden="true">↻</span>
-    <h2 id="rotate-title">请横屏使用</h2>
-    <p id="rotate-description">将手机横置后继续对局。若屏幕未旋转，请关闭手机的方向锁定。</p>
-    <p class="fullscreen-note" data-fullscreen-note hidden>当前浏览器未进入全屏，可通过浏览器菜单「添加到主屏幕」后打开。</p>
-    <button id="rotate-return" class="secondary-button">返回房间</button>
-  </dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>

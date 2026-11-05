@@ -93,7 +93,7 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
   }
   function play() {
     if (phase !== 'waiting' || !canPlay()) return;
-    if (document.hidden || !stage.classList.contains('is-landscape')) { finish(); return; }
+    if (document.hidden) { finish(); return; }
     // 动画为可选展示，浏览器不支持或中途失败时直接恢复真实手牌，不能留下输入锁。
     try { launch(); } catch { finish(); }
   }
@@ -184,7 +184,6 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
     return true;
   }
   function layoutChanged() {
-    if (phase !== 'idle' && !stage.classList.contains('is-landscape')) { finish(); return; }
     if (phase === 'waiting') { play(); return; }
     if (phase !== 'running') return;
     const box = stage.getBoundingClientRect();

@@ -3,71 +3,42 @@
 .wallet-pill {
   display:flex;
   align-items:center;
-  gap:1.5cqw;
-  min-width:29cqw;
-  min-height:9cqw;
-  padding:1cqw 2.3cqw;
   border:1px solid #a2925c66;
-  border-radius:2.5cqw;
-  background:var(--ui-panel-coat) var(--ui-panel-base);
-  box-shadow:var(--ui-panel-recess-shadow);
 }
 
 .wallet-pill>svg {
-  width:4.8cqw;
-  height:4.8cqw;
   color:#e0bd75;
   fill:#c8a45d12;
 }
 
 .wallet-copy {
   display:grid;
-  gap:.45cqw;
 }
 
 .wallet-copy small {
-  font-size:max(9px,1.8cqw);
   line-height:1;
   color:#b5c3a3;
-  letter-spacing:.12cqw;
 }
 
 .wallet-copy strong {
   font:3.8cqw/1.05 Georgia,serif;
   font-variant-numeric:tabular-nums;
   color:#f0d9a4;
-  letter-spacing:.08cqw;
 }
 
 .player-seat {
-  width:37cqw;
-  height:10.5cqw;
   display:flex;
   align-items:center;
-  gap:1.5cqw;
-  padding:.35cqw .55cqw;
-  border:1px solid #78916938;
-  border-radius:5.2cqw 2.4cqw 2.4cqw 5.2cqw;
-  background:var(--ui-panel-coat) var(--ui-panel-base);
-  box-shadow:var(--ui-panel-shadow);
   transition:var(--ui-panel-transition);
 }
 
 .player-seat .portrait {
-  width:9.2cqw;
-  height:9.2cqw;
-  padding:.35cqw;
   border-color:#b5a375;
-  box-shadow:0 .25cqw .5cqw #07221970;
 }
 
 .player-seat .seat {
-  width:3.2cqw;
-  height:3.2cqw;
   bottom:-.2cqw;
   right:-.35cqw;
-  font-size:max(8px,2cqw);
-  border-radius:.9cqw;
   background:linear-gradient(145deg,#315942,#163e30);
   box-shadow:0 .15cqw .2cqw #08271c80;
 }
@@ -78,7 +49,6 @@
   display:grid;
   place-items:center;
   border:1px solid #edce8a;
-  border-radius:.8cqw;
   line-height:1;
   font-weight:600;
   box-shadow:0 .15cqw .35cqw #08271c80;
@@ -87,22 +57,16 @@
 .dealer-badge {
   top:-.15cqw;
   left:-.25cqw;
-  width:3.2cqw;
-  height:3.2cqw;
   background:linear-gradient(135deg,#f6df9b,#c4a25b);
   color:#3b341f;
-  font-size:max(8px,2cqw);
 }
 
 .red-gang-badge {
   bottom:-.2cqw;
   left:-.3cqw;
-  min-width:4.6cqw;
-  height:2.8cqw;
   padding:0 .3cqw;
   background:#95382e;
   color:#fff1cb;
-  font-size:max(8px,1.6cqw);
   white-space:nowrap;
 }
 
@@ -113,7 +77,6 @@
 .player-seat .opponent-copy {
   min-width:0;
   display:grid;
-  gap:.1cqw;
   align-content:center;
 }
 
@@ -121,18 +84,13 @@
   display:block;
   overflow:hidden;
   text-overflow:ellipsis;
-  font-size:max(10px,2.6cqw);
   line-height:1.05;
-  letter-spacing:.12cqw;
   color:#f0e7cb;
 }
 
 .player-seat .opponent-name small {
-  margin-left:.65cqw;
-  padding:0 .55cqw;
   border:1px solid #d3b47b55;
   border-radius:.55cqw;
-  font-size:max(8px,1.65cqw);
   line-height:1;
   letter-spacing:0;
   color:#e4c68a;
@@ -141,58 +99,22 @@
 
 .player-seat .opponent-score {
   justify-content:flex-start;
-  gap:.65cqw;
-  font-size:max(9px,2.2cqw);
   line-height:1;
-  color:#d9c18c;
-}
-
-.player-seat .opponent-score svg {
-  width:2.2cqw;
-  height:2.2cqw;
 }
 
 .player-seat .opponent-state {
   position:static;
   min-height:0;
   width:auto;
-  font-size:max(9px,1.9cqw);
   line-height:1;
   color:#9cb8a3;
   overflow:hidden;
   text-overflow:ellipsis;
 }
 
-.seat-top {
-  top:16.3%;
-}
-
-.seat-bottom {
-  top:63.4%;
-}
-
-.seat-top,.seat-bottom {
-  left:31.5%;
-}
-
 .seat-left,.seat-right {
-  top:calc(43% - 10.25cqw);
-  width:13cqw;
-  height:20.5cqw;
-  flex-direction:column;
-  justify-content:center;
-  gap:.35cqw;
   padding:.35cqw .4cqw;
-  border-radius:6.5cqw 6.5cqw 2.5cqw 2.5cqw;
   background:var(--ui-panel-coat) var(--ui-panel-base);
-}
-
-.seat-left {
-  left:.5%;
-}
-
-.seat-right {
-  right:.5%;
 }
 
 .seat-left .opponent-copy,.seat-right .opponent-copy {
@@ -207,15 +129,10 @@
 
 .player-seat.is-active {
   border-color:#d6b369a6;
-  background:var(--ui-panel-coat) var(--ui-panel-active-base);
 }
 
 .seat-left.is-active,.seat-right.is-active {
   background:var(--ui-panel-coat) var(--ui-panel-active-base);
-}
-
-.player-seat.is-active .portrait {
-  box-shadow:0 0 0 .45cqw #dcc27d29,0 .3cqw .6cqw #09251a66;
 }
 
 .player-seat.is-active .seat {
@@ -232,13 +149,6 @@
   color:#f0d08c;
 }
 
-.table {
-  left:15%;
-  top:23.5%;
-  width:70%;
-  height:39%;
-}
-
 .backs-top {
   top:1.8cqw;
 }
@@ -247,13 +157,6 @@
   top:36%;
   height:45%;
 }
-
-
-
-
-
-
-
 
 .table-center {
   width:20cqw;
@@ -322,7 +225,6 @@
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:.7cqw;
   pointer-events:none;
 }
 
@@ -347,7 +249,6 @@
 }
 
 .table .opponent-rack .bot-melds {
-  display:flex;
   gap:var(--public-group-gap);
 }
 
@@ -382,13 +283,6 @@
   --tile-side:calc(var(--tile-depth) * .45);
 }
 
-.table .opponent-rack-top {
-  top:1.8cqw;
-  left:4.5cqw;
-  right:4.5cqw;
-  height:var(--public-tile-height);
-}
-
 .table .opponent-rack-top .backs,
 .table .opponent-rack-top .bot-melds,
 .table .opponent-rack-top .meld-group {
@@ -397,14 +291,8 @@
 
 .table .opponent-rack-left,
 .table .opponent-rack-right {
-  top:6cqw;
-  bottom:3.8cqw;
-  width:var(--public-tile-height);
   flex-direction:column;
 }
-
-.table .opponent-rack-left { left:.55cqw; }
-.table .opponent-rack-right { right:.55cqw; }
 
 .table .opponent-rack-left .backs,
 .table .opponent-rack-right .backs,
@@ -437,33 +325,10 @@
    original interactive tiles at their existing size and with clear hot areas. */
 .player-rack { min-width:0; }
 
-.hand-zone.has-melds {
-  top:calc(84.2% - 1cqw);
-}
-
-.hand-zone.has-melds .hand-heading {
-  margin-bottom:.2cqw;
-  transform:translateY(-.5cqw);
-}
-
-.hand-zone.has-melds .player-rack {
-  display:flex;
-  flex-direction:column;
-  gap:.2cqw;
-}
-
 .hand-zone .player-rack .my-melds {
-  position:relative;
   top:auto;
-  bottom:auto;
-  left:auto;
-  width:100%;
-  min-height:5.7cqw;
-  padding:1.5cqw .6cqw 0;
   display:flex;
   align-items:flex-end;
-  justify-content:flex-start;
-  gap:.65cqw;
   z-index:1;
   pointer-events:none;
 }
@@ -480,8 +345,6 @@
   justify-content:center;
 }
 
-.hand-zone.has-melds .hand-instruction { visibility:hidden; }
-
 /* 各座位提示固定在手牌前方；粗体与深色描边保证绿色绒布上也能看清。 */
 :root {
   --seat-action-size:6cqw;
@@ -497,8 +360,6 @@
   z-index:4;
   display:grid;
   place-items:center;
-  width:var(--seat-action-size);
-  height:var(--seat-action-size);
   margin:0;
   padding:0;
   font:900 var(--seat-action-font-size)/1 "Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
