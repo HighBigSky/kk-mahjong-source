@@ -67,9 +67,15 @@ let actionNoticeDeadline = 0;
 let voiceAnnouncing = false;
 let diceIntroKey = null;
 let diceIntroTimer = null;
-let diceRollTimer = null;
 let diceIntroFrame = null;
 let diceIntroPhase = 'idle';
+let diceIntroGeneration = 0;
+const DICE_INTRO_TIMING = Object.freeze({rollMs:1000, settledMs:120, enlargeMs:300, holdMs:800});
+// 每颗骰子的节奏独立；最后一个换面点之后只做小幅回弹，真实点数一直保留到落定。
+const DICE_ROLL_TRACKS = Object.freeze([
+  {delay:0, duration:.94, beats:[0,.07,.15,.25,.38,.54,.73], step:1},
+  {delay:.035, duration:.965, beats:[0,.10,.20,.34,.49,.65,.80], step:5},
+]);
 const diceIntroSeen = new Set();
 const diceIntroPending = new Set();
 const diceIntroMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -484,19 +490,29 @@ function setDiceIntroPhase(phase) {
   $('#table-dice').dataset.introPhase = phase;
 }
 
+function scheduleDiceIntro(callback, delayMs) {
+  clearTimeout(diceIntroTimer);
+  const generation = diceIntroGeneration;
+  diceIntroTimer = setTimeout(() => {
+    if (generation !== diceIntroGeneration) return;
+    diceIntroTimer = null;
+    if (diceIntroActive()) callback();
+  }, delayMs);
+}
+
 function restoreIntroDice() {
-  clearInterval(diceRollTimer); diceRollTimer = null;
   cancelAnimationFrame(diceIntroFrame); diceIntroFrame = null;
   $('#table-dice').classList.remove('is-rolling');
-  // 摇动时只改固定点位的 opacity；停稳一次性还原真实点数结构。
+  // 正常落定前已显示真实点数并归正；此处只清理固定点位，不靠换节点修正朝向。
   renderedHTML.delete($('#table-dice'));
   setHTMLIfChanged($('#table-dice'), diceHTML(game.wallInfo?.dice || []));
 }
 
 function dismissDiceIntro() {
+  diceIntroGeneration++;
   clearTimeout(diceIntroTimer); diceIntroTimer = null;
   if (diceIntroActive()) restoreIntroDice();
-  else { clearInterval(diceRollTimer); diceRollTimer = null; }
+  else { cancelAnimationFrame(diceIntroFrame); diceIntroFrame = null; }
   $('#dice-intro').hidden = true;
   setDiceIntroPhase('idle');
 }
@@ -525,22 +541,25 @@ function showDiceIntro() {
   row.style.setProperty('--dice-intro-from-y', `${centerY-target.top-target.height/2}px`);
   row.style.setProperty('--dice-intro-zoom-from', String(fromScale));
   row.style.setProperty('--dice-intro-zoom-to', String(fromScale*1.8));
+  row.style.setProperty('--dice-intro-enlarge-duration', `${DICE_INTRO_TIMING.enlargeMs}ms`);
+  const generation = diceIntroGeneration;
   const showing = () => {
     setDiceIntroPhase('showing');
     diceIntroFrame = requestAnimationFrame(() => {
+      if (generation !== diceIntroGeneration || diceIntroPhase !== 'showing') return;
       diceIntroFrame = null;
-      diceIntroTimer = setTimeout(finishDiceIntro, 1500);
+      scheduleDiceIntro(finishDiceIntro, DICE_INTRO_TIMING.holdMs);
     });
   };
   if (diceIntroMotion.matches) showing();
   else {
     setDiceIntroPhase('enlarging');
-    diceIntroTimer = setTimeout(showing, 300);
+    scheduleDiceIntro(showing, DICE_INTRO_TIMING.enlargeMs);
   }
   interactionChanged();
 }
 
-function rollIntroDice() {
+function rollIntroDice(values) {
   const holder = $('#table-dice');
   setHTMLIfChanged(holder, diceHTML([6,6]));
   const center = document.createElement('template');
@@ -549,31 +568,50 @@ function rollIntroDice() {
   dice.forEach((die,index) => {
     die.classList.remove('is-key');
     die.append(center.content.children[index].firstElementChild.cloneNode(true));
+    const track = DICE_ROLL_TRACKS[index];
+    die.style.setProperty('--dice-roll-duration', `${DICE_INTRO_TIMING.rollMs * track.duration}ms`);
+    die.style.setProperty('--dice-roll-delay', `${DICE_INTRO_TIMING.rollMs * track.delay}ms`);
   });
-  // 七个固定点位覆盖所有骰面；帧内既不增删节点，也不读布局。
-  let frame = 0;
-  const tick = () => {
+  // 七个固定点位覆盖所有骰面；按经过的时间换面，间隔逐步拉长，不依赖帧数。
+  const lastFaces = [-1,-1];
+  const tick = elapsedMs => {
     dice.forEach((die,index) => {
-      const value = (frame + index * 3) % 6 + 1;
+      const track = DICE_ROLL_TRACKS[index];
+      const progress = Math.max(0, (elapsedMs / DICE_INTRO_TIMING.rollMs - track.delay) / track.duration);
+      let face = 0;
+      while (face + 1 < track.beats.length && progress >= track.beats[face + 1]) face++;
+      if (lastFaces[index] === face) return;
+      lastFaces[index] = face;
+      const finalFace = track.beats.length - 1;
+      const value = ((values[index] - 1 + (face - finalFace) * track.step) % 6 + 6) % 6 + 1;
       const visible = new Set(DIE_PIPS[value].map(([row,column]) => row + ' / ' + column));
       for (const pip of die.children) pip.style.opacity = visible.has(pip.style.gridArea) ? '1' : '0';
       die.dataset.value = String(value);
+      die.classList.toggle('is-key', face === finalFace && value === Math.min(...values));
     });
-    frame++;
   };
-  tick();
-  holder.classList.add('is-rolling');
+  tick(0);
   setDiceIntroPhase('rolling');
-  // 首次 render 还要布置牌墙和手牌；等首帧再计时，保证玩家实际看到一秒摇动。
-  diceIntroFrame = requestAnimationFrame(() => {
+  const generation = diceIntroGeneration;
+  // 布置完牌桌后同时启动 CSS 与换面时钟；最后一段已在结果面上逐步归正。
+  diceIntroFrame = requestAnimationFrame(startedAt => {
+    if (generation !== diceIntroGeneration || diceIntroPhase !== 'rolling') return;
     diceIntroFrame = null;
-    diceRollTimer = setInterval(tick, 80);
-    diceIntroTimer = setTimeout(() => {
+    holder.classList.add('is-rolling');
+    const advance = now => {
+      if (generation !== diceIntroGeneration || diceIntroPhase !== 'rolling') return;
+      diceIntroFrame = null;
+      const elapsedMs = Math.min(now - startedAt, DICE_INTRO_TIMING.rollMs);
+      tick(elapsedMs);
+      if (elapsedMs < DICE_INTRO_TIMING.rollMs) {
+        diceIntroFrame = requestAnimationFrame(advance);
+        return;
+      }
       restoreIntroDice();
       setDiceIntroPhase('settled');
-      // 先保留一拍中央真实点数，再进入可读展示。
-      diceIntroTimer = setTimeout(showDiceIntro, 120);
-    }, 1000);
+      scheduleDiceIntro(showDiceIntro, DICE_INTRO_TIMING.settledMs);
+    };
+    diceIntroFrame = requestAnimationFrame(advance);
   });
 }
 
@@ -590,13 +628,14 @@ function forgetDiceIntroPending(key) {
 
 // 播放即落「已播」并清掉「待播」，之后无论刷新、重连还是重复快照都不再重播。
 function startDiceIntro(key, values) {
+  diceIntroGeneration++;
   rememberDiceIntro(diceIntroSeen, 'kk-dice-intro-seen', key);
   forgetDiceIntroPending(key);
   setHTMLIfChanged($('#dice-intro-dice'), diceHTML(values));
   $('#dice-intro-note').textContent = `${values[0]} 点 · ${values[1]} 点，取 ${Math.min(...values)} 点翻痞`;
   $('#dice-intro').setAttribute('aria-label', $('#dice-intro-note').textContent + '，点击收起');
   if (diceIntroMotion.matches) showDiceIntro();
-  else rollIntroDice();
+  else rollIntroDice([...values]);
 }
 
 function canShowDiceIntro() {

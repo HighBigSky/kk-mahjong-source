@@ -713,7 +713,7 @@ html.landscape-app #game.is-landscape {
 /* 最近一张牌的标记和牌身一起朝向出牌者。 */
 #game.is-landscape .table .river .tile.last-discard { outline:calc(var(--table-unit) * .12) solid #ffbe46; outline-offset:calc(var(--table-unit) * .04); box-shadow:var(--tile-model-raised-shadow); }
 
-/* The opening is readable for 1.5 seconds; the resting pair stays unobtrusive. */
+/* The enlarged result stays readable briefly; the resting pair stays unobtrusive. */
 #game.is-landscape .table-die { width:calc(var(--table-unit) * 2.4); height:calc(var(--table-unit) * 2.4); padding:calc(var(--table-unit) * .4); }
 #game.is-landscape .table-die i { width:calc(var(--table-unit) * .45); height:calc(var(--table-unit) * .45); }
 .is-landscape .dice-intro { width:calc(var(--ui-unit) * 58); padding:calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 2.5); gap:calc(var(--ui-unit) * 2); }
@@ -827,24 +827,38 @@ html.landscape-app .modal button:is(.primary-button,.secondary-button,.modal-clo
 }
 
 /* 开局掷骰只改变合成属性；幅度按骰子自身宽度计，留在原中控内。 */
-#table-dice.is-rolling > .table-die { animation:dice-table-tumble 200ms ease-in-out infinite; }
-#table-dice.is-rolling > .table-die:nth-child(2) { animation-name:dice-table-tumble-back; animation-delay:-90ms; }
+#table-dice.is-rolling > .table-die {
+  transform-origin:50% 62%;
+  animation:dice-table-tumble var(--dice-roll-duration,940ms) cubic-bezier(.33,.2,.67,.8) var(--dice-roll-delay,0ms) 1 both;
+  will-change:transform;
+}
+#table-dice.is-rolling > .table-die:nth-child(2) { animation-name:dice-table-tumble-back; }
 #table-dice:is([data-intro-phase="enlarging"],[data-intro-phase="showing"]) { opacity:0; }
 @keyframes dice-table-tumble {
-  0%,100% { transform:translate(0,0) rotate(0deg) scale(1); }
-  25% { transform:translate(-12%,-14%) rotate(-16deg) scale(1.06); }
-  50% { transform:translate(10%,-6%) rotate(14deg) scale(.97); }
-  75% { transform:translate(-5%,-11%) rotate(-8deg) scale(1.03); }
+  0% { transform:translate(0,0) rotate(0deg) rotateY(0deg) rotateX(0deg) scale(1); }
+  7% { transform:translate(-3%,4%) rotate(-12deg) rotateY(-12deg) rotateX(8deg) scale(.96); }
+  15% { transform:translate(-16%,-22%) rotate(92deg) rotateY(18deg) rotateX(-28deg) scale(1.09); }
+  25% { transform:translate(9%,2%) rotate(246deg) rotateY(-26deg) rotateX(20deg) scale(.94); }
+  38% { transform:translate(14%,-15%) rotate(430deg) rotateY(22deg) rotateX(-18deg) scale(1.06); }
+  54% { transform:translate(-7%,2%) rotate(600deg) rotateY(-16deg) rotateX(12deg) scale(.97); }
+  73% { transform:translate(4%,-7%) rotate(692deg) rotateY(8deg) rotateX(-9deg) scale(1.025); }
+  88% { transform:translate(-1%,1%) rotate(722deg) rotateY(-3deg) rotateX(3deg) scale(.992); animation-timing-function:ease-out; }
+  96%,100% { transform:translate(0,0) rotate(720deg) rotateY(0deg) rotateX(0deg) scale(1); }
 }
 @keyframes dice-table-tumble-back {
-  0%,100% { transform:translate(0,0) rotate(0deg) scale(1); }
-  25% { transform:translate(12%,-12%) rotate(16deg) scale(1.06); }
-  50% { transform:translate(-10%,-5%) rotate(-14deg) scale(.97); }
-  75% { transform:translate(5%,-10%) rotate(8deg) scale(1.03); }
+  0% { transform:translate(0,0) rotate(0deg) rotateY(0deg) rotateX(0deg) scale(1); }
+  10% { transform:translate(4%,3%) rotate(10deg) rotateY(10deg) rotateX(-7deg) scale(.97); }
+  20% { transform:translate(12%,-18%) rotate(-110deg) rotateY(-20deg) rotateX(24deg) scale(1.07); }
+  34% { transform:translate(-11%,1%) rotate(-302deg) rotateY(23deg) rotateX(-18deg) scale(.95); }
+  49% { transform:translate(-13%,-12%) rotate(-500deg) rotateY(-17deg) rotateX(16deg) scale(1.045); }
+  65% { transform:translate(6%,2%) rotate(-656deg) rotateY(12deg) rotateX(-10deg) scale(.98); }
+  80% { transform:translate(-3%,-5%) rotate(-710deg) rotateY(-6deg) rotateX(6deg) scale(1.015); }
+  91% { transform:translate(1%,.6%) rotate(-722deg) rotateY(2deg) rotateX(-2deg) scale(.995); animation-timing-function:ease-out; }
+  96%,100% { transform:translate(0,0) rotate(-720deg) rotateY(0deg) rotateX(0deg) scale(1); }
 }
 /* 相对中央骰子的实测宽度放大1.8倍；展示框与行高沿用原预留尺寸。 */
 #dice-intro[data-phase="showing"] #dice-intro-dice { transform:scale(var(--dice-intro-zoom-to,1)); }
-#dice-intro[data-phase="enlarging"] #dice-intro-dice { animation:dice-intro-enlarge 300ms cubic-bezier(.2,.65,.3,1) both; }
+#dice-intro[data-phase="enlarging"] #dice-intro-dice { animation:dice-intro-enlarge var(--dice-intro-enlarge-duration,300ms) cubic-bezier(.2,.65,.3,1) both; }
 @keyframes dice-intro-enlarge {
   from { transform:translate(var(--dice-intro-from-x,0px),var(--dice-intro-from-y,0px)) scale(var(--dice-intro-zoom-from,.5555555556)); opacity:.25; }
   to { transform:translateY(0) scale(var(--dice-intro-zoom-to,1)); opacity:1; }
