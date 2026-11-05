@@ -81,8 +81,10 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
     if (phase !== 'idle' || !isOpeningDeal(room,game)) return false;
     const key = `${room.code}:${game.round}:${game.wallInfo.dice.join(',')}:${game.indicatorTile}`;
     if (seen.has(key)) return false;
+    // 后台未播放的开场留给恢复可见后的掷骰流程；主动减少动态效果仍按已处理去重。
+    if (document.hidden) return false;
     remember(key);
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches || typeof layer.animate !== 'function' || document.hidden) return false;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || typeof layer.animate !== 'function') return false;
     state = {key, code:room.code, round:game.round, dealer:game.dealer,
       drawnIndex:game.dealer === 0 ? game.lastDraw?.index : null, slots:openingDealSlots(game.wallInfo.indicatorPosition)};
     phase = 'waiting'; layer.dataset.phase = phase;

@@ -14,8 +14,12 @@ const baseline=execFileSync('git',['show','c633c0c:landscape.css'],{encoding:'ut
 const current=process.env.KK_UI_TARGET_URL?await(await fetch(target+'/landscape.css')).text():readFileSync('landscape.css','utf8');
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const contexts=[],report={passed:false,cases:[],errors:[],screenshots:0};mkdirSync('output',{recursive:true});
-async function setup(size,reducedMotion='no-preference'){
+async function setup(size,reducedMotion='no-preference',startHidden=false){
   const context=await browser.newContext({viewport:size,hasTouch:size.width<1000,reducedMotion});contexts.push(context);
+  if(startHidden)await context.addInitScript(()=>{
+    Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'hidden'});
+    Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});
+  });
   await context.addInitScript(()=>{
     localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));
     Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('dice fixture'))});
@@ -152,6 +156,108 @@ try{
     }
     await page.evaluate(()=>window.mahjongRoom.leave());await context.close();
   }
+  // 手机竖屏引导不得消耗首次开场，关闭引导后先掷骰，再发牌。
+  for(const motion of ['no-preference','reduce']){
+    const portrait=await setup({width:390,height:844},motion);
+    assert.equal(await portrait.page.locator('#rotate-guide').evaluate(n=>n.open),true);
+    await portrait.page.waitForTimeout(1700);
+    assert.deepEqual(await portrait.page.evaluate(()=>window.__diceHistory),[],'no dice phase runs behind the rotation guide');
+    assert.equal(await portrait.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0);
+    assert.equal(await portrait.page.locator('#hand button:enabled').count(),0,'pending intro also locks hand input');
+    const markers=await portrait.page.evaluate(()=>({pending:JSON.parse(sessionStorage.getItem('kk-dice-intro-pending')||'[]'),seen:JSON.parse(sessionStorage.getItem('kk-dice-intro-seen')||'[]')}));
+    assert.equal(markers.pending.length,1);assert.equal(markers.seen.length,0);
+    await portrait.page.setViewportSize({width:844,height:390});
+    await portrait.page.waitForFunction(()=>!document.querySelector('#rotate-guide').open);
+    await portrait.page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase===(matchMedia('(prefers-reduced-motion: reduce)').matches?'showing':'rolling'));
+    assert.equal(await portrait.page.locator('.deal-flight').count(),0,'dealing cannot overtake deferred dice');
+    assert.equal(await portrait.page.locator('#hand button:enabled').count(),0);
+    await idle(portrait.page);
+    const phases=await portrait.page.evaluate(()=>window.__diceHistory.map(row=>row.phase));
+    assert.deepEqual(phases,motion==='reduce'?['showing','idle']:['rolling','settled','enlarging','showing','idle']);
+    await portrait.page.setViewportSize({width:390,height:844});
+    await portrait.page.setViewportSize({width:844,height:390});
+    await portrait.page.waitForTimeout(200);
+    assert.equal(await portrait.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'subsequent rotations never replay');
+    report.cases.push({portraitStart:true,reducedMotion:motion==='reduce',waitsForGuide:true,diceBeforeDeal:true,noRotationReplay:true,phases});
+    await portrait.page.evaluate(()=>window.mahjongRoom.leave());await portrait.context.close();
+  }
+  // 隐藏标签页开局不记「已播」；恢复可见且仍在本局开局时补播一次完整流程，之后不再重复。
+  const hidden=await setup({width:640,height:360},'no-preference',true);
+  await hidden.page.waitForFunction(()=>window.mahjongGame.wallInfo?.dice?.length===2);
+  assert.equal(await hidden.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'hidden start never plays either animation');
+  assert.equal(await hidden.page.locator('#dice-intro').isVisible(),false);
+  assert.equal(await hidden.page.locator('#hand button:enabled').count(),0);
+  const hiddenMarkers=await hidden.page.evaluate(()=>{
+    const room=window.mahjongRoom.room,key=`${room.code}:${window.mahjongGame.round}:${window.mahjongGame.wallInfo.dice.join(',')}`;
+    return {key,pending:JSON.parse(sessionStorage.getItem('kk-dice-intro-pending')||'[]'),seen:JSON.parse(sessionStorage.getItem('kk-dice-intro-seen')||'[]')};
+  });
+  assert.ok(hiddenMarkers.pending.includes(hiddenMarkers.key),'hidden start writes a pending marker instead of a seen marker');
+  assert.ok(!hiddenMarkers.seen.includes(hiddenMarkers.key),'hidden start never marks the round as seen');
+  await hidden.page.evaluate(()=>{
+    Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'});
+    Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await hidden.page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');
+  await hidden.page.waitForFunction(()=>document.querySelector('#game').matches('.is-opening-deal'));
+  assert.ok((await hidden.page.locator('.deal-flight').count())>0,'deal animation follows the replayed intro');
+  await idle(hidden.page);
+  const hiddenData=await hidden.page.evaluate(()=>({history:window.__diceHistory,
+    pending:JSON.parse(sessionStorage.getItem('kk-dice-intro-pending')||'[]'),seen:JSON.parse(sessionStorage.getItem('kk-dice-intro-seen')||'[]')}));
+  assert.deepEqual(hiddenData.history.map(r=>r.phase),['rolling','settled','enlarging','showing','idle'],'restored page replays the full opening flow once');
+  assert.ok(hiddenData.seen.includes(hiddenMarkers.key)&&!hiddenData.pending.includes(hiddenMarkers.key),'replay marks the round seen and clears the pending marker');
+  await hidden.page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+  await hidden.page.waitForTimeout(200);
+  assert.equal(await hidden.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'visibility flips never replay a seen round');
+  await hidden.page.reload({waitUntil:'networkidle'});await hidden.page.waitForFunction(()=>window.mahjongRoom.status==='connected');
+  assert.equal(await hidden.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'refresh never replays a seen round');
+  await hidden.page.evaluate(()=>window.mahjongRoom.reconnect());await hidden.page.waitForFunction(()=>window.mahjongRoom.status==='connected');
+  assert.equal(await hidden.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'reconnect never replays a seen round');
+  report.cases.push({hiddenStart:true,replayOnce:true,dealAfterReplay:true,noRepeatOnVisibility:true,noRefreshReplay:true,noReconnectReplay:true});
+  // 直接推进服务端快照的用例仅在本地运行；公网仍验证后台恢复与去重。
+  if(hidden.room){
+  // 换局后重新播放一次：刷新后页面仍处于隐藏状态，新局写待播，恢复可见再补播。
+  clearTimeout(hidden.room.botTimer);hidden.room.game.newRound('dice-hidden-new-round');service._changed(hidden.room);
+  await hidden.page.waitForFunction(version=>window.mahjongRoom.room.version>=version,hidden.room.version);
+  assert.equal(await hidden.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0);
+  await hidden.page.evaluate(()=>{
+    Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'});
+    Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await hidden.page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');
+  await idle(hidden.page);
+  const hiddenRound=await hidden.page.evaluate(()=>window.__diceHistory.map(r=>r.phase));
+  assert.deepEqual(hiddenRound,['rolling','settled','enlarging','showing','idle'],'a new round replays once');
+  // 恢复可见时该局已经推进（有人打出），不补播。
+  await hidden.page.evaluate(()=>{
+    Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'hidden'});
+    Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});
+  });
+  clearTimeout(hidden.room.botTimer);hidden.room.game.newRound('dice-hidden-progress');service._changed(hidden.room);
+  await hidden.page.waitForFunction(version=>window.mahjongRoom.room.version>=version,hidden.room.version);
+  const hiddenDealer=hidden.room.game.dealer,hiddenIndex=hidden.room.game.players[hiddenDealer].hand.findIndex(t=>t!==31&&t!==hidden.room.game.indicatorTile&&t!==hidden.room.game.wildTile);
+  assert.equal(hidden.room.game.discard(hiddenDealer,hiddenIndex),true);
+  // 合法推进到自己的下一次出牌，确认跳过过期开场时会解除输入锁。
+  for(let step=0;step<40&&!(hidden.room.game.phase.kind==='discard'&&hidden.room.game.current===0);step++){
+    assert.notEqual(hidden.room.game.phase.kind,'ended');
+    if(hidden.room.game.getActions(0).pass)assert.equal(hidden.room.game.pass(0),true);
+    else assert.equal(hidden.room.game.advanceAI(),true);
+  }
+  assert.equal(hidden.room.game.phase.kind,'discard');assert.equal(hidden.room.game.current,0);
+  service._changed(hidden.room);
+  await hidden.page.waitForFunction(version=>window.mahjongRoom.room.version>=version,hidden.room.version);
+  await hidden.page.evaluate(()=>{
+    Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'});
+    Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await hidden.page.waitForTimeout(300);
+  assert.equal(await hidden.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'no replay after the round already progressed');
+  assert.equal(await hidden.page.locator('#hand button:enabled').count(),hidden.room.game.players[0].hand.length,'skipping stale intro restores legal hand input');
+  report.cases.push({hiddenStart:true,newRoundReplays:true,noReplayAfterProgress:true,inputRestoredAfterProgress:true});
+  }
+  await hidden.page.evaluate(()=>window.mahjongRoom.leave());await hidden.context.close();
   const reduced=await setup({width:640,height:360},'reduce');
   assert.equal(await reduced.page.locator('#dice-intro').getAttribute('data-phase'),'showing');
   assert.equal(await reduced.page.locator('#table-dice.is-rolling').count(),0);

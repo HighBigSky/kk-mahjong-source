@@ -10,7 +10,7 @@ import { createRoomFullscreen } from './src/ui/fullscreen.js';
 import { loadTilesSprite, tileHref } from './src/ui/tiles-sprite.js';
 import { createHintCalculator, createHintDisclosure, hintText, specialGangKind, settlementCoins, PLAY_TEXT } from './src/ui/play-assist.js';
 import { createDiscardFocusState } from './src/ui/discard-focus.js';
-import { createOpeningDeal, DEAL_TEXT } from './src/ui/opening-deal.js';
+import { createOpeningDeal, DEAL_TEXT, isOpeningDeal } from './src/ui/opening-deal.js';
 import { createFlatOpponentView, tilePlane, planeCSS } from './src/ui/flat-opponents.js';
 import { createDiscardSpeech } from './src/ui/discard-speech.js';
 import { createRecordedVoice } from './src/ui/recorded-voice.js';
@@ -71,10 +71,15 @@ let diceRollTimer = null;
 let diceIntroFrame = null;
 let diceIntroPhase = 'idle';
 const diceIntroSeen = new Set();
+const diceIntroPending = new Set();
 const diceIntroMotion = matchMedia('(prefers-reduced-motion: reduce)');
 try {
   const keys = JSON.parse(sessionStorage.getItem('kk-dice-intro-seen') || '[]');
   if (Array.isArray(keys)) for (const key of keys) if (typeof key === 'string') diceIntroSeen.add(key);
+} catch { /* 存储不可用时，本页仍按 diceIntroKey 去重。 */ }
+try {
+  const keys = JSON.parse(sessionStorage.getItem('kk-dice-intro-pending') || '[]');
+  if (Array.isArray(keys)) for (const key of keys) if (typeof key === 'string') diceIntroPending.add(key);
 } catch { /* 存储不可用时，本页仍按 diceIntroKey 去重。 */ }
 const discardFocusState = createDiscardFocusState({storage:(() => {
   try { return sessionStorage; } catch { return null; }
@@ -94,7 +99,7 @@ let specialGangPending = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
 const tableLabelNodes = new Map();
 const openingDeal = createOpeningDeal({stage:$('#game'), storage:(()=>{try{return sessionStorage;}catch{return null;}})(),
-  canPlay:()=>!diceIntroActive() && $('#dice-intro').hidden && !$('#rotate-guide').open,
+  canPlay:()=>!diceIntroBlocked() && $('#dice-intro').hidden && !$('#rotate-guide').open,
   onLockChange:()=>interactionChanged(),
   onFinish:()=>requestAnimationFrame(()=>{selected=-1;hinted=-1;handTap=null;render();}),
 });
@@ -460,7 +465,7 @@ function syncSettings() {
   $('#sound-btn').setAttribute('aria-pressed', String(preferences.sound));
 }
 
-function humanTurn() { return network.canAct() && !specialGangPending && !diceIntroActive() && !openingDeal.active && game.phase.kind === PHASE.DISCARD && game.current === 0; }
+function humanTurn() { return network.canAct() && !specialGangPending && !diceIntroBlocked() && !openingDeal.active && game.phase.kind === PHASE.DISCARD && game.current === 0; }
 function modalOpen() { return Boolean(document.querySelector('dialog[open]')); }
 
 // Keep existing SVG instances mounted when a snapshot has no visual changes.
@@ -471,6 +476,7 @@ function setHTMLIfChanged(element, html) {
 }
 
 function diceIntroActive() { return diceIntroPhase !== 'idle'; }
+function diceIntroBlocked() { return diceIntroActive() || diceIntroPending.has(diceIntroKey); }
 
 function setDiceIntroPhase(phase) {
   diceIntroPhase = phase;
@@ -572,6 +578,46 @@ function rollIntroDice() {
   });
 }
 
+function rememberDiceIntro(entries, storageKey, key) {
+  entries.add(key);
+  while (entries.size > 16) entries.delete(entries.values().next().value);
+  try { sessionStorage.setItem(storageKey, JSON.stringify([...entries])); } catch { /* 本页去重仍然有效。 */ }
+}
+
+function forgetDiceIntroPending(key) {
+  if (!diceIntroPending.delete(key)) return;
+  try { sessionStorage.setItem('kk-dice-intro-pending', JSON.stringify([...diceIntroPending])); } catch { /* 本页去重仍然有效。 */ }
+}
+
+// 播放即落「已播」并清掉「待播」，之后无论刷新、重连还是重复快照都不再重播。
+function startDiceIntro(key, values) {
+  rememberDiceIntro(diceIntroSeen, 'kk-dice-intro-seen', key);
+  forgetDiceIntroPending(key);
+  setHTMLIfChanged($('#dice-intro-dice'), diceHTML(values));
+  $('#dice-intro-note').textContent = `${values[0]} 点 · ${values[1]} 点，取 ${Math.min(...values)} 点翻痞`;
+  $('#dice-intro').setAttribute('aria-label', $('#dice-intro-note').textContent + '，点击收起');
+  if (diceIntroMotion.matches) showDiceIntro();
+  else rollIntroDice();
+}
+
+function canShowDiceIntro() {
+  return !document.hidden && !$('#rotate-guide').open && network.status === 'connected' && !network.room?.paused;
+}
+
+// 页面恢复可见或横屏提示关闭后，仅补播仍未推进的本局开场。
+function replayDiceIntro() {
+  if (!canShowDiceIntro() || diceIntroActive() || openingDeal.active) return;
+  const room = network.room;
+  const values = game.wallInfo?.dice || [];
+  if (!room || room.status !== 'playing' || values.length !== 2) return;
+  const key = `${room.code}:${game.round}:${values.join(',')}`;
+  if (key !== diceIntroKey || !diceIntroPending.has(key)) return;
+  // 该局已经推进（有人打出/杠出）或已结束就不再补播，避免打断对局；发牌动画随后由 render 的 prepare 接续。
+  if (!isOpeningDeal(room, game)) { forgetDiceIntroPending(key); interactionChanged(); return; }
+  startDiceIntro(key, values);
+  interactionChanged();
+}
+
 function renderDiceIntro() {
   const room = network.room;
   const values = game.wallInfo?.dice || [];
@@ -581,26 +627,24 @@ function renderDiceIntro() {
     return;
   }
   const key = `${room.code}:${game.round}:${values.join(',')}`;
-  if (key === diceIntroKey) return;
+  if (key === diceIntroKey) { replayDiceIntro(); return; }
   dismissDiceIntro();
   diceIntroKey = key;
   // A restored game already in progress does not replay its opening overlay.
   if (diceIntroSeen.has(key) || (game.events || []).some(event => /打出.+?。$/.test(event))) return;
-  diceIntroSeen.add(key);
-  while (diceIntroSeen.size > 16) diceIntroSeen.delete(diceIntroSeen.values().next().value);
-  try { sessionStorage.setItem('kk-dice-intro-seen',JSON.stringify([...diceIntroSeen])); } catch { /* 本页去重仍然有效。 */ }
-  if (document.hidden) return;
-  setHTMLIfChanged($('#dice-intro-dice'), diceHTML(values));
-  $('#dice-intro-note').textContent = `${values[0]} 点 · ${values[1]} 点，取 ${Math.min(...values)} 点翻痞`;
-  $('#dice-intro').setAttribute('aria-label', $('#dice-intro-note').textContent + '，点击收起');
-  if (diceIntroMotion.matches) showDiceIntro();
-  else rollIntroDice();
+  // 玩家暂时看不到牌桌时只记「待播」，避免在后台或横屏提示后方消耗开场。
+  if (!canShowDiceIntro()) { rememberDiceIntro(diceIntroPending, 'kk-dice-intro-pending', key); return; }
+  startDiceIntro(key, values);
 }
 
 diceIntroMotion.addEventListener('change', () => {
   if (diceIntroMotion.matches && diceIntroActive() && diceIntroPhase !== 'showing') showDiceIntro();
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden) finishDiceIntro(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { finishDiceIntro(); return; }
+  replayDiceIntro();
+});
+$('#rotate-guide').addEventListener('close', replayDiceIntro);
 window.addEventListener('pagehide', dismissDiceIntro);
 
 function stageRect(element) {
@@ -745,7 +789,7 @@ function renderDiscardFocus() {
 function renderTing() {
   const seat = game.players[0];
   const visibleTiles = [...game.players.flatMap(player => [...player.discards, ...player.redGangs, ...(player.piziGangs || []), ...player.melds.flatMap(meld => meld.tiles)]), ...(game.indicatorTile == null || game.indicatorTaken ? [] : [game.indicatorTile])];
-  const eligible = network.status === 'connected' && network.room?.status === 'playing' && !network.room.paused && !network.busy && !specialGangPending && !diceIntroActive() && !openingDeal.active && game.phase.kind !== PHASE.DEALING && $('#dice-intro').hidden;
+  const eligible = network.status === 'connected' && network.room?.status === 'playing' && !network.room.paused && !network.busy && !specialGangPending && !diceIntroBlocked() && !openingDeal.active && game.phase.kind !== PHASE.DEALING && $('#dice-intro').hidden;
   hintState = eligible ? calculateHints({hand:seat.hand, melds:seat.melds, wildTile:game.wildTile, indicatorTile:game.indicatorTile, visibleTiles}) : {mode:'none', candidates:[]};
   // 第四张已经打出时仍可接胡，但不能伪称墙内还有该牌。
   const claimTile = eligible && game.phase.kind === PHASE.CLAIM && network.availableActions().hu ? game.pendingDiscard?.tile : null;
@@ -1025,7 +1069,7 @@ function render() {
   renderActionNotice();
   renderDiscardFocus();
   positionTableLabels();
-  openingDeal.prepare(room,game);
+  if (!diceIntroPending.has(diceIntroKey)) openingDeal.prepare(room,game);
   openingDeal.play();
   if (game.phase.kind === PHASE.ENDED && resultShown !== game.round) {
     resultShown = game.round;
@@ -1043,7 +1087,7 @@ function updateActionControls() {
   const enabled = { chi: actions.chi.length > 0, peng: actions.peng, gang: actions.redGang || actions.piziGang || actions.wildGang || actions.gang || actions.concealedGangs.length > 0 || actions.addedGangs.length > 0, hu: actions.hu, pass: actions.pass };
   for (const [action, available] of Object.entries(enabled)) {
     const button = $(`#action-${action}`);
-    button.disabled = !available || network.busy || specialGangPending || diceIntroActive() || openingDeal.active;
+    button.disabled = !available || network.busy || specialGangPending || diceIntroBlocked() || openingDeal.active;
     button.hidden = !available;
   }
   const canNextRound = game.phase.kind === PHASE.ENDED && room?.owner === 0;
