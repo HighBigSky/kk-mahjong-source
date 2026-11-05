@@ -19,6 +19,16 @@ await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stri
 await context.addInitScript(installVisualGeometry);
 for(const file of [...sheets,'src/ui/tile-material.js'])await context.route(`**/${file}?scene-baseline=*`,route=>route.fulfill({body:execFileSync('git',['show',`${BASELINE}:${file}`]),contentType:file.endsWith('.js')?'text/javascript':'text/css'}));
 const page=await context.newPage(),target=process.env.KK_UI_TARGET_URL||`http://127.0.0.1:${server.address().port}`;
+// Use one actual HTTP copy for each current asset, as in ui-center-materials.
+// Geometry sampling must not depend on repeated public-network downloads.
+const currentFiles=[...sheets,'src/ui/tile-material.js'];
+const currentStyles=new Map(await Promise.all(currentFiles.map(async file=>{
+  const response=await fetch(target+'/'+file+'?scene-verified='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(15000)});
+  assert.equal(response.status,200,file+' current HTTP source');
+  return [file,Buffer.from(await response.arrayBuffer())];
+})));
+for(const file of currentFiles)await context.route('**/'+file+'?scene-current=*',route=>route.fulfill({body:currentStyles.get(file),contentType:file.endsWith('.js')?'text/javascript':'text/css'}));
+
 const report={passed:false,baseline:BASELINE,browser:browser.version(),cases:[],errors:[],screenshots:0,note:'Computed gradients, analytic sRGB luminance bounds and exact DOM geometry. No screenshots/pixel sampling; touch/DPR are browser emulation.'};
 page.on('pageerror',error=>report.errors.push(error.message));mkdirSync('output',{recursive:true});
 const cdp=await context.newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});
@@ -28,8 +38,24 @@ const rgb=value=>value.trim().startsWith('#')?[1,3,5].map(i=>parseInt(value.trim
 const luminance=rgb=>rgb.slice(0,3).map(c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4;}).reduce((sum,c,i)=>sum+c*[.2126,.7152,.0722][i],0);
 const contrast=(a,b)=>(Math.max(luminance(a),luminance(b))+.05)/(Math.min(luminance(a),luminance(b))+.05);
 async function load(baseline) {
-  await page.evaluate(({sheets,baseline})=>Promise.all(sheets.map(file=>new Promise((resolve,reject)=>{const link=[...document.querySelectorAll('link[rel=stylesheet]')].find(node=>new URL(node.href).pathname.endsWith('/'+file));link.onload=resolve;link.onerror=reject;link.href='/'+file+'?scene-'+(baseline?'baseline':'current')+'='+Date.now();}))),{sheets,baseline});
-  await page.evaluate(async baseline=>{const module=await import('/src/ui/tile-material.js?scene-'+(baseline?'baseline':'current')+'=1');for(const node of document.querySelectorAll('.tile,.back'))module.syncTileMetric(node);},baseline);
+  // Fetch every sheet first, then replace them in one task. A slow public
+  // response must not let ResizeObserver position labels against mixed styles.
+  await page.evaluate(async({sheets,baseline})=>{
+    const sources=await Promise.all(sheets.map(async file=>{
+      const response=await fetch('/'+file+'?scene-'+(baseline?'baseline':'current')+'='+Date.now(),{cache:'no-store'});
+      if(!response.ok)throw Error(file);return response.text();
+    }));
+    sheets.forEach((file,i)=>{
+      const old=document.querySelector('[data-scene-sheet="'+file+'"]')||[...document.querySelectorAll('link[rel=stylesheet]')].find(n=>new URL(n.href).pathname.endsWith('/'+file));
+      const style=document.createElement('style');style.dataset.sceneSheet=file;style.textContent=sources[i];old.replaceWith(style);
+    });
+  },{sheets,baseline});
+  await page.evaluate(async baseline=>{
+    const module=await import('/src/ui/tile-material.js?scene-'+(baseline?'baseline':'current')+'=1');
+    for(const node of document.querySelectorAll('.tile,.back'))module.syncTileMetric(node);
+    await document.fonts.ready;
+    window.dispatchEvent(new Event('resize'));
+  },baseline);
   await frames();
 }
 async function snapshot() {
