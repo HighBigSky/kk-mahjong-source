@@ -3,6 +3,8 @@ const SELF_PROPERTIES = ['background', 'box-shadow', 'border-width', 'border-sty
 const LAYER_PROPERTIES = {background:'background',shadow:'box-shadow','border-top':'border-top','border-right':'border-right','border-bottom':'border-bottom','border-left':'border-left',radius:'border-radius',top:'top',right:'right',bottom:'bottom',left:'left',width:'width',height:'height',transform:'transform'};
 const SVG_PROPERTIES = {position:'position',top:'top',right:'right',bottom:'bottom',left:'left',width:'width',height:'height',transform:'transform',radius:'border-radius',shadow:'box-shadow'};
 const metricCache=new WeakMap();
+const contactPaintCache=new WeakMap(),contactNodeIds=new WeakMap();
+let contactNodeId=0;
 const used=value=>Math.round(value*64)/64;
 const clean=value=>Math.abs(value)<1e-8?0:Number(value.toFixed(6));
 
@@ -98,4 +100,84 @@ export function applyTileMaterial(node,material,copyLayers=true) {
   if(!copyLayers)return;
   node.classList.add('tile-material-snapshot');
   for(const layer of ['before','after','svg'])if(material[layer])for(const [name,value]of Object.entries(material[layer]))node.style.setProperty(`--tile-snapshot-${layer}-${name}`,value);
+}
+
+// 在现有牌区背景上画接触影，牌体始终在其上方；不新增元素或改变牌位。
+// plane 是已有桌面布局器测得的投影，避免用屏幕包围盒近似透视后的牌缝。
+export function paintContactShadows(stage, plane) {
+  const stageBox=stage.getBoundingClientRect(),scene=getComputedStyle(stage),enabled=scene.getPropertyValue('--scene-ground-enabled').trim()==='1';
+  const config=['--scene-ground-reach-ratio','--scene-ground-ao-ratio','--scene-shadow-x','--scene-shadow-y','--scene-shadow-ink',...['hand','meld','river','wall','back'].map(k=>'--scene-ground-'+k+'-strength')].map(k=>scene.getPropertyValue(k)).join(':');
+  const parents=stage.querySelectorAll('.river,.hand,.opponent-rack .backs,.meld-group,.flat-wall-run');
+  const write=(node,images=[],positions=[],sizes=[])=>{
+    for(const [key,value]of Object.entries({'images':images.join(',')||'none','positions':positions.join(',')||'0 0','sizes':sizes.join(',')||'auto'})){
+      const name='--tile-ground-'+key;if(node.style.getPropertyValue(name)!==value)node.style.setProperty(name,value);
+    }
+  };
+  for(const parent of parents) {
+    if(!enabled||!parent.getClientRects().length){write(parent);contactPaintCache.delete(parent);continue;}
+    const wall=parent.classList.contains('flat-wall-run');
+    const cards=[...parent.querySelectorAll(wall?'.wall-piece:not(.is-empty)':':scope > .tile,:scope > .back')].filter(n=>n.getClientRects().length);
+    const rect=parent.getBoundingClientRect(),ps=getComputedStyle(parent);
+    // 重复快照/布局不重新测投影；一处出牌只更新相关牌河、手牌及牌墙段。
+    // 节点身份、牌序、格位、状态、区域矩形和光照全部入缓存，不能按牌数单独缓存。
+    const ids=cards.map(n=>{if(!contactNodeIds.has(n))contactNodeIds.set(n,++contactNodeId);return [contactNodeIds.get(n),n.className,n.style.gridColumn,n.style.gridRow,n.style.transform,n.style.width,n.style.height].join(':');}).join('|');
+    const key=[config,stageBox.width,stageBox.height,rect.x,rect.y,rect.width,rect.height,ps.transform,ps.width,ps.height,ids].join(';');
+    if(contactPaintCache.get(parent)===key)continue;
+    const matrix=plane(parent);
+    // 当前相机是无横向偏航的桌面投影；不支持的非平面投影不猜测暗区位置。
+    if(!matrix||Math.abs(matrix[3])>1e-6||Math.abs(matrix[6])>1e-6){write(parent);continue;}
+    const yAt=y=>(y*matrix[8]-matrix[5])/(matrix[4]-y*matrix[7]);
+    const xAt=(x,y)=>(x*(matrix[7]*y+matrix[8])-matrix[1]*y-matrix[2])/matrix[0];
+    const local=node=>{
+      const r=node.getBoundingClientRect(),top=yAt(r.top-stageBox.top),bottom=yAt(r.bottom-stageBox.top);
+      return {left:Math.max(xAt(r.left-stageBox.left,top),xAt(r.left-stageBox.left,bottom)),right:Math.min(xAt(r.right-stageBox.left,top),xAt(r.right-stageBox.left,bottom)),top,bottom};
+    };
+    const boxes=cards.map(node=>{
+      const s=getComputedStyle(node),box=local(node);
+      return {...box,node,width:Math.min(used(parseFloat(s.width)),used(parseFloat(s.height))),strength:Number(s.getPropertyValue('--tile-ground-strength')),stack:wall?Number(node.parentElement.style.getPropertyValue('--wall-stack-index')):null};
+    });
+    let contacts=boxes;
+    if(wall) {
+      // 相邻且仍有实牌的墩合成一段；已取空的墩不留“幽灵坐影”。
+      contacts=[];
+      for(const stack of [...new Set(boxes.map(b=>b.stack))].sort((a,b)=>a-b)){
+        const tiles=boxes.filter(b=>b.stack===stack),last=contacts.at(-1);
+        const next={...tiles[0],left:Math.min(...tiles.map(b=>b.left)),right:Math.max(...tiles.map(b=>b.right)),top:Math.min(...tiles.map(b=>b.top)),bottom:Math.max(...tiles.map(b=>b.bottom)),lastStack:stack};
+        if(last&&last.lastStack+1===stack){last.left=Math.min(last.left,next.left);last.right=Math.max(last.right,next.right);last.top=Math.min(last.top,next.top);last.bottom=Math.max(last.bottom,next.bottom);last.lastStack=stack;}
+        else contacts.push(next);
+      }
+    }
+    const images=[],positions=[],sizes=[],style=scene;
+    const reachRatio=Number(style.getPropertyValue('--scene-ground-reach-ratio')),aoRatio=Number(style.getPropertyValue('--scene-ground-ao-ratio'));
+    const dx=Number(style.getPropertyValue('--scene-shadow-x')),dy=Number(style.getPropertyValue('--scene-shadow-y'));
+    const ink=style.getPropertyValue('--scene-shadow-ink').trim();
+    for(const box of contacts) {
+      if(!(box.width>0&&box.right>box.left&&box.bottom>box.top))continue;
+      const reach=box.width*reachRatio,ao=box.width*aoRatio;
+      const cx=(box.left+box.right)/2+reach*dx,cy=(box.top+box.bottom)/2+reach*dy;
+      let left=box.left-reach*2,right=box.right+ao,top=box.top-ao,bottom=box.bottom+reach;
+      if(!wall)for(const other of boxes)if(other!==box){
+        // 每个接触暗区止于两实牌中线，左右旋转后也不会叠加或压暗邻牌。
+        if(other.right<=box.left+1/64)left=Math.max(left,(other.right+box.left)/2+1/64);
+        if(other.left>=box.right-1/64)right=Math.min(right,(other.left+box.right)/2-1/64);
+        if(other.bottom<=box.top+1/64)top=Math.max(top,(other.bottom+box.top)/2+1/64);
+        if(other.top>=box.bottom-1/64)bottom=Math.min(bottom,(other.top+box.bottom)/2-1/64);
+      }
+      // 背景大小就是绘制裁界；中心和半径仍按未裁的实牌宽推导，缩放不改变投影比例。
+      const w=right-left,h=bottom-top;if(!(w>0&&h>0))continue;
+      const p=value=>clean(value)+'px',alpha=value=>clean(box.strength*value);
+      const rx=(box.right-box.left)/2+reach*2,ry=(box.bottom-box.top)/2+reach;
+      images.push('radial-gradient(ellipse '+p(rx)+' '+p(ry)+' at '+p(cx-left)+' '+p(cy-top)+', rgb('+ink+' / '+alpha(.9)+') 52%, rgb('+ink+' / '+alpha(.42)+') 80%, rgb('+ink+' / 0) 100%)');
+      positions.push(p(left)+' '+p(top));sizes.push(p(w)+' '+p(h));
+      // 墙根的贴地暗缝和上缘微反光共用连续矩形，四角由已有圆润牌体自然收口。
+      if(wall){
+        const vertical=parent.dataset.side==='left'||parent.dataset.side==='right';
+        const seam=ao*1.2,span=vertical?h:w;
+        images.push('linear-gradient('+(vertical?'90deg':'0deg')+', rgb('+ink+' / 0) 0%, rgb('+ink+' / '+alpha(1)+') 42%, rgb(255 245 223 / .07) 80%, rgb(255 245 223 / 0) 100%)');
+        positions.push(p(vertical?box.left-seam*.5:left)+' '+p(vertical?top:box.bottom-seam*.6));
+        sizes.push(p(vertical?seam:span)+' '+p(vertical?span:seam));
+      }
+    }
+    write(parent,images,positions,sizes);contactPaintCache.set(parent,key);
+  }
 }

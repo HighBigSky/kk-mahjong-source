@@ -1,5 +1,6 @@
 import {RIVER_LAYOUT,riverCell} from './river-layout.js';
 import {riverSpacing} from './river-spacing.js';
+import {paintContactShadows} from './tile-material.js';
 
 const multiply = (a,b) => Array.from({length:9},(_,i)=>
   a[Math.floor(i/3)*3]*b[i%3]+a[Math.floor(i/3)*3+1]*b[3+i%3]+a[Math.floor(i/3)*3+2]*b[6+i%3]);
@@ -159,5 +160,19 @@ export function createFlatOpponentView(stage) {
         }
       }
     }
+    // 所有坐影在牌区落位后统一测量，只写背景，不参与布局和游戏状态。
+    paintContactShadows(stage,node=>{
+      const s=getComputedStyle(node);
+      if(s.position!=='static')return projection(node,parseFloat(s.width),parseFloat(s.height),stageBox);
+      // 暗手容器是static，测量探针实际相对其offsetParent；先还原容器原点，不能把坐影画到牌列外。
+      const host=node.offsetParent;if(!host)return null;
+      const hs=getComputedStyle(host),m=projection(host,parseFloat(hs.width),parseFloat(hs.height),stageBox);
+      if(!m||Math.abs(m[3])>1e-6||Math.abs(m[6])>1e-6)return null;
+      const r=node.getBoundingClientRect(),yAt=y=>(y*m[8]-m[5])/(m[4]-y*m[7]);
+      const top=yAt(r.top-stageBox.top),bottom=yAt(r.bottom-stageBox.top);
+      const xAt=(x,y)=>(x*(m[7]*y+m[8])-m[1]*y-m[2])/m[0];
+      const left=Math.max(xAt(r.left-stageBox.left,top),xAt(r.left-stageBox.left,bottom));
+      return multiply(m,[1,0,left,0,1,top,0,0,1]);
+    });
   };
 }

@@ -59,6 +59,10 @@
 /* 统一材质只在这里定义；区域规则仅选择强度、可见面与光照反旋转。
    旧 --tile-depth/--tile-side 仅保留给材质参数，不再决定图案的可用区域。 */
 .tile, .back {
+  /* 接触背景只属于容器，不向每张牌继承整段渐变列表或复制进飞牌材质。 */
+  --tile-ground-images: initial;
+  --tile-ground-positions: initial;
+  --tile-ground-sizes: initial;
   --tile-model-version: resin-v10;
   --tile-model-grade: river;
   --tile-model-strength: .4;
@@ -68,6 +72,10 @@
   /* 所有牌区四角共用物理牌宽的9%；整牌或SVG旋转都不再改变轮廓。 */
   --tile-model-radius: calc(var(--tile-model-width) * var(--tile-model-radius-ratio));
   --tile-model-inner-radius: max(0px, calc(var(--tile-model-radius) - var(--tile-model-back-inset)));
+  --tile-ground-strength: var(--scene-ground-river-strength);
+  --tile-ground-reach: calc(var(--tile-model-width) * var(--scene-ground-reach-ratio));
+  --tile-ground-offset-x: calc(var(--tile-ground-reach) * var(--tile-model-shadow-x));
+  --tile-ground-offset-y: calc(var(--tile-ground-reach) * var(--tile-model-shadow-y));
   --tile-model-contact-unit: calc(var(--tile-model-width) * var(--scene-contact-ratio) * var(--tile-model-strength));
   --tile-model-main-unit: calc(var(--tile-model-width) * var(--scene-main-ratio) * var(--tile-model-strength));
   --tile-model-turn: 0deg;
@@ -408,6 +416,7 @@
 
 /* 各区仅选档位及可见面；不写宽高、间距、变换和区域圆角。 */
 .my-melds .tile, .bot-melds .tile, .opponent-rack .backs.is-revealed .tile {
+  --tile-ground-strength: var(--scene-ground-meld-strength);
   --tile-model-grade: meld;
   --tile-model-strength: .8;
   --tile-model-thickness: 3px;
@@ -425,6 +434,7 @@
 }
 .opponent-rack .backs.is-revealed .wild-marker { display: none; }
 .hand .tile, .choice-option .tile, .result-hand .tile {
+  --tile-ground-strength: var(--scene-ground-hand-strength);
   --tile-model-grade: hand;
   --tile-model-thickness: 4px;
   --tile-model-strength: 1;
@@ -434,6 +444,7 @@
   --tile-side: max(1px, calc(var(--tile-depth) * .6));
 }
 .back {
+  --tile-ground-strength: var(--scene-ground-back-strength);
   --tile-model-back-ivory-size: 1px;
   position: relative;
   background: var(--tile-model-back-weave), var(--tile-gloss), linear-gradient(calc(var(--scene-light-angle) - var(--tile-model-turn)), var(--tile-back-light), var(--tile-back) 54%, var(--tile-back-dark));
@@ -475,6 +486,7 @@
 }
 /* 牌墙立牌只露顶边，绿色背面朝外；翻痞实牌沿用同档正面材质。 */
 .wall-piece.back, .wall-piece.tile {
+  --tile-ground-strength: var(--scene-ground-wall-strength);
   --tile-model-top-size: var(--tile-model-plane-size);
   --tile-model-top-curve-size: var(--tile-model-radius);
   --tile-model-back-ivory-size: 0px;
@@ -514,4 +526,19 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tile, .back, .tile::before, .tile::after, .back::before, .back::after { transition: none; }
+}
+
+/* 接触影在牌区底层绘制，既不新增叠牌，也不把外阴影压到邻牌正面。
+   背景矩形按相邻实牌的中线裁分；同一段牌墙合成一条连续坐影。 */
+:is(.river, .opponent-rack .backs, .flat-wall-run), #game .meld-group {
+  background-image: var(--tile-ground-images, none);
+  background-position: var(--tile-ground-positions, 0 0);
+  background-size: var(--tile-ground-sizes, auto);
+  background-repeat: no-repeat;
+  background-origin: border-box;
+}
+.hand::after {
+  background-image: var(--hand-seam-images, none), var(--tile-ground-images, none);
+  background-position: var(--hand-seam-positions, 0 0), var(--tile-ground-positions, 0 0);
+  background-size: var(--hand-seam-sizes, auto), var(--tile-ground-sizes, auto);
 }

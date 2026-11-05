@@ -167,7 +167,11 @@ html.in-game #game.is-landscape {
   position:absolute;
   display:grid;
   cursor:pointer;
-  background:var(--tile-gap-ground);
+  background-color:var(--tile-gap-ground);
+  background-image:var(--tile-ground-images,none);
+  background-position:var(--tile-ground-positions,0 0);
+  background-size:var(--tile-ground-sizes,auto);
+  background-repeat:no-repeat;
   --river-columns:var(--river-long-count);
   --river-rows:var(--river-short-count);
   /* 与手牌共用屏幕微缝；透视补偿只改变轨道余量，不改变牌宽与朝向。 */
@@ -583,7 +587,11 @@ html.in-game #game.is-landscape {
 #game.is-landscape .table-die {
   border-radius:calc(var(--table-unit) * .55);
   background:radial-gradient(ellipse at var(--scene-light-x) var(--scene-light-y),#fff5df12,transparent 70%),linear-gradient(var(--scene-light-angle),var(--tile-face-normal-light),var(--tile-ivory) 58%,var(--tile-face-normal-shade));
-  box-shadow:inset 1px -.25px 1px #7a674b40,var(--scene-contact-shadow);
+  /* 中控骰子的短影按自身宽度缩放，强于牌；包围范围始终留在面板内。 */
+  --dice-contact-width:calc(var(--table-unit) * 2.4);
+  --dice-contact-span:calc(var(--dice-contact-width) * var(--scene-ground-dice-ratio));
+  box-shadow:inset calc(var(--dice-contact-span) * .55) calc(var(--dice-contact-span) * -.1375) var(--dice-contact-span) #7a674b40,
+    calc(var(--dice-contact-span) * var(--scene-shadow-x)) calc(var(--dice-contact-span) * var(--scene-shadow-y)) var(--dice-contact-span) calc(var(--dice-contact-span) * -.25) rgb(var(--scene-shadow-ink) / var(--scene-ground-dice-strength));
 }
 #game.is-landscape .table-die i {
   background:radial-gradient(circle at 78% 28%,#67533b,#33261a 60%,#1a130c);
@@ -702,7 +710,7 @@ html.in-game #game.is-landscape {
 .is-landscape .dice-intro { width:calc(var(--ui-unit) * 58); padding:calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 2.5); gap:calc(var(--ui-unit) * 2); }
 .is-landscape .dice-intro-label { font-size:calc(var(--ui-unit) * 3.2); letter-spacing:calc(var(--ui-unit) * .5); }
 .is-landscape .dice-intro-dice { gap:calc(var(--ui-unit) * 4); }
-#game.is-landscape .dice-intro .table-die { width:calc(var(--ui-unit) * 15); height:calc(var(--ui-unit) * 15); padding:calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 2); }
+#game.is-landscape .dice-intro .table-die { --dice-contact-width:calc(var(--ui-unit) * 15); width:calc(var(--ui-unit) * 15); height:calc(var(--ui-unit) * 15); padding:calc(var(--ui-unit) * 3); border-radius:calc(var(--ui-unit) * 2); }
 #game.is-landscape .dice-intro .table-die i { width:calc(var(--ui-unit) * 2.2); height:calc(var(--ui-unit) * 2.2); }
 .is-landscape .dice-intro-note { font-size:calc(var(--ui-unit) * 2.6); }
 .is-landscape .dice-intro small { font-size:calc(var(--ui-unit) * 2); }

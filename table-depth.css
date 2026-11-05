@@ -10,6 +10,17 @@
   --scene-shadow-ink:30 26 18;
   --scene-contact-ratio:.025;
   --scene-main-ratio:.045;
+  /* 接触暗区只画在现有牌区背景，牌本身与热区不挪动；长度统一按实牌宽推导。 */
+  --scene-ground-enabled:1;
+  --scene-ground-reach-ratio:.045;
+  --scene-ground-ao-ratio:.025;
+  --scene-ground-hand-strength:.52;
+  --scene-ground-meld-strength:.38;
+  --scene-ground-river-strength:.32;
+  --scene-ground-wall-strength:.46;
+  --scene-ground-back-strength:.36;
+  --scene-ground-dice-strength:.72;
+  --scene-ground-dice-ratio:.085;
   --scene-ao-ratio:.09;
   /* AO留给场景容器；单张牌只保留贴地与短投影，正常态均收进牌框。 */
   --scene-surface:linear-gradient(var(--scene-light-angle),#fff5df12,transparent 44%,#1e1a121c);
