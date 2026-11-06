@@ -95,8 +95,9 @@
   --tile-side: calc(var(--tile-depth) * .45);
   --tile-model-bevel: var(--tile-model-line-width);
   --tile-model-inset: min(1px, calc(var(--tile-depth) * .25));
-  --tile-model-bevel-outer: calc(var(--tile-model-width) * .025);
-  --tile-model-bevel-inner: calc(var(--tile-model-width) * .015);
+  /* 只收窄绘制用亮带，外框圆角、可见面厚度与图案面区仍使用原参数。 */
+  --tile-model-bevel-outer: calc(var(--tile-model-width) * .022);
+  --tile-model-bevel-inner: calc(var(--tile-model-width) * .012);
   --tile-model-left-inner: min(1px, calc(var(--tile-model-bevel-outer) + var(--tile-model-bevel-inner)));
   --tile-model-ring-spread: calc((var(--tile-model-left-inner) + var(--tile-model-bevel-outer) + var(--tile-model-bevel-inner)) / 2);
   --tile-model-plane-size: 1px;
@@ -112,27 +113,27 @@
   --tile-model-right-gloss: none;
   --tile-model-right-paint: none;
   /* 顶面从外缘亮面经过弧面暗部，再渐入象牙正面；保留原可见厚度。 */
-  --tile-model-plane-lit: linear-gradient(180deg, #fffef9 0%, #fffaf0 18%, #e7e0d1 42%, #ded9cd 65%, #eee8db 85%, var(--tile-ivory) 100%);
-  --tile-model-plane-shade: linear-gradient(180deg, var(--tile-bone) 0%, #ebe0c6 22%, var(--tile-bone-mid) 52%, var(--tile-bone-dark) 70%, #e2d4bc 86%, var(--tile-ivory) 100%);
+  --tile-model-plane-lit: linear-gradient(180deg, #fffef9 0%, #fffaf0 16%, #eee7d8 42%, #e5dfd1 64%, #f1ebde 86%, var(--tile-ivory) 100%);
+  --tile-model-plane-shade: linear-gradient(180deg, var(--tile-bone) 0%, #eee3cd 22%, var(--tile-bone-mid) 50%, #c8b795 70%, #e8dbc2 86%, var(--tile-ivory) 100%);
   --tile-model-top-paint: var(--tile-model-plane-lit);
   --tile-model-side-paint: var(--tile-model-plane-shade);
   /* 横向是正面到牌背的圆润料层；径向釉面独立表现上亮、中央微亮、下暗。 */
   --tile-model-resin-paint: linear-gradient(90deg, var(--tile-ivory) 0%, var(--tile-joint-highlight) 12%, var(--tile-joint-light) 28%, var(--tile-joint-green) 46%, var(--tile-resin-light) 64%, var(--tile-resin) 83%, var(--tile-resin-dark) 100%);
-  --tile-model-side-gloss: radial-gradient(ellipse at 82% 28%, #fffef9 0%, #fff5df59 24%, #fff5df1a 48%, #1e1a120d 76%, #1e1a1226 100%);
+  --tile-model-side-gloss: radial-gradient(ellipse at 82% 28%, #fffef9d9 0%, #fff5df3d 24%, #fff5df14 48%, #1e1a1209 76%, #1e1a121f 100%);
   /* 圆角用与牌框同半径的环带，内径从现有边宽反推；小牌内径不能为负。 */
   --tile-model-curve-lit:
     #f6efdd00 var(--tile-model-top-curve-inner),
     #f6efdd99 calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .15),
-    #eee8db calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .35),
-    #ded9cd calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .58),
-    #fffaf0 calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .82),
+    #eee7d8 calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .35),
+    #e5dfd1 calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .58),
+    #f1ebde calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .82),
     #fffef9 100%;
   --tile-model-curve-shade:
     #f6efdd00 var(--tile-model-top-curve-inner),
     #f6efdd99 calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .15),
-    #e2d4bc calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .35),
-    var(--tile-bone-dark) calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .58),
-    #ebe0c6 calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .82),
+    #e5d8be calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .35),
+    #c8b795 calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .58),
+    #e8dbc2 calc(var(--tile-model-top-curve-inner) + var(--tile-model-top-curve-width) * .82),
     var(--tile-bone) 100%;
   --tile-model-top-curve-tones: var(--tile-model-curve-lit);
   --tile-model-side-curve-tones:
@@ -149,7 +150,7 @@
   --tile-model-top-left-curve: radial-gradient(circle var(--tile-model-radius) at right bottom, var(--tile-model-top-curve-tones));
   --tile-model-top-right-curve: radial-gradient(circle var(--tile-model-radius) at left bottom, var(--tile-model-top-curve-tones));
   /* 切线处柔和渐回顶面/正面；下角只沿曲线收口，不增加水平底面。 */
-  --tile-model-side-top-glaze: radial-gradient(ellipse at left top, #fffef9 0%, #fff9eac4 26%, #fff8e847 50%, #fff8e800 76%);
+  --tile-model-side-top-glaze: radial-gradient(ellipse at left top, #fffef9d9 0%, #fff9ea9c 26%, #fff8e838 50%, #fff8e800 76%);
   --tile-model-side-bottom-glaze: radial-gradient(ellipse at left bottom, var(--tile-ivory) 0%, #f6efdda6 25%, #f6efdd33 47%, #f6efdd00 75%);
   --tile-model-top-left-glaze: radial-gradient(ellipse at left bottom, var(--tile-ivory) 0%, #f6efdda6 25%, #f6efdd33 47%, #f6efdd00 75%);
   --tile-model-top-right-glaze: radial-gradient(ellipse at right bottom, var(--tile-ivory) 0%, #f6efdda6 25%, #f6efdd33 47%, #f6efdd00 75%);
@@ -187,7 +188,7 @@
     radial-gradient(130% 110% at var(--tile-model-grain-x) var(--tile-model-grain-y), #a4957a06, #a4957a00 70%),
     linear-gradient(calc(180deg - var(--tile-model-turn)), #6f5c3d00 64%, #6f5c3d0a);
   /* 细纹和织纹只增加背景渐变，不增加 DOM/伪元素；叠加对比低于 5%/6%。 */
-  --tile-model-face-grain: repeating-linear-gradient(calc(125deg - var(--tile-model-turn)), #fffaf00a 0px 1px, #fffaf000 1px 3px);
+  --tile-model-face-grain: repeating-linear-gradient(calc(125deg - var(--tile-model-turn)), #fffaf006 0px 1px, #fffaf000 1px 3px);
   --tile-model-back-weave:
     repeating-linear-gradient(calc(35deg - var(--tile-model-turn)), #ffffff06 0px 1px, #ffffff00 1px 3px),
     repeating-linear-gradient(calc(125deg - var(--tile-model-turn)), #0a291406 0px 1px, #0a291400 1px 4px);
@@ -208,6 +209,9 @@
   --tile-model-glyph-depth: min(1px, calc(var(--tile-model-width) * .015));
   /* 以60单位的牌面画布反推微描边，整宽约0.2 CSS px；保留原描边再叠加。 */
   --tile-model-glyph-accent: 0;
+  /* 已有描边只加有限微量，保留筒圈、条纹和汉字的原有内部空隙。 */
+  --tile-model-glyph-stroke-gain: .65;
+  --tile-model-glyph-stroke-limit: .45;
   --tile-model-glyph-ink: rgb(23 29 49 / .12);
   --tile-model-glyph-shadow: inset calc(var(--tile-model-light-x) * var(--tile-model-glyph-depth) * -1) calc(var(--tile-model-light-y) * var(--tile-model-glyph-depth) * -1) var(--tile-model-glyph-depth) #30291e24, inset calc(var(--tile-model-light-x) * var(--tile-model-glyph-depth)) calc(var(--tile-model-light-y) * var(--tile-model-glyph-depth)) 0 #fff5df30;
   --tile-body: var(--tile-face);
@@ -272,8 +276,8 @@
   stroke-linejoin: round;
 }
 .tile-glyph-stroked {
-  /* base来自原属性，图案路径、填充与描边颜色均保持原样。 */
-  stroke-width: calc((var(--tile-glyph-base-stroke) + var(--tile-model-glyph-accent, 0)) * 1px);
+  /* base来自原属性；增量同时受尺寸补偿和原笔画比例约束，不重画图案。 */
+  stroke-width: calc((var(--tile-glyph-base-stroke) + min(calc(var(--tile-model-glyph-accent, 0) * var(--tile-model-glyph-stroke-gain)), calc(var(--tile-glyph-base-stroke) * var(--tile-model-glyph-stroke-limit)))) * 1px);
 }
 /* 状态投影即时切换；撤去类名后不再绘制外影，避免退场残影污染邻牌。 */
 /* 各面共用一张圆角画布，交界只有一段内高光；所有面均在原牌框内。 */
