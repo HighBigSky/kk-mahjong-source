@@ -968,6 +968,15 @@ function positionActionNotice() {
   };
   const obstacles = [...document.querySelectorAll(ACTION_NOTICE_OBSTACLES)].filter(visible).map(node => {
     const box = rect(node);
+    if (node.id === 'toast') {
+      // toast 在 0 与 1cqw 之间过渡；当前投影不代表整个进出过程。
+      // top 是不含 transform 的既有落点，预留完整路径，避免动画后半段压到文字。
+      const top = parseFloat(getComputedStyle(node).top);
+      if (Number.isFinite(top)) {
+        const start = Math.min(top,box.top), end = Math.max(top+stage.clientWidth*.01,box.top);
+        return {...box,top:start,height:box.height+end-start};
+      }
+    }
     // 选牌抬起使用 transform，不触发 ResizeObserver；提前为整个抬起过程留空间。
     const lift = node.matches('#hand button') ? stageBox.height * .019 : 0;
     return {...box, top:box.top-lift, height:box.height+lift};

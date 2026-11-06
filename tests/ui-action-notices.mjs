@@ -17,7 +17,7 @@ const baseURL=`http://127.0.0.1:${server.address().port}`;
 const edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const browser=await playwright.chromium.launch({headless:true,...(existsSync(edge)?{executablePath:edge}:{})});
 const contexts=[],pages=[],expected409=new Set();
-const output=path.resolve('output');mkdirSync(output,{recursive:true});
+const output=path.resolve(process.env.KK_UI_OUTPUT||'output');mkdirSync(output,{recursive:true});
 const report={passed:false,errors:[],actions:[],views:[],geometry:[],screenshots:[],checks:[],colors:{},fixtureNote:'Explicit action fixtures allocate all 136 physical tiles. Commands are genuine four-browser HTTP/SSE operations; fixtures are not naturally dealt full rounds.'};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const redact=text=>text.replace(/[a-f0-9]{48}/g,'[redacted]');
@@ -26,6 +26,8 @@ async function sync(room){for(const page of pages)await waitFor(()=>page.evaluat
 async function player(name){
   const context=await browser.newContext({viewport:{width:390,height:844}});contexts.push(context);
   await context.addInitScript(()=>{
+    const timeout=window.setTimeout.bind(window);window.__noticeTimers=[];
+    window.setTimeout=(callback,delay,...args)=>{if(typeof callback==='function'&&String(callback).includes('actionNoticeKey !== key'))window.__noticeTimers.push(callback);return timeout(callback,delay,...args);};
     localStorage.setItem('queqi-settings',JSON.stringify({sound:true,laizi:true,names:false}));
     const Native=window.AudioContext||window.webkitAudioContext;
     window.AudioContext=class extends Native {createBufferSource(){const source=super.createBufferSource();source.playbackRate.value=12;return source;}};
@@ -44,7 +46,7 @@ async function notice(room,kind,actor,label){
   for(let viewer=0;viewer<4;viewer++){
     const rows=await visible(pages[viewer]);assert.equal(rows.length,1,`${label}: exactly one actor notice`);
     assert.deepEqual({...rows[0],color:undefined},{player:(actor-viewer+4)%4,kind,text,color:undefined},`${label}: relative seat and exact single character`);
-    assert.notEqual(rows[0].color,'rgba(0, 0, 0, 0)');report.colors[kind]=rows[0].color;
+    assert.equal(rows[0].color,{chi:'rgb(159, 217, 179)',peng:'rgb(155, 204, 231)',gang:'rgb(241, 207, 131)',hu:'rgb(230, 75, 60)'}[kind]);report.colors[kind]=rows[0].color;
     const response=await pages[viewer].request.get(`${baseURL}/api/rooms/${room.code}/state`,{headers:{Authorization:`Bearer ${room.seats[viewer].token}`}});
     assert.equal(response.status(),200);const state=(await response.json()).state;
     assert.equal(state.actionNotice.kind,kind);assert.equal(state.actionNotice.player,(actor-viewer+4)%4);
@@ -61,13 +63,13 @@ async function notice(room,kind,actor,label){
 async function click(room,actor,action){
   for(const page of pages)await page.evaluate(()=>{window.__beforeVoices=window.mahjongGameAudio.getState().played.length;});
   const page=pages[actor],version=room.version;
-  if(['gang','redGang','piziGang'].includes(action.kind)){
+  if(['gang','redGang','piziGang','wildGang'].includes(action.kind)){
     await page.locator('#action-gang:visible:enabled').click();
     await waitFor(async()=>room.version>version||await page.locator('#choice-dialog').evaluate(dialog=>dialog.open),'kong accepted or choice visible');
     if(await page.locator('#choice-dialog').evaluate(dialog=>dialog.open)){
-      const label=['redGang','piziGang'].includes(action.kind)?'杠':action.mode==='concealed'?'暗杠':'补杠';
+      const label=action.kind==='wildGang'?'癞':['redGang','piziGang'].includes(action.kind)?'杠':action.mode==='concealed'?'暗杠':'补杠';
       let option=page.locator('#choice-options button').filter({hasText:label});
-      const code=action.kind==='redGang'?31:action.kind==='piziGang'?room.game.indicatorTile:action.tile;
+      const code=action.kind==='redGang'?31:action.kind==='piziGang'?room.game.indicatorTile:action.kind==='wildGang'?room.game.wildTile:action.tile;
       option=option.filter({has:page.locator(`use[href$="#tile-${code}"]`)});
       await option.first().click();
     }
@@ -125,8 +127,12 @@ async function expiredReplay(room){
   report.checks.push({realTimerExpiry:true,sameSnapshotDoesNotExtend:true,expiredSnapshotDoesNotReplay:true,elapsedMs:elapsed});
 }
 const geometryViewports=[{width:640,height:360},{width:844,height:390},{width:1280,height:720},{width:1440,height:900},{width:1920,height:1080}];
-const fixedPositions=new Map();
 async function geometry(room,actor,{label='hu',viewports=geometryViewports,screenshots=true}={}){
+  // 短提示的真实2400ms生命周期已由expiredReplay验证；尺寸扫描使用
+  // 显式的纯客户端静态展示夹具，不延长服务端提示或阻塞真实回合。
+  if(room.actionNotice?.kind!=='hu')for(const page of pages)await page.evaluate(()=>{
+    window.mahjongGame.actionNotice={...window.mahjongGame.actionNotice,id:1000000+window.mahjongGame.actionNotice.id,remainingMs:null};window.renderMahjong();
+  });
   for(const viewport of viewports)for(let viewer=0;viewer<4;viewer++){
     const page=pages[viewer];await page.setViewportSize(viewport);
     const data=await page.evaluate(async()=>{
@@ -137,7 +143,11 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
       const screenRect=element=>{const r=element.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};};
       const rect=element=>{const r=screenRect(element);return {left:r.left-gameBox.left,right:r.right-gameBox.left,top:r.top-gameBox.top,bottom:r.bottom-gameBox.top};};
       const element=[...document.querySelectorAll('.seat-action-notice')].find(element=>!element.hidden&&element.getClientRects().length);
-      const note=element&&rect(element);
+      const range=element&&document.createRange();if(range)range.selectNodeContents(element);
+      const glyph=range?.getBoundingClientRect(),style=element&&getComputedStyle(element);
+      const padding=element?parseFloat(style.webkitTextStrokeWidth)/2+3:0;
+      const screenNote=glyph&&{left:glyph.left-padding,right:glyph.right+padding,top:glyph.top-padding,bottom:glyph.bottom+padding+2};
+      const note=screenNote&&{left:screenNote.left-gameBox.left,right:screenNote.right-gameBox.left,top:screenNote.top-gameBox.top,bottom:screenNote.bottom-gameBox.top};
       const player=element?Number(element.dataset.player):null;
       const hand=player===null?null:document.querySelector(player===0?'#hand':`#backs-${player}`);
       const cards=hand?[...hand.children].filter(card=>card.getClientRects().length).map(rect):[];
@@ -153,7 +163,7 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
         if(Number.isFinite(top)&&height>0&&area.right>area.left)areas.push({...area,top,bottom:top+height,area:`${river.id}::before`});
       }
       const collisions=note?areas.filter(area=>Math.min(note.right,area.right)-Math.max(note.left,area.left)>.5&&Math.min(note.bottom,area.bottom)-Math.max(note.top,area.top)>.5):[];
-      return {note,screenNote:element&&screenRect(element),anchor,player,handCount:cards.length,collisions,stageWidth:game.clientWidth,stageHeight:game.clientHeight,landscape:game.classList.contains('is-landscape'),pointerEvents:element&&getComputedStyle(element).pointerEvents,hudLayer:element?.parentElement===game};
+      return {note,screenNote,box:element&&rect(element),anchor,player,handCount:cards.length,collisions,stageWidth:game.clientWidth,stageHeight:game.clientHeight,landscape:game.classList.contains('is-landscape'),pointerEvents:style?.pointerEvents,hudLayer:element?.parentElement===game,color:style?.color,fill:style?.webkitTextFillColor};
     });
     const context=JSON.stringify({label,viewport,viewer,data});
     assert.ok(data.note,`${label} notice visible for viewer ${viewer}`);
@@ -162,14 +172,11 @@ async function geometry(room,actor,{label='hu',viewports=geometryViewports,scree
     assert.equal(data.landscape,true,'active game uses the shared landscape surface');
     assert.ok(data.stageWidth/data.stageHeight>=16/9-.01,'active game keeps the same landscape layout');
     assert.equal(data.hudLayer,true,'notice uses the flat stage HUD so projected card coordinates are not transformed twice');
+    assert.equal(data.fill,data.color,'actual text fill uses the action color');
     assert.ok(data.screenNote.left>=0&&data.screenNote.right<=viewport.width+1&&data.screenNote.top>=0&&data.screenNote.bottom<=viewport.height+1,`notice remains inside the physical screen: ${context}`);
     const horizontal=data.player===0||data.player===2;
     const centreError=Math.abs(horizontal?(data.note.left+data.note.right-data.anchor.left-data.anchor.right)/2:(data.note.top+data.note.bottom-data.anchor.top-data.anchor.bottom)/2);
-    // 固定座位锚点不跟随暗手因吃碰缩短而改变，也不为避让满牌河游走。
-    const positionKey=`${viewport.width}:${viewport.height}:${data.player}`;
-    const previous=fixedPositions.get(positionKey);
-    if(previous)for(const edge of ['left','right','top','bottom'])assert.ok(Math.abs(data.note[edge]-previous[edge])<=1,`notice stays at its seat anchor across different hand/meld/river counts: ${context}`);
-    else fixedPositions.set(positionKey,data.note);
+    // 本次允许围绕本家锚点避让；实际文字边界、牌面及操作区不得碰撞。
     // 透视斜牌列的整体包围盒会跨过提示，逐张牌的无重叠仍由下方 collisions 验证。
     const facesFelt=data.player===0?data.note.bottom<=data.anchor.top:data.player===2?data.note.top>=(data.anchor.top+data.anchor.bottom)/2:data.player===3?data.note.left>=(data.anchor.left+data.anchor.right)/2:data.note.right<=(data.anchor.left+data.anchor.right)/2;
     assert.ok(facesFelt,`notice sits in front of its own hand toward the table centre: ${context}`);
@@ -187,10 +194,15 @@ try{
   for(const page of pages)assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('landscape-app')&&document.querySelector('#game').clientWidth>document.querySelector('#game').clientHeight),true,'waiting room keeps the landscape canvas');
   for(const page of pages)await page.locator('#room-ready:enabled').click();await waitFor(()=>room.seats.every(seat=>seat.ready),'all ready');
   for(const page of pages)await page.setViewportSize({width:844,height:390});
-  await pages[0].locator('#room-start:enabled').click();await waitFor(()=>room.game,'real game start');await sync(room);await none('ordinary dealing has no action notice');
+  await pages[0].locator('#room-start:enabled').click();await waitFor(()=>room.game&&!room.opening&&room.game.phase.kind!=='dealing','owner completes real opening',15000);await sync(room);await none('ordinary dealing has no action notice');
   const names=room.seats.map(seat=>seat.name);
-  await publish(room,actionFixture({names}));await click(room,0,{kind:'redGang'});await notice(room,'gang',0,'red single kong');await expiredReplay(room);
-  await click(room,0,{kind:'piziGang'});await notice(room,'gang',0,'indicator single kong');await geometry(room,0,{label:'special-kongs',viewports:[geometryViewports[0]],screenshots:false});
+  await publish(room,actionFixture({names}));await click(room,0,{kind:'redGang'});await notice(room,'gang',0,'red single kong');
+  for(const page of pages)await page.evaluate(()=>{window.__oldNoticeTimer=window.__noticeTimers.at(-1);if(!window.__oldNoticeTimer)throw Error('missing notice timer');});
+  await expiredReplay(room);
+  await click(room,0,{kind:'piziGang'});await notice(room,'gang',0,'indicator single kong');
+  for(const page of pages){await page.evaluate(()=>window.__oldNoticeTimer());assert.equal((await visible(page)).length,1,'an expired old callback cannot clear the next same-label action');}
+  report.checks.push({oldTimerCannotClearNewNotice:true,sameLabelNewIdSurvives:true});
+  await geometry(room,0,{label:'special-kongs',viewports:[geometryViewports[0]],screenshots:false});
   report.actions.push({kind:'redGang',actor:0},{kind:'piziGang',actor:0});
   const scenarios=[
     {seat:1,hand:[0,2,...scattered.filter(tile=>tile!==0&&tile!==2).slice(0,11)],discard:1,action:{kind:'chi',sequence:[0,1,2]}},
@@ -198,12 +210,16 @@ try{
     {seat:3,hand:[28,28,28,...scattered.slice(0,10)],discard:28,action:{kind:'gang',tile:28,mode:'exposed'}},
     {seat:1,hand:[29,29,29,29,...scattered.slice(0,10)],action:{kind:'gang',tile:29,mode:'concealed'}},
     {seat:2,hand:[30,...scattered.slice(0,10)],melds:[{kind:'peng',tiles:[30,30,30],from:1,concealed:false}],action:{kind:'gang',tile:30,mode:'added'}},
+    {seat:1,hand:[27,...scattered.filter(tile=>tile!==27).slice(0,13)],action:{kind:'wildGang'}},
   ];
-  for(const [index,scenario] of scenarios.entries()){await publish(room,actionFixture({...scenario,names}));await click(room,scenario.seat,scenario.action);if(room.game.phase.kind==='claim')await none('unresolved claim must not announce an action');await passes(room);await notice(room,scenario.action.kind,scenario.seat,scenario.action.mode||scenario.action.kind);await geometry(room,scenario.seat,{label:scenario.action.mode||scenario.action.kind,viewports:[geometryViewports[index%geometryViewports.length]],screenshots:false});report.actions.push({kind:scenario.action.kind,mode:scenario.action.mode,actor:scenario.seat});}
+  for(const [index,scenario] of scenarios.entries()){await publish(room,actionFixture({...scenario,names}));await click(room,scenario.seat,scenario.action);if(room.game.phase.kind==='claim')await none('unresolved claim must not announce an action');await passes(room);await notice(room,scenario.action.kind==='wildGang'?'gang':scenario.action.kind,scenario.seat,scenario.action.mode||scenario.action.kind);await geometry(room,scenario.seat,{label:scenario.action.mode||scenario.action.kind,viewports:[geometryViewports[index%geometryViewports.length]],screenshots:false});report.actions.push({kind:scenario.action.kind,mode:scenario.action.mode,actor:scenario.seat});}
   await publish(room,competition(names));await click(room,1,{kind:'chi',sequence:[0,1,2]});assert.equal(room.game.phase.kind,'claim');await none('submitted chi awaiting a higher-priority response is not announced');
   await click(room,2,{kind:'peng'});if(room.game.phase.kind==='claim')await none('pending peng remains unannounced');await passes(room);await notice(room,'peng',2,'higher-priority peng defeats chi');assert.equal(room.game.players[1].melds.length,0);assert.equal(room.game.players[2].melds[0].kind,'peng');report.checks.push({unresolvedClaimSilent:true,losingChiSilent:true,winningPengOnly:true});
   await publish(room,actionFixture({names}));const version=room.version,before=JSON.stringify(room.game);const url=`${baseURL}/api/rooms/${code}/action`;expected409.add(url);
   const rejected=await pages[1].request.post(url,{headers:{Authorization:`Bearer ${room.seats[1].token}`},data:{action:{kind:'peng'},version,requestId:'illegal-notice-proof'}});assert.equal(rejected.status(),409);assert.equal(room.version,version);assert.equal(JSON.stringify(room.game),before);await none('illegal action cannot create a notice');report.checks.push({illegalActionSilent:true});
+  await publish(room,actionFixture({seat:1,hand:[0,0,2,2,3,3,5,5,6,6,8,8,27],discard:27,names}));await click(room,1,{kind:'hu'});await passes(room);assert.equal(room.game.result.selfDraw,false);
+  for(const page of pages){await page.locator('#result-dialog[open]').waitFor();await page.locator('#result-dialog [data-close]').click();}
+  await notice(room,'hu',1,'claimed Hu');report.actions.push({kind:'hu',actor:1,selfDraw:false});
   await publish(room,actionFixture({seat:3,hand:[0,0,2,2,3,3,5,5,6,6,8,8,27,27],names}));await click(room,3,{kind:'hu'});assert.equal(room.game.result.kind,'win');
   for(const page of pages){await page.locator('#result-dialog[open]').waitFor();await page.locator('#result-dialog [data-close]').click();}
   await notice(room,'hu',3,'self-draw Hu');await sleep(2650);await notice(room,'hu',3,'Hu persists beyond transient timeout');await geometry(room,3);report.actions.push({kind:'hu',actor:3});
