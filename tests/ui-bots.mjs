@@ -7,6 +7,7 @@ import { createServer } from '../server.js';
 import { RoomService } from '../src/server/rooms.js';
 import { MahjongGame, chooseDiscard } from '../engine.js';
 import { assertInvariants } from '../src/domain/invariants.js';
+import { PLAY_TEXT } from '../src/ui/play-assist.js';
 
 // Use an installed Playwright runtime; this project has no package dependency.
 let playwright;
@@ -96,7 +97,7 @@ async function assertRevealedHands(page, room, viewer = 0) {
   const actual = await page.evaluate(() => {
     const codeOf = tile => {
       const href = tile.querySelector('svg use')?.getAttribute('href');
-      const match = href?.match(/^assets\/tiles\.svg#tile-(\d+)$/);
+      const match = href?.match(/^(?:assets\/tiles\.svg)?#tile-(\d+)$/);
       return match ? Number(match[1]) : null;
     };
     return {
@@ -142,14 +143,14 @@ async function checkDialog(page, viewport, expectedAdd, expectedRemove) {
     return {
       bodyWidth: document.body.scrollWidth,
       dialog: { x: box.x, right: box.right, top: box.top, bottom: box.bottom, width: box.width },
-      portrait: game.clientWidth < game.clientHeight && !document.documentElement.classList.contains('in-game'),
+      landscape: game.clientWidth > game.clientHeight && document.documentElement.classList.contains('landscape-app'),
       contentFits: dialog.scrollWidth <= dialog.clientWidth + 1,
       buttons: [...dialog.querySelectorAll('.room-bot-add, .room-bot-remove')]
         .filter(button => button.getClientRects().length)
         .map(button => ({ ...rect(button.getBoundingClientRect()), text: button.textContent })),
     };
   });
-  assert.equal(geometry.portrait, true, 'waiting room keeps the portrait lobby');
+  assert.equal(geometry.landscape, true, 'waiting room keeps the landscape canvas');
   assert.ok(geometry.bodyWidth <= viewport.width + 1, 'page must not overflow horizontally');
   assert.ok(geometry.contentFits, 'room dialog content must not overflow horizontally');
   assert.ok(geometry.dialog.x >= -1 && geometry.dialog.right <= viewport.width + 1 && geometry.dialog.top >= -1 && geometry.dialog.bottom <= viewport.height + 1, 'waiting dialog remains inside the physical screen');
@@ -162,7 +163,7 @@ async function checkDialog(page, viewport, expectedAdd, expectedRemove) {
     assert.ok(box && box.x >= -1 && box.y >= -1 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1, 'each scrolled bot operation is reachable inside the physical screen');
   }
   await page.locator('#room-current-code').scrollIntoViewIfNeeded();
-  report.viewports.push({ ...viewport, dialog: true, portrait: true, noOverflow: true, addButtons: expectedAdd, removeButtons: expectedRemove });
+  report.viewports.push({ ...viewport, dialog: true, landscape: true, noOverflow: true, addButtons: expectedAdd, removeButtons: expectedRemove });
   await screenshot(page, `ui-bots-room-${viewport.width}x${viewport.height}.png`);
 }
 
@@ -211,8 +212,9 @@ async function clickCommand(page, room, command) {
     await page.locator('#action-gang:enabled').click();
     await waitFor(async () => room.version > version || await page.locator('#choice-dialog').evaluate(dialog => dialog.open), 'gang sent or choice opened');
     if (await page.locator('#choice-dialog').evaluate(dialog => dialog.open)) {
-      let option = page.locator('#choice-options button').filter({ hasText: command.kind === 'redGang' ? '红中杠' : command.kind === 'piziGang' ? '痞子杠' : command.mode === 'concealed' ? '暗杠' : '补杠' });
-      if (command.kind === 'gang') option = option.filter({ has: page.locator(`use[href="assets/tiles.svg#tile-${command.tile}"]`) });
+      const label = command.kind === 'redGang' ? PLAY_TEXT.redGang : command.kind === 'piziGang' ? PLAY_TEXT.piziGang : command.mode === 'concealed' ? '暗杠' : '补杠';
+      const type = command.kind === 'redGang' ? 31 : command.kind === 'piziGang' ? room.game.indicatorTile : command.tile;
+      const option = page.locator('#choice-options button').filter({ hasText: label }).filter({ has: page.locator(`use[href$="#tile-${type}"]`) });
       await option.first().click();
     }
   } else await page.locator(`#action-${command.kind}:enabled`).click();
@@ -247,7 +249,7 @@ try {
   for (const seat of [1, 2, 3]) await addBot(owner, room, seat);
   assert.equal(room.seats.filter(seat => seat?.bot).length, 3);
   for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }]) await checkDialog(owner, viewport, 0, 3);
-  report.steps.push('Owner added, removed and re-added bots through actual room buttons; bots auto-ready; 360×640 and 390×844 portrait waiting dialogs fit and operations remain reachable.');
+  report.steps.push('Owner added, removed and re-added bots through actual room buttons; bots auto-ready; 360×640 and 390×844 viewports retain a landscape waiting dialog with reachable operations.');
   await startRoom(owner, room);
   const seed = 'online-room-bots-2026';
   room.game = new MahjongGame({ seed, names: room.seats.map(seat => seat.name), laizi: room.laizi });

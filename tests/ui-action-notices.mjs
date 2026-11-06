@@ -184,7 +184,7 @@ try{
   const code=(await pages[0].locator('#room-current-code').textContent()).trim();
   for(const name of ['动作乙','动作丙','动作丁']){const page=await player(name);pages.push(page);await page.locator('#room-code').fill(code);await page.locator('#room-join').click();await page.locator('#room-waiting:not([hidden])').waitFor();}
   const room=service.rooms.get(code);await waitFor(()=>room.seats.every(seat=>seat.connected),'four real SSE identities');
-  for(const page of pages)assert.equal(await page.evaluate(()=>!document.documentElement.classList.contains('in-game')&&document.querySelector('#game').clientWidth<document.querySelector('#game').clientHeight),true,'waiting room keeps the portrait lobby');
+  for(const page of pages)assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('landscape-app')&&document.querySelector('#game').clientWidth>document.querySelector('#game').clientHeight),true,'waiting room keeps the landscape canvas');
   for(const page of pages)await page.locator('#room-ready:enabled').click();await waitFor(()=>room.seats.every(seat=>seat.ready),'all ready');
   for(const page of pages)await page.setViewportSize({width:844,height:390});
   await pages[0].locator('#room-start:enabled').click();await waitFor(()=>room.game,'real game start');await sync(room);await none('ordinary dealing has no action notice');

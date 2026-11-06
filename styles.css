@@ -212,7 +212,7 @@ svg {
   display:none
 }
 
-/* 连接状态胶囊：从底部栏搬到顶栏，两种朝向都常驻可见。 */
+/* 连接状态胶囊：位于横屏顶栏，常驻可见。 */
 .top-tools .connection {
   white-space:nowrap
 }

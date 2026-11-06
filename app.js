@@ -1307,7 +1307,6 @@ $('#room-members').addEventListener('click', event => {
 $('#room-leave').addEventListener('click', () => roomOperation(() => network.leave()));
 $('#room-close').addEventListener('click', () => {
   $('#room-dialog').close();
-  
 });
 
 $('#room-options').addEventListener('click', () => openModal('#settings-dialog'));
@@ -1404,7 +1403,7 @@ if (/^\d{6}$/.test(invitedRoom || '')) $('#room-code').value = invitedRoom;
 $('#room-dialog').addEventListener('cancel', event => {
   if (!network.room || network.room.status === 'waiting') event.preventDefault();
 });
-$('#room-dialog').addEventListener('close', () => {  render(); });
+$('#room-dialog').addEventListener('close', render);
 roomChanged();
 const actionNoticeLayout = new ResizeObserver(positionOverlays);
 for (const element of [$('#game'), ...document.querySelectorAll('.opponent-rack,.hand-zone')]) actionNoticeLayout.observe(element);

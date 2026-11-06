@@ -10,7 +10,7 @@ const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-prima
 const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});
 server.listen(0,'127.0.0.1');await once(server,'listening');
 const target=process.env.KK_UI_TARGET_URL||`http://127.0.0.1:${server.address().port}`;
-const baseline=execFileSync('git',['show','c633c0c:landscape.css'],{encoding:'utf8'});
+const baseline=execFileSync('git',['show','83a63dd:landscape.css'],{encoding:'utf8'});
 const current=process.env.KK_UI_TARGET_URL?await(await fetch(target+'/landscape.css')).text():readFileSync('landscape.css','utf8');
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const contexts=[],report={passed:false,cases:[],errors:[],screenshots:0};mkdirSync('output',{recursive:true});
@@ -31,7 +31,7 @@ async function setup(size,reducedMotion='no-preference',startHidden=false){
       new MutationObserver(()=>{
         const phase=intro.dataset.phase||'idle';if(phase===last)return;last=phase;
         if(phase!=='rolling'){pointWatcher?.disconnect();pointWatcher=null;}
-        const row={phase,time:performance.now(),round:window.mahjongGame.round,hidden:intro.hidden,
+        const row={phase,time:performance.now(),round:window.mahjongGame.round,hidden:intro.hidden,enabledHand:document.querySelectorAll('#hand button:enabled').length,
           values:[...holder.children].map(n=>n.children.length),truth:[...window.mahjongGame.wallInfo.dice]};
         if(phase==='enlarging')row.zoom=document.querySelector('#dice-intro-dice').getAnimations().map(a=>({duration:a.effect.getTiming().duration,frames:a.effect.getKeyframes()}));
         window.__diceHistory.push(row);
@@ -156,29 +156,27 @@ try{
     }
     await page.evaluate(()=>window.mahjongRoom.leave());await context.close();
   }
-  // 手机竖屏引导不得消耗首次开场，关闭引导后先掷骰，再发牌。
+  // 较高窗口仍使用同一横屏画布，开场不再等待旋转引导。
   for(const motion of ['no-preference','reduce']){
     const portrait=await setup({width:390,height:844},motion);
-    assert.equal(await portrait.page.locator('#rotate-guide').evaluate(n=>n.open),true);
-    await portrait.page.waitForTimeout(1700);
-    assert.deepEqual(await portrait.page.evaluate(()=>window.__diceHistory),[],'no dice phase runs behind the rotation guide');
-    assert.equal(await portrait.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0);
-    assert.equal(await portrait.page.locator('#hand button:enabled').count(),0,'pending intro also locks hand input');
-    const markers=await portrait.page.evaluate(()=>({pending:JSON.parse(sessionStorage.getItem('kk-dice-intro-pending')||'[]'),seen:JSON.parse(sessionStorage.getItem('kk-dice-intro-seen')||'[]')}));
-    assert.equal(markers.pending.length,1);assert.equal(markers.seen.length,0);
-    await portrait.page.setViewportSize({width:844,height:390});
-    await portrait.page.waitForFunction(()=>!document.querySelector('#rotate-guide').open);
+    assert.equal(await portrait.page.locator('#rotate-guide').count(),0);
     await portrait.page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase===(matchMedia('(prefers-reduced-motion: reduce)').matches?'showing':'rolling'));
-    assert.equal(await portrait.page.locator('.deal-flight').count(),0,'dealing cannot overtake deferred dice');
-    assert.equal(await portrait.page.locator('#hand button:enabled').count(),0);
+    assert.equal(await portrait.page.locator('#hand button:enabled').count(),0,'intro locks hand input in a tall viewport');
+    const markers=await portrait.page.evaluate(()=>({pending:JSON.parse(sessionStorage.getItem('kk-dice-intro-pending')||'[]'),seen:JSON.parse(sessionStorage.getItem('kk-dice-intro-seen')||'[]')}));
+    assert.equal(markers.pending.length,0);assert.equal(markers.seen.length,1);
+    await portrait.page.setViewportSize({width:844,height:390});
+    const resized=await portrait.page.evaluate(()=>({dice:document.querySelector('#game').classList.contains('is-dice-intro'),active:document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'),flights:document.querySelectorAll('.deal-flight').length,enabled:document.querySelectorAll('#hand button:enabled').length}));
+    if(resized.dice)assert.equal(resized.flights,0,'dealing cannot overtake dice');
+    if(resized.active)assert.equal(resized.enabled,0,'resizing preserves input lock until the intro finishes');
     await idle(portrait.page);
-    const phases=await portrait.page.evaluate(()=>window.__diceHistory.map(row=>row.phase));
+    const history=await portrait.page.evaluate(()=>window.__diceHistory),phases=history.map(row=>row.phase);
+    assert.ok(history.filter(row=>row.phase!=='idle').every(row=>row.enabledHand===0),'every intro phase locks input before and after resize');
     assert.deepEqual(phases,motion==='reduce'?['showing','idle']:['rolling','settled','enlarging','showing','idle']);
     await portrait.page.setViewportSize({width:390,height:844});
     await portrait.page.setViewportSize({width:844,height:390});
     await portrait.page.waitForTimeout(200);
     assert.equal(await portrait.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'subsequent rotations never replay');
-    report.cases.push({portraitStart:true,reducedMotion:motion==='reduce',waitsForGuide:true,diceBeforeDeal:true,noRotationReplay:true,phases});
+    report.cases.push({tallViewport:true,reducedMotion:motion==='reduce',noRotationGuide:true,diceBeforeDeal:true,noRotationReplay:true,phases});
     await portrait.page.evaluate(()=>window.mahjongRoom.leave());await portrait.context.close();
   }
   // 隐藏标签页开局不记「已播」；恢复可见且仍在本局开局时补播一次完整流程，之后不再重复。

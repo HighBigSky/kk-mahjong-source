@@ -1,206 +1,139 @@
 import assert from 'node:assert/strict';
-import { once } from 'node:events';
-import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import {once} from 'node:events';
+import {createRequire} from 'node:module';
+import {existsSync,mkdirSync,readFileSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
-import { createServer } from '../server.js';
-import { RoomService } from '../src/server/rooms.js';
+import {createServer} from '../server.js';
+import {RoomService} from '../src/server/rooms.js';
 
-// Reuse installed browser tooling without adding an application dependency.
 let playwright;
-try { playwright = createRequire(import.meta.url)('playwright'); }
-catch { playwright = createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright'); }
-const output = path.resolve('output');
-mkdirSync(output, { recursive: true });
-const report = { passed: false, browser: '', checks: [], geometry: [], screenshots: [], errors: [] };
-const service = new RoomService({ botDelayMs: 60000, disconnectGraceMs: 100 });
-const server = createServer({ roomService: service });
-server.listen(0, '127.0.0.1'); await once(server, 'listening');
-const baseURL = `http://127.0.0.1:${server.address().port}`;
-const edge = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
-const browser = await playwright.chromium.launch({ headless: true, ...(existsSync(edge) ? { executablePath: edge } : {}) });
-report.browser = browser.version();
-const contexts = [];
-const portrait = { width: 360, height: 640 };
-const landscape = { width: 640, height: 360 };
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function until(test, label, timeout = 10000) {
-  const deadline = Date.now() + timeout;
-  while (!await test()) { assert.ok(Date.now() < deadline, `Timed out: ${label}`); await sleep(20); }
-}
-async function state(page) {
-  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  return page.evaluate(() => {
-    const rect = element => {
-      const r = element.getBoundingClientRect();
-      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
-    };
-    const stage = document.querySelector('#game');
-    const guide = document.querySelector('#rotate-guide');
-    const room = document.querySelector('#room-dialog');
-    return {
-      inGame: document.documentElement.classList.contains('in-game'),
-      landscape: stage.classList.contains('is-landscape'),
-      stage: rect(stage), transform: getComputedStyle(stage).transform,
-      coarse: matchMedia('(pointer: coarse)').matches,
-      guide: guide?.open || false, room: room.open,
-      roomBox: rect(room), status: window.mahjongRoom.room?.status || null,
-      scroll: { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight },
-      calls: window.__orientationCalls,
-    };
-  });
-}
-async function capture(page, label) {
-  const file = path.join(output, `ui-orientation-${label}.png`);
-  await page.screenshot({ path: file }); report.screenshots.push(file);
-}
-async function player(name, mode, mobile) {
-  const context = await browser.newContext({ viewport: portrait, hasTouch: mobile, deviceScaleFactor: 1 }); contexts.push(context);
-  await context.addInitScript(mode => {
-    localStorage.setItem('queqi-settings', JSON.stringify({ sound: false, names: false, laizi: false }));
-    window.__orientationCalls = { lock: [], unlock: 0, fullscreen: 0, unhandled: [] };
-    window.addEventListener('unhandledrejection', event => window.__orientationCalls.unhandled.push(String(event.reason)));
-    const rejected = () => Promise.reject(new DOMException('Unavailable in browser test', 'NotSupportedError'));
-    if (screen.orientation) Object.defineProperty(screen.orientation, 'lock', {
-      configurable: true,
-      value: mode === 'unsupported' ? undefined : kind => { window.__orientationCalls.lock.push(kind); return mode === 'resolve' ? Promise.resolve() : rejected(); },
-    });
-    if (screen.orientation) Object.defineProperty(screen.orientation, 'unlock', {
-      configurable: true, value: () => { window.__orientationCalls.unlock++; },
-    });
-    Object.defineProperty(Element.prototype, 'requestFullscreen', {
-      configurable: true,
-      value: mode === 'unsupported' ? undefined : () => { window.__orientationCalls.fullscreen++; return rejected(); },
-    });
-  }, mode);
-  const page = await context.newPage();
-  page.on('pageerror', error => report.errors.push(`${name}: ${error.message}`));
-  page.on('console', message => { if (message.type() === 'error') report.errors.push(`${name}: ${message.text()}`); });
-  await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
-  await page.locator('#room-dialog[open]').waitFor(); await page.locator('#room-name').fill(name);
+try { playwright=createRequire(import.meta.url)('playwright'); }
+catch { playwright=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright'); }
+const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});
+server.listen(0,'127.0.0.1');await once(server,'listening');
+const target=process.env.KK_UI_TARGET_URL||'http://127.0.0.1:'+server.address().port;
+const edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+const browser=await playwright.chromium.launch({headless:true,...(existsSync(edge)?{executablePath:edge}:{})});
+const output=path.resolve('output');mkdirSync(output,{recursive:true});
+const contexts=[],report={passed:false,browser:browser.version(),target,checks:[],geometry:[],screenshots:[],errors:[],resources:[],cleanupErrors:[]};
+const sizes=[{width:568,height:320},{width:640,height:360},{width:844,height:390},{width:1280,height:720},{width:1920,height:1080},{width:390,height:844}];
+const frames=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+
+async function player(name,mobile=true,mode='reject'){
+  const context=await browser.newContext({viewport:{width:640,height:360},hasTouch:mobile,reducedMotion:'reduce'});contexts.push(context);
+  await context.addInitScript(mode=>{
+    localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));
+    let fullscreen=null;
+    window.__landscapeCalls={lock:[],unlock:0,fullscreen:0,unhandled:[]};
+    window.addEventListener('unhandledrejection',event=>window.__landscapeCalls.unhandled.push(String(event.reason)));
+    Object.defineProperty(document,'fullscreenElement',{configurable:true,get:()=>fullscreen});
+    Object.defineProperty(document,'exitFullscreen',{configurable:true,value:async()=>{fullscreen=null;document.dispatchEvent(new Event('fullscreenchange'));}});
+    Object.defineProperty(Element.prototype,'requestFullscreen',{configurable:true,value:mode==='unsupported'?undefined:function(){
+      window.__landscapeCalls.fullscreen++;
+      if(mode==='reject')return Promise.reject(Error('Fullscreen fixture rejection'));
+      fullscreen=this;document.dispatchEvent(new Event('fullscreenchange'));return Promise.resolve();
+    }});
+    if(screen.orientation){
+      Object.defineProperty(screen.orientation,'lock',{configurable:true,value:kind=>{window.__landscapeCalls.lock.push(kind);return Promise.resolve();}});
+      Object.defineProperty(screen.orientation,'unlock',{configurable:true,value:()=>{window.__landscapeCalls.unlock++;}});
+    }
+  },mode);
+  const page=await context.newPage();
+  page.on('pageerror',error=>report.errors.push(error.message));
+  page.on('console',message=>{if(message.type()==='error')report.errors.push(message.text());});
+  page.on('response',response=>{if(response.status()>=400)report.resources.push({status:response.status(),url:response.url()});});
+  page.on('requestfailed',request=>{if(request.failure()?.errorText!=='net::ERR_ABORTED')report.resources.push({url:request.url(),error:request.failure()?.errorText});});
+  await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill(name);
   return page;
 }
-async function assertLobby(page, label) {
-  await until(() => page.evaluate(() => !document.documentElement.classList.contains('in-game')), label);
-  const data = await state(page); const viewport = page.viewportSize();
-  assert.equal(data.inGame, false, label); assert.equal(data.landscape, false, label);
-  assert.equal(data.guide, false, label); assert.equal(data.room, true, label);
-  if (data.coarse) assert.ok(data.stage.height > data.stage.width, `${label}: portrait lobby`);
-  assert.ok(data.roomBox.left >= -1 && data.roomBox.right <= viewport.width + 1, `${label}: room horizontal fit`);
-  assert.ok(data.roomBox.top >= -1 && data.roomBox.bottom <= viewport.height + 1, `${label}: room vertical fit`);
-  assert.ok(data.scroll.width <= viewport.width + 1 && data.scroll.height <= viewport.height + 1, `${label}: no document scroll`);
-  report.checks.push({ label, ...data });
-}
-async function createAndStart(page) {
-  await page.locator('#room-create').click(); await page.locator('#room-waiting:not([hidden])').waitFor();
-  const code = (await page.locator('#room-current-code').textContent()).trim(); const room = service.rooms.get(code);
-  await until(() => room.seats[0].connected, 'owner SSE connected');
-  await assertLobby(page, 'waiting stays portrait');
-  assert.equal((await state(page)).calls.lock.length, 0, 'room creation must not lock orientation');
-  for (const seat of [1, 2, 3]) {
-    await page.locator(`.room-bot-add[data-seat="${seat}"]:visible:enabled`).click();
-    await until(() => room.seats[seat]?.bot, `bot ${seat} seated`);
-  }
-  await page.locator('#room-ready:enabled').click(); await until(() => room.seats.every(seat => seat?.ready), 'all ready');
-  await page.locator('#room-start:visible:enabled').click();
-  await until(async () => room.game && await page.evaluate(() => document.documentElement.classList.contains('in-game')), 'start enters landscape game');
-  await page.locator('#room-dialog:not([open])').waitFor({ state: 'attached' }); return room;
-}
-async function assertGame(page, label, guide) {
-  await until(() => page.evaluate(expected => Boolean(document.querySelector('#rotate-guide')?.open) === expected, guide), `${label}: guide state`);
-  const data = await state(page); const viewport = page.viewportSize(); const context = `${label}: ${JSON.stringify(data)}`;
-  assert.equal(data.inGame, true, context); assert.equal(data.landscape, true, context); assert.equal(data.guide, guide, context);
-  assert.ok(data.stage.width + 1 >= data.stage.height * 16 / 9, `${context}: landscape canvas stays at least 16:9`);
-  assert.ok(Math.abs(data.stage.width - viewport.width) <= 1 && Math.abs(data.stage.height - Math.min(viewport.height, viewport.width * 9 / 16)) <= 1, `${context}: one canvas fills landscape viewports and centers in taller windows`);
-  assert.ok(data.stage.left >= -1 && data.stage.top >= -1 && data.stage.right <= viewport.width + 1 && data.stage.bottom <= viewport.height + 1, `${context}: stage fits viewport`);
-  assert.ok(Math.abs((data.stage.left + data.stage.right) / 2 - viewport.width / 2) < 1.1, `${context}: horizontally centered`);
-  assert.ok(Math.abs((data.stage.top + data.stage.bottom) / 2 - viewport.height / 2) < 1.1, `${context}: vertically centered`);
-  assert.ok(data.scroll.width <= viewport.width + 1 && data.scroll.height <= viewport.height + 1, `${context}: no document scroll`);
-  const rotated = await page.evaluate(() => {
-    const transform = getComputedStyle(document.querySelector('#game')).transform;
-    if (transform === 'none') return false;
-    const matrix = new DOMMatrix(transform); return Math.abs(matrix.b) > .001 || Math.abs(matrix.c) > .001;
+
+async function canvas(page,label){
+  await frames(page);
+  const result=await page.evaluate(()=>{
+    const rect=node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom};};
+    const stage=document.querySelector('#game');
+    return{viewport:{width:innerWidth,height:innerHeight},stage:rect(stage),
+      layout:document.documentElement.classList.contains('landscape-app')&&stage.classList.contains('is-landscape'),
+      guide:!!document.querySelector('#rotate-guide'),scroll:[document.documentElement.scrollWidth,document.documentElement.scrollHeight],calls:window.__landscapeCalls};
   });
-  assert.equal(rotated, false, 'game stage must never be rotated with CSS');
-  assert.deepEqual(data.calls.unhandled, [], 'native orientation rejections are handled');
-  report.geometry.push({ label, viewport, ...data }); return data;
+  assert.equal(result.layout,true,label+' keeps the single canvas');assert.equal(result.guide,false,'no rotation prompt exists');
+  assert.ok(result.stage.width/result.stage.height>=16/9-.01,label+' remains landscape');
+  assert.ok(result.stage.x>=-.5&&result.stage.y>=-.5&&result.stage.right<=result.viewport.width+.5&&result.stage.bottom<=result.viewport.height+.5,label+' canvas stays in viewport');
+  assert.ok(result.scroll[0]<=result.viewport.width+1&&result.scroll[1]<=result.viewport.height+1,label+' has no document overflow');
+  assert.deepEqual(result.calls.lock,[],'fullscreen must never lock device orientation');assert.equal(result.calls.unlock,0);
+  assert.deepEqual(result.calls.unhandled,[]);report.geometry.push({label,...result});return result;
 }
 
-try {
-  for (const mode of ['reject', 'unsupported', 'resolve']) {
-    const page = await player(`手机-${mode}`, mode, true);
-    await assertLobby(page, `${mode}: creation 360x640`); await capture(page, `${mode}-entry-360x640`);
-    const room = await createAndStart(page);
-    const data = await assertGame(page, `${mode}: portrait game requires rotation`, true);
-    assert.equal(data.coarse, true, 'phone uses coarse input');
-    assert.ok((await page.locator('#rotate-guide').textContent()).includes('横屏'), 'guide explains landscape use');
-    await capture(page, `${mode}-rotate-guide-360x640`);
-    if (mode === 'unsupported') assert.equal(data.calls.lock.length, 0);
-    else assert.ok(data.calls.lock.length > 0 && data.calls.lock.every(kind => kind === 'landscape'), 'game entry attempts landscape lock');
-    if (mode === 'unsupported') {
-      await page.evaluate(() => {
-        window.__roundGuideCloses = 0;
-        document.querySelector('#rotate-guide').addEventListener('close', () => window.__roundGuideCloses++);
-      });
-      const previousRound = room.game.round;
-      room.game.newRound('orientation-next-round-guide-2026'); service._changed(room);
-      await until(() => page.evaluate(round => window.mahjongGame?.round > round && window.mahjongRoom?.status === 'connected', previousRound), 'next-round SSE snapshot reaches portrait phone');
-      await assertGame(page, 'unsupported: next round preserves portrait rotation guide', true);
-      await sleep(100);
-      assert.equal(await page.evaluate(() => window.__roundGuideCloses), 0, 'round transition never closes the active rotation guide');
-      await capture(page, 'unsupported-next-round-guide-360x640');
-      report.checks.push({ nextRoundSnapshotKeepsRotationGuideOpen: true, nativeOrientationAPI: 'unsupported', viewport: portrait });
-    }
-    await page.setViewportSize(landscape); await assertGame(page, `${mode}: physical landscape dismisses guide`, false);
-    await capture(page, `${mode}-playing-640x360`);
-    await page.setViewportSize({ width: 844, height: 390 }); await assertGame(page, `${mode}: phone landscape fills 844x390`, false);
-    await capture(page, `${mode}-playing-844x390`);
-    await page.setViewportSize(landscape);
-    await page.locator('#settings-btn').click(); await page.locator('#settings-home').click();
-    await assertLobby(page, `${mode}: room route returns to portrait`);
-    await page.setViewportSize(portrait); await assertLobby(page, `${mode}: portrait room route`);
-    if (mode === 'resolve') assert.ok((await state(page)).calls.unlock > 0, 'returning to room releases native lock');
-    await page.locator('#room-close').click(); await assertGame(page, `${mode}: closing room returns to game`, true);
-    await page.locator('#rotate-return').click(); await assertLobby(page, `${mode}: rotation guide returns to room`);
-    await page.locator('#room-close').click(); await page.reload({ waitUntil: 'domcontentloaded' });
-    await until(() => page.evaluate(() => window.mahjongRoom?.status === 'connected' && window.mahjongRoom.room?.status === 'playing'), 'restore playing session');
-    await assertGame(page, `${mode}: refresh restores game and guide`, true);
-    await page.setViewportSize(landscape); await assertGame(page, `${mode}: refreshed game accepts landscape`, false);
-    report.checks.push({ mode, mobile: true, createWaitingPortrait: true, startLandscape: true, guideTracksPhysicalRotation: true, roomRoutePortrait: true, restoredGameLandscape: true });
+async function reachable(page,selector){
+  const node=page.locator(selector);await node.scrollIntoViewIfNeeded();
+  const data=await node.evaluate(node=>{
+    const r=node.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+    return{width:r.width,height:r.height,hit:!!hit&&(node===hit||node.contains(hit))};
+  });
+  assert.ok(data.width>0&&data.height>0&&data.hit,selector+' remains reachable through its scroll area');
+}
+
+async function room(page,label){
+  await canvas(page,label);
+  const data=await page.locator('#room-dialog').evaluate(node=>{const r=node.getBoundingClientRect();return{width:r.width,height:r.height};});
+  assert.ok(data.width>data.height,label+' dialog is landscape');
+  const entry=await page.locator('#room-entry').isVisible();
+  for(const selector of entry?['#room-name','#room-code','#room-create','#room-join','#room-options']:['#room-copy','#room-ready','#room-leave','#room-options'])await reachable(page,selector);
+  if(entry){
+    await page.locator('#room-name').scrollIntoViewIfNeeded();
+    const columns=await page.evaluate(()=>{const a=document.querySelector('#room-name').getBoundingClientRect(),b=document.querySelector('#room-code').getBoundingClientRect();return{sameRow:Math.abs(a.y-b.y)<1,separate:a.right<=b.left};});
+    assert.ok(columns.sameRow&&columns.separate,'nickname and join code use two distinct columns');
   }
-  const desktop = await player('PC窗口', 'resolve', false); await assertLobby(desktop, 'desktop creation'); const desktopRoom = await createAndStart(desktop);
-  for (const viewport of [portrait, landscape, { width: 844, height: 390 }, { width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 }]) {
-    await desktop.setViewportSize(viewport); const data = await assertGame(desktop, `desktop ${viewport.width}x${viewport.height}`, false);
-    assert.equal(data.coarse, false); assert.deepEqual(data.calls.lock, [], 'desktop never locks orientation');
-    assert.ok(data.calls.fullscreen > 0, 'desktop warms fullscreen when creating the room');
-    await capture(desktop, `desktop-playing-${viewport.width}x${viewport.height}`);
+  report.checks.push({label,entry,reachable:true,landscapeDialog:true});
+}
+async function leave(page){await page.locator('#room-leave').click();await page.locator('#room-entry:not([hidden])').waitFor();}
+
+try{
+  assert.equal(existsSync('src/ui/orientation.js'),false,'retired mode controller is deleted');
+  for(const file of ['styles.css','landscape.css','rooms.css','seats-layout.css','wall-layout.css','table-depth.css'])assert.doesNotMatch(readFileSync(file,'utf8'),/@media[^{}]*orientation\s*:\s*portrait/i,file+' has no portrait-only media branch');
+  assert.doesNotMatch(readFileSync('src/ui/landscape.js','utf8'),/screen\.orientation|\.lock\(/,'canvas controller must not request device rotation');
+  const owner=await player('横屏审核房主');
+  for(const size of sizes){await owner.setViewportSize(size);await room(owner,'entry '+size.width+'x'+size.height);}
+  await owner.setViewportSize({width:568,height:320});
+  await owner.locator('#room-options').click();await owner.locator('#settings-dialog[open]').waitFor();
+  const checked=await owner.locator('#sound-setting').isChecked();await owner.locator('#sound-setting').setChecked(!checked);
+  await owner.locator('#settings-rules').click();await owner.locator('#rules-dialog[open]').waitFor();await reachable(owner,'#rules-dialog .primary-button');await owner.locator('#rules-dialog .primary-button').click();
+  await owner.locator('#room-options').click();assert.equal(await owner.locator('#sound-setting').isChecked(),!checked);await owner.locator('#sound-setting').setChecked(false);await owner.locator('#settings-dialog [data-close]').last().click();
+  report.checks.push({settings:true,ruleLink:true,soundOptionPreserved:true});
+
+  await owner.locator('#room-create').click();await owner.locator('#room-waiting:not([hidden])').waitFor();
+  const code=(await owner.locator('#room-current-code').textContent()).trim();assert.match(code,/^\d{6}$/);
+  for(const size of sizes){await owner.setViewportSize(size);await room(owner,'waiting '+size.width+'x'+size.height);}
+  await owner.setViewportSize({width:844,height:390});
+  const friend=await player('横屏审核好友',false,'resolve');
+  await friend.locator('#room-code').fill(code);await friend.locator('#room-join').click();await friend.locator('#room-waiting:not([hidden])').waitFor();
+  assert.equal(await friend.evaluate(()=>Boolean(document.fullscreenElement)),true);await canvas(friend,'join fullscreen');
+  for(const seat of[2,3])await owner.locator('.room-bot-add[data-seat="'+seat+'"]').click();
+  await owner.locator('.room-bot-remove[data-seat="3"]').click();await owner.locator('.room-bot-add[data-seat="3"]').click();
+  await friend.locator('#room-ready').click();await owner.locator('#room-ready').click();await owner.locator('#room-start:enabled').waitFor();await owner.locator('#room-start').click();
+  for(const page of[owner,friend])await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'));
+  for(const size of sizes){await owner.setViewportSize(size);await canvas(owner,'game '+size.width+'x'+size.height);}
+  await owner.setViewportSize({width:844,height:390});
+  const index=await owner.evaluate(()=>{const g=window.mahjongGame;return g.players[0].hand.findIndex(t=>t!==31&&t!==g.indicatorTile&&t!==g.wildTile);});
+  const tile=owner.locator('#hand button[data-index="'+index+'"]');await tile.click();await tile.click();
+  await owner.waitForFunction(()=>window.mahjongGame.players[0].discards.length===1);await friend.waitForFunction(()=>window.mahjongGame.players.some(p=>p.discards.length===1));
+  report.checks.push({createJoinPrepareStart:true,botsAddRemove:true,realDiscard:true,friendSnapshot:true});
+  await owner.locator('#settings-btn').click();await owner.locator('#settings-home').click();await room(owner,'return to room during game');assert.equal(await owner.locator('#room-ready').isDisabled(),true);
+  await owner.reload({waitUntil:'networkidle'});await owner.waitForFunction(()=>window.mahjongRoom.status==='connected');await canvas(owner,'restored game');
+  if(!await owner.locator('#room-dialog').isVisible()){await owner.locator('#settings-btn').click();await owner.locator('#settings-home').click();}
+  await leave(owner);await friend.waitForFunction(()=>window.mahjongRoom.room?.status==='waiting');await room(friend,'friend returns to waiting');await leave(friend);
+  await room(owner,'entry after leave');report.checks.push({returnRoute:true,reloadRecovery:true,leaveResetsWaiting:true});
+  if(process.env.KK_UI_SCREENSHOTS!=='0')for(const size of[{width:568,height:320},{width:1280,height:720}]){await owner.setViewportSize(size);const file=path.join(output,'landscape-entry-'+size.width+'x'+size.height+'.png');await owner.screenshot({path:file});report.screenshots.push(file);}
+  for(const mobile of[true,false])for(const mode of['unsupported','reject','resolve']){
+    const page=await player('全屏横屏审核',mobile,mode);await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();await canvas(page,'fullscreen '+mobile+' '+mode);
+    assert.equal(await page.evaluate(()=>Boolean(document.fullscreenElement)),mode==='resolve');await leave(page);assert.equal(await page.evaluate(()=>Boolean(document.fullscreenElement)),false);await page.context().close();
+    report.checks.push({mobile,fullscreenMode:mode,noDeviceRotation:true,leftCleanly:true});
   }
-  await desktop.locator('#settings-btn').click(); await desktop.locator('#settings-home').click(); await assertLobby(desktop, 'desktop room route');
-  // A deterministic terminal-state fixture checks the result route without
-  // coupling this presentation test to bot strategy or a particular winner.
-  // Its incoming snapshot must preserve the explicitly selected lobby route,
-  // including after the deferred result dialog timer has had time to run.
-  desktopRoom.game._finishDraw(); service._changed(desktopRoom);
-  await until(() => desktop.evaluate(() => window.mahjongRoom.room?.status === 'ended'), 'ended room snapshot');
-  await sleep(500);
-  await assertLobby(desktop, 'ended snapshot preserves explicitly selected room route');
-  assert.equal(await desktop.locator('#result-dialog').evaluate(dialog => dialog.open), false, 'result timer cannot cover the selected room route');
-  await capture(desktop, 'ended-snapshot-preserves-room-route');
-  report.checks.push({ endedSnapshotPreservesRoomRoute: true, resultDeferredUntilRoomClosed: true });
-  await desktop.locator('#room-close').click();
-  await desktop.locator('#result-dialog[open]').waitFor();
-  await assertGame(desktop, 'ended game retains landscape', false);
-  await desktop.locator('#result-dialog [data-close]').click();
-  await desktop.locator('#settings-btn').click(); await desktop.locator('#settings-home').click();
-  await assertLobby(desktop, 'ended game room route');
-  await desktop.locator('#room-leave:enabled').click(); await assertLobby(desktop, 'leaving returns to room creation');
-  assert.equal((await state(desktop)).status, null);
-  report.checks.push({ desktopAnyWindowUsesSameLandscape: true, desktopNeverLocksOrShowsGuide: true });
-  assert.deepEqual(report.errors, []); report.passed = true;
-  console.log(JSON.stringify({ passed: true, browser: report.browser, checks: report.checks.length, geometry: report.geometry.length, screenshots: report.screenshots.length, errors: report.errors, report: path.join(output, 'ui-orientation.json') }, null, 2));
-} catch (error) { report.failure = error.stack; throw error; }
-finally {
-  writeFileSync(path.join(output, 'ui-orientation.json'), JSON.stringify(report, null, 2));
-  await Promise.allSettled(contexts.map(context => context.close())); await browser.close(); service.close();
-  const closed = once(server, 'close'); server.close(); server.closeAllConnections(); await closed;
+  assert.deepEqual(report.errors,[]);assert.deepEqual(report.resources,[]);report.passed=true;
+}catch(error){report.failure=error.stack;throw error;}
+finally{
+  for(const context of contexts)for(const page of context.pages())try{await page.evaluate(()=>window.mahjongRoom?.room?window.mahjongRoom.leave():true);}catch(error){report.cleanupErrors.push(error.message);}
+  writeFileSync(path.join(output,process.env.KK_UI_TARGET_URL?'ui-landscape-online.json':'ui-orientation.json'),JSON.stringify(report,null,2));
+  console.log(JSON.stringify({passed:report.passed,checks:report.checks.length,geometry:report.geometry.length,screenshots:report.screenshots.length,errors:report.errors,resources:report.resources}));
+  await Promise.allSettled(contexts.map(c=>c.close()));await browser.close();service.close();server.closeAllConnections();await new Promise(r=>server.close(r));
 }
