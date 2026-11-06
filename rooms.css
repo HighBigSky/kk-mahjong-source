@@ -76,6 +76,14 @@ html.landscape-app .room-modal .room-invite .secondary-button { min-height:32px;
 .room-bot-button:focus-visible { outline:2px solid var(--gold-light); outline-offset:2px; }
 .room-play-controls { display:flex; align-items:stretch; gap:var(--room-gap); }
 .room-play-controls>button { flex:1; }
+.room-play-controls>#room-ready { flex:0 0 auto; }
+.room-start-options { flex:1; min-width:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--room-gap); }
+.room-start-options button { display:grid; align-content:center; justify-items:center; gap:2px; width:100%; height:100%; }
+.room-start-options small { font-size:clamp(9px,calc(var(--room-unit) * 2.5),11px); font-weight:400; opacity:.82; line-height:1.2; }
+.room-four-wilds-slot { min-width:0; }
+html.landscape-app .room-modal .room-four-wilds { border-color:#d7b56e; color:#ffe1a4; background:var(--ui-panel-coat),linear-gradient(125deg,#66462e,#3b3026); box-shadow:var(--ui-panel-shadow); }
+.room-footer-actions { display:flex; flex:none; align-items:center; gap:var(--room-gap); }
+.room-options.room-bot-entry { min-height:36px; border-color:#b59b5b; color:#f3ddac; background:var(--ui-panel-coat) #2a4a36; font-weight:600; }
 .room-play-controls>.room-leave { flex:0 0 auto; }
 .room-leave.room-leave-danger { position:static; width:auto; min-height:44px; margin:0; padding:8px 12px; border:1px solid #a17468; border-radius:8px; background:var(--ui-panel-coat) #422e2b; color:#f0c2b4; box-shadow:var(--ui-panel-shadow); font-size:13px; font-weight:600; line-height:1.3; white-space:nowrap; text-decoration:none; transition:var(--ui-panel-transition); }
 .room-leave-danger:not(:disabled):hover { --ui-panel-shine-x:98%; background-color:#503833; }

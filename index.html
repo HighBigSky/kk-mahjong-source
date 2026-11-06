@@ -180,9 +180,16 @@
             <p class="room-note">房主可在开局前添加或移除人机，也可移除无法重连的离线好友。人机自动准备，真人准备后由房主开局；真人断线时整桌暂停，重连后继续。</p>
           </div>
         </div>
-        <div class="room-play-controls"><button class="secondary-button" id="room-ready">准备</button><button class="primary-button" id="room-start" hidden>房主开始对局</button><button class="room-leave room-leave-danger" id="room-leave" aria-label="离开房间（对局中会中止本局，其他玩家返回等待房间）">离开房间</button></div>
+        <div class="room-play-controls">
+          <button class="secondary-button" id="room-ready">准备</button>
+          <div class="room-start-options" id="room-start-options" hidden>
+            <button class="primary-button room-start-standard" id="room-start" hidden aria-label="开始游戏，使用普通规则"><span id="room-start-label">开始游戏</span><small>普通规则</small></button>
+            <div class="room-four-wilds-slot"><button class="secondary-button room-four-wilds" id="room-four-wilds" hidden aria-label="四癞子爽局，仅限一名真人与三个人机"><span id="room-four-wilds-label">四癞子爽局</span><small>起手四癞 · 人机专属</small></button></div>
+          </div>
+          <button class="room-leave room-leave-danger" id="room-leave" aria-label="退出房间（对局中会中止本局，其他玩家返回等待房间）">退出房间</button>
+        </div>
       </div>
-      <footer class="room-footer"><div class="room-message"><p class="room-status" id="room-status" role="status" aria-live="polite">创建房间，或输入好友发来的房间码。</p><p class="fullscreen-note room-fullscreen-note" data-fullscreen-note role="status" hidden>当前使用完整视口布局；也可通过浏览器菜单「添加到主屏幕」打开。</p></div><button class="room-options" id="room-options">音效与玩法</button></footer>
+      <footer class="room-footer"><div class="room-message"><p class="room-status" id="room-status" role="status" aria-live="polite">创建房间，或输入好友发来的房间码。</p><p class="fullscreen-note room-fullscreen-note" data-fullscreen-note role="status" hidden>当前使用完整视口布局；也可通过浏览器菜单「添加到主屏幕」打开。</p></div><div class="room-footer-actions"><button class="room-options room-bot-entry" id="room-bot-entry">人机对局</button><button class="room-options" id="room-options">音效与玩法</button></div></footer>
       <p class="room-error" id="room-error" role="alert" hidden></p>
     </dialog>
     <dialog id="voice-dialog" class="modal voice-modal" aria-labelledby="voice-title">

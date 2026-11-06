@@ -17,6 +17,7 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
   let retryDelay = 500;
   let lastMessageAt = 0;
   let validating = null;
+  let pendingCommand = null;
   const lifecycle = new AbortController();
   const signalListeners = new Set();
   const client = { room:null, status:'offline', busy:false, game:emptyState() };
@@ -171,29 +172,51 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
   }
   async function enter(path, body) {
     if (credentials) throw new Error('请先离开当前房间');
-    const envelope = await request(path, body, false);
-    credentials = {code:envelope.room.code, token:envelope.token}; save();
-    receive(envelope); connect();
-    return true;
+    if (leaving || client.busy) return false;
+    setBusy(true);
+    const currentGeneration = generation;
+    const pending = request(path, body, false);
+    let finishPending;
+    const completion = new Promise(resolve => { finishPending = resolve; });
+    pendingCommand = completion;
+    try {
+      const envelope = await pending;
+      if (currentGeneration !== generation || leaving || credentials) return false;
+      credentials = {code:envelope.room.code, token:envelope.token}; save();
+      receive(envelope); connect();
+      return true;
+    } finally {
+      if (pendingCommand === completion) { pendingCommand = null; setBusy(false); }
+      finishPending();
+    }
   }
   async function command(endpoint, body = {}) {
     if (!credentials) throw new Error('请先加入房间');
-    if (client.busy) return false;
+    if (client.busy || leaving && endpoint !== 'leave') return false;
     setBusy(true);
     const currentGeneration = generation;
+    const session = credentials;
+    const pending = request(`/api/rooms/${session.code}/${endpoint}`, body);
+    let finishPending;
+    const completion = new Promise(resolve => { finishPending = resolve; });
+    pendingCommand = completion;
     try {
-      const envelope = await request(`/api/rooms/${credentials.code}/${endpoint}`, body);
-      if (currentGeneration === generation && envelope.room) receive(envelope);
+      const envelope = await pending;
+      if (currentGeneration !== generation || credentials !== session || leaving && endpoint !== 'leave') return false;
+      if (envelope.room) receive(envelope);
       return true;
     } catch (error) {
-      if (error.status === 409 && credentials && currentGeneration === generation) {
+      if (error.status === 409 && credentials === session && !leaving && currentGeneration === generation) {
         try {
           const envelope = await request(`/api/rooms/${credentials.code}/state`);
-          if (currentGeneration === generation) receive(envelope);
+          if (credentials === session && !leaving && currentGeneration === generation) receive(envelope);
         } catch { /* SSE also refreshes the snapshot. */ }
       }
       throw error;
-    } finally { setBusy(false); }
+    } finally {
+      if (pendingCommand === completion) { pendingCommand = null; setBusy(false); }
+      finishPending();
+    }
   }
   client.canAct = () => client.status === 'connected' && !client.busy && client.room?.status === 'playing' && !client.room.paused && [PHASE.DISCARD,PHASE.CLAIM].includes(client.game.phase.kind);
   // Layout can show the next authoritative choices while the previous request
@@ -202,7 +225,8 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
   client.create = (name, laizi = true) => enter('/api/rooms', {name, laizi});
   client.join = (code, name) => enter(`/api/rooms/${code}/join`, {name});
   client.ready = ready => command('ready', {ready});
-  client.start = () => command('start');
+  // 使用历史规则参数；普通开始每次显式传 null，不能继承上一桌四癞子配置。
+  client.start = (wildOwner = null) => command('start', {wildOwner});
   // The browser shows its own seat at 0; room commands use absolute table seats.
   const seatCommand = (operation, seat) => {
     if (!client.room || !Number.isInteger(seat) || seat < 0 || seat > 3) return Promise.reject(new Error('请选择有效的空位'));
@@ -228,9 +252,17 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
     return () => signalListeners.delete(listener);
   };
   client.leave = async () => {
-    if (leaving || !credentials || client.busy) return false;
+    if (leaving || !credentials) return false;
+    const session = credentials;
     leaving = true;
-    try { const success = await command('leave'); if (success) reset(); return success; }
+    try {
+      // 补位尚在返回时允许取消后离房；旧响应不得恢复页面，也不能继续补位/准备。
+      if (pendingCommand) { try { await pendingCommand; } catch { /* 仍继续提交离房。 */ } }
+      if (credentials !== session) return false;
+      const success = await command('leave');
+      if (success && credentials === session) reset();
+      return success;
+    }
     finally {
       leaving = false;
       if (credentials && (client.status !== 'connected' || !stream || stream.readyState === 0 || stream.readyState === 2 || !online())) {
@@ -239,6 +271,14 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
     }
   };
   client.sessionCode = () => credentials?.code || null;
+  client.refresh = async () => {
+    if (!credentials || leaving) return false;
+    const session = credentials, currentGeneration = generation;
+    const envelope = await request(`/api/rooms/${session.code}/state`);
+    if (credentials !== session || currentGeneration !== generation || leaving) return false;
+    receive(envelope);
+    return true;
+  };
   client.reconnect = () => {
     if (!credentials || leaving) return false;
     retryDelay = 500;

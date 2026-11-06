@@ -1,5 +1,6 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { MahjongGame, chooseDiscard } from '../../engine.js';
+import {canChooseFourWilds,isSoloHumanBotTable} from '../domain/room-start.js';
 
 const EMPTY_ACTIONS = Object.freeze({ hu:false, peng:false, gang:false, redGang:false, piziGang:false, chi:[], pass:false, concealedGangs:[], addedGangs:[] });
 const CODE_PATTERN = /^\d{6}$/;
@@ -178,13 +179,20 @@ export class RoomService {
     return this.snapshot(room, player);
   }
 
-  start(code, token) {
+  start(code, token, options = {}) {
     const {room, player} = this.authenticate(code, token);
     this._owner(room, player);
     if (room.game) fail(409, 'ALREADY_STARTED', '房间已经开局。');
+    if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => key !== 'wildOwner')) {
+      fail(400, 'INVALID_START_OPTIONS', '开局参数无效。');
+    }
+    const {wildOwner = null} = options;
     this._canStart(room);
+    if (wildOwner !== null && (wildOwner !== player || !canChooseFourWilds({status:'waiting',owner:room.owner,seats:room.seats,laizi:room.laizi},player))) {
+      fail(409, 'FOUR_WILDS_UNAVAILABLE', '四癞子爽局仅限已准备的一名真人与三个人机，由该真人房主开启。');
+    }
     this._cancelBot(room);
-    room.game = new MahjongGame({ seed:randomBytes(24).toString('hex'), names:room.seats.map(seat => seat.name), laizi:room.laizi });
+    room.game = new MahjongGame({ seed:randomBytes(24).toString('hex'), names:room.seats.map(seat => seat.name), laizi:room.laizi, wildOwner });
     this._restoreCarry(room);
     this._beginOpening(room);
     this._changed(room);
@@ -196,6 +204,9 @@ export class RoomService {
     this._owner(room, player);
     if (!room.game || room.game.phase.kind !== 'ended') fail(409, 'NOT_ENDED', '请先完成当前对局。');
     this._canStart(room);
+    if (room.game.wildOwner != null && (!room.laizi || room.game.wildOwner !== player || !isSoloHumanBotTable(room.seats,player))) {
+      fail(409, 'FOUR_WILDS_UNAVAILABLE', '当前座位不符合本桌四癞子规则，请返回准备房间。');
+    }
     this._cancelBot(room);
     room.game.newRound();
     this._beginOpening(room);
@@ -304,8 +315,11 @@ export class RoomService {
       status:room.game ? room.game.phase.kind === 'ended' ? 'ended' : 'playing' : 'waiting',
       laizi:room.laizi, paused,
       opening:this._openingValid(room)?{id:room.opening.id,round:room.opening.round}:null,
+      wildOwner:room.game ? relative(room.game.wildOwner ?? null,viewer) : null,
       seats:rotate(room.seats, viewer).map(seat => ({name:seat?.name || '等待好友', occupied:!!seat, connected:!!seat?.connected, voice:!!seat?.voice, ready:!!seat?.ready, bot:!!seat?.bot})),
     };
+    // 能力与资格由有效座位即时计算，不存储第二份模式准备标志。
+    roomView.fourWildsReady = canChooseFourWilds(roomView,0);
     if (!room.game) return {room:roomView, state:null};
     const game = room.game;
     const revealHands = game.phase.kind === 'ended' && game.result?.kind === 'win';

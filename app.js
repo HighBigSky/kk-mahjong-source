@@ -3,6 +3,7 @@ import { createRoomClient } from './src/network/client.js';
 import { createVoiceChat } from './src/network/voice.js';
 import { RED_DRAGON } from './src/domain/tile.js';
 import { PHASE } from './src/domain/model.js';
+import {canPrepareBotRoom,canChooseFourWilds,isSoloHumanBotTable} from './src/domain/room-start.js';
 import { SCORING_TEXT } from './src/domain/scoring.js';
 import { renderWall } from './src/network/wall-view.js';
 import { createLandscapeLayout } from './src/ui/landscape.js';
@@ -61,6 +62,9 @@ let previousVersion = -1;
 let previousStatus = 'waiting';
 let previousOpeningId = null;
 let roomBusy = false;
+let roomOperationGeneration = 0;
+let botPreparation = null;
+let roomStartPending = null;
 let resultTimer = null;
 let actionNoticeTimer = null;
 let actionNoticeKey = null;
@@ -226,6 +230,12 @@ function updateRoom() {
   const connected = network.status === 'connected';
   const restoring = !room && Boolean(network.sessionCode());
   const busy = roomBusy || network.busy;
+  $('#room-dialog').setAttribute('aria-busy', String(busy));
+  $('#room-four-wilds').hidden = true;
+  $('#room-start-options').hidden = !room || room.owner !== 0 || room.status !== 'waiting';
+  $('#room-bot-entry').hidden = Boolean(room && !canPrepareBotRoom(room));
+  $('#room-bot-entry').disabled = busy || restoring || Boolean(room && !connected);
+  $('#room-bot-entry').textContent = botPreparation ? '正在准备人机…' : '人机对局';
   $('#room-entry').hidden = Boolean(room);
   $('#room-waiting').hidden = !room;
   $('#room-close').hidden = !room || room.status === 'waiting';
@@ -248,7 +258,12 @@ function updateRoom() {
   $('#room-ready').textContent = room.status !== 'waiting' ? '已开局' : room.seats[0].ready ? '取消准备' : '准备';
   $('#room-start').hidden = room.owner !== 0 || room.status !== 'waiting';
   $('#room-start').disabled = busy || !connected || !canStart;
-  $('#room-leave').disabled = busy;
+  $('#room-start-label').textContent = roomStartPending ? '处理中…' : '开始游戏';
+  const fourWildsReady = connected && !botPreparation && room.fourWildsReady === true && canChooseFourWilds(room);
+  $('#room-four-wilds').hidden = !fourWildsReady || busy && !roomStartPending;
+  $('#room-four-wilds').disabled = busy || !fourWildsReady;
+  $('#room-four-wilds-label').textContent = roomStartPending ? '处理中…' : '四癞子爽局';
+  $('#room-leave').disabled = busy && !botPreparation;
   $('#room-leave').title = room.status === 'playing' ? '离开并中止本局，其他玩家返回等待房间' : '离开房间';
   for (let index = 0; index < 4; index++) {
     const member = room.seats[index];
@@ -297,6 +312,7 @@ function roomChanged() {
     forgetDiceIntroPending(diceIntroKey);dismissDiceIntro();openingDeal.cancel();
   }
   previousOpeningId=room?.opening?.id||null;
+  if (botPreparation?.code && (!room || room.code !== botPreparation.code || room.status !== 'waiting' || room.owner !== 0)) botPreparation.cancelled = true;
   // 发牌动画暂缓 render 时也记录连接边沿，重连后允许重新首次展开。
   hintDisclosure.update({session:`${room?.code || ''}:${game.round}`, connected:network.status === 'connected'});
   // 开场先保留初始画面；正式回合由房主完成放行，后续快照仍以服务端为准。
@@ -362,12 +378,85 @@ function roomChanged() {
   updateVoiceState();
 }
 
-async function roomOperation(operation) {
-  if (roomBusy) return;
+async function roomOperation(operation, {interrupt = false} = {}) {
+  if (roomBusy && !interrupt) return;
+  const generation = ++roomOperationGeneration;
   roomBusy = true; $('#room-error').hidden = true; updateRoom();
   try { await operation(); }
-  catch (error) { roomError(error.message || '连接失败，请检查网络后重试'); }
-  finally { roomBusy = false; updateRoom(); }
+  catch (error) { if (generation === roomOperationGeneration) roomError(error.message || '连接失败，请检查网络后重试'); }
+  finally { if (generation === roomOperationGeneration) { roomBusy = false; updateRoom(); } }
+}
+
+async function refreshRoomAfterFailure(code) {
+  if (network.sessionCode() !== code) return;
+  try { if (!await network.refresh() && code && network.sessionCode() === code) network.reconnect(); }
+  catch { if (code && network.sessionCode() === code) network.reconnect(); }
+}
+
+// 快捷入口只补位并准备；手动添加也复用此流程，绝不调用 start。
+async function prepareBotRoom({seat = null} = {}) {
+  const task = {code:network.room?.code || null,cancelled:false};
+  botPreparation = task; updateRoom();
+  const requireCurrent = () => {
+    const room = network.room;
+    if (task.cancelled || botPreparation !== task || !room || room.code !== task.code || network.sessionCode() !== task.code ||
+        room.status !== 'waiting' || room.owner !== 0 || !room.seats[0].occupied || room.seats[0].bot) {
+      throw new Error('人机准备已取消，或当前房间状态已改变。');
+    }
+    return room;
+  };
+  try {
+    if (!network.room) {
+      if (seat !== null || network.sessionCode()) throw new Error('请先完成原房间恢复，再准备人机对局。');
+      roomFullscreen.prepareEntry();
+      try {
+        if (!await network.create(nickname(),true)) throw new Error('房间创建未完成，请稍后重试。');
+      } finally { roomFullscreen.finishEntry(Boolean(network.room)); }
+      task.code = network.room?.code || null;
+    }
+    const initial = requireCurrent();
+    if (seat === null && !canPrepareBotRoom(initial)) throw new Error('人机对局仅补充自己的等待房间，不能替换真人。');
+    for (const target of seat === null ? [1,2,3] : [seat]) {
+      const room = requireCurrent();
+      if (seat === null && !canPrepareBotRoom(room)) throw new Error('房间已有其他真人，已停止自动补位。');
+      if (room.seats[target]?.occupied) {
+        if (seat === null && room.seats[target].bot) continue;
+        throw new Error('该座位已被占用，请按当前房间状态操作。');
+      }
+      if (!await network.addBot(target)) { requireCurrent(); throw new Error('补位请求未完成，请稍后重试。'); }
+      requireCurrent();
+    }
+    const room = requireCurrent();
+    // 手动补齐第三个人机时，也通过原 ready 接口完成真人准备。
+    if (isSoloHumanBotTable(room.seats,0) && !room.seats[0].ready) {
+      if (!await network.ready(true)) { requireCurrent(); throw new Error('准备请求未完成，请稍后重试。'); }
+      requireCurrent();
+    }
+    if (!await network.refresh()) { requireCurrent(); throw new Error('房间状态正在恢复，请稍后重试。'); }
+    requireCurrent();
+  } catch (error) {
+    if (task.cancelled || botPreparation !== task) return;
+    await refreshRoomAfterFailure(task.code);
+    throw error;
+  } finally {
+    if (botPreparation === task) { botPreparation = null; updateRoom(); }
+  }
+}
+
+async function startRoom(fourWilds = false) {
+  const room = network.room;
+  if (!room || room.status !== 'waiting' || room.owner !== 0 || network.status !== 'connected') throw new Error('当前不能开始对局。');
+  if (fourWilds && (room.fourWildsReady !== true || !canChooseFourWilds(room))) throw new Error('请先完成一名真人与三个人机的准备。');
+  const pending = {wildOwner:fourWilds ? room.seat : null};
+  roomStartPending = pending; updateRoom();
+  try {
+    if (!await network.start(pending.wildOwner)) throw new Error('开局请求未完成，请按当前状态重试。');
+  } catch (error) {
+    await refreshRoomAfterFailure(room.code);
+    throw error;
+  } finally {
+    if (roomStartPending === pending) { roomStartPending = null; updateRoom(); }
+  }
 }
 
 function nickname() {
@@ -1456,15 +1545,25 @@ $('#room-join').addEventListener('click', () => roomOperation(async () => {
 }));
 $('#room-code').addEventListener('keydown', event => { if (event.key === 'Enter') $('#room-join').click(); });
 $('#room-ready').addEventListener('click', () => roomOperation(() => network.ready(!network.room.seats[0].ready)));
-$('#room-start').addEventListener('click', () => roomOperation(() => network.start()));
+$('#room-start').addEventListener('click', () => roomOperation(() => startRoom(false)));
+$('#room-four-wilds').addEventListener('click', () => roomOperation(() => startRoom(true)));
+$('#room-bot-entry').addEventListener('click', () => roomOperation(() => prepareBotRoom()));
 $('#room-members').addEventListener('click', event => {
   const button = event.target.closest('.room-bot-button');
   if (!button || button.disabled) return;
   const seat = Number(button.dataset.seat);
   roomOperation(() => button.classList.contains('room-bot-kick') ? network.removePlayer(seat)
-    : button.classList.contains('room-bot-add') ? network.addBot(seat) : network.removeBot(seat));
+    : button.classList.contains('room-bot-add') ? prepareBotRoom({seat}) : network.removeBot(seat));
 });
-$('#room-leave').addEventListener('click', () => roomOperation(() => network.leave()));
+$('#room-leave').addEventListener('click', () => {
+  const preparing = botPreparation;
+  if (preparing) preparing.cancelled = true;
+  roomOperation(async () => {
+    const code = network.sessionCode();
+    try { if (!await network.leave()) throw new Error('退出请求未完成，请重试。'); }
+    catch (error) { await refreshRoomAfterFailure(code); throw error; }
+  }, {interrupt:Boolean(preparing)});
+});
 $('#room-close').addEventListener('click', () => {
   $('#room-dialog').close();
 });

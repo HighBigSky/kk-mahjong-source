@@ -474,6 +474,8 @@ export class MahjongGame {
   indicatorTakenBy = null;
   /** @type {TileCode|null} */
   wildTile = null;
+  /** @type {PlayerId|null} 显式启用历史四癞子起手规则的座位；普通开局始终为 null。 */
+  wildOwner = null;
   /** @type {WallInfo} */
   wallInfo = { dice: [1, 1], indicatorPosition: null, tailDraws: 0 };
   /** @type {number[]} */
@@ -489,6 +491,7 @@ export class MahjongGame {
     }));
     this.round = 0;
     this.laiziEnabled = Boolean(options.laizi);
+    this.wildOwner = isPlayerId(options.wildOwner) ? options.wildOwner : null;
     const seed = options.seed ?? `${Date.now()}-${Math.random()}`;
     this._random = makeRandom(seed);
     this._diceRandom = makeRandom(`dice:${String(seed)}`);
@@ -542,8 +545,21 @@ export class MahjongGame {
     for (const player of this.players) {
       player.hand = []; player.melds = []; player.redGangs = []; player.piziGangs = []; player.discards = [];
     }
+    // 复用仓库历史 wildOwner 规则：从实物牌墙取出四张癞子，计入该座位的十三张起手牌。
+    /** @type {TileCode[]} */
+    const ownerWilds = [];
+    if (this.laiziEnabled && this.wildOwner !== null && this.wildTile !== null) {
+      for (let count = 0; count < COPIES_PER_TILE; count++) {
+        const index = this.wall.lastIndexOf(this.wildTile);
+        if (index < 0) throw new Error('四癞子起手所需的实物牌不完整。');
+        ownerWilds.push(/** @type {TileCode} */ (this.wall.splice(index,1)[0]));
+      }
+    }
     for (let deal = 0; deal < 13; deal++) {
-      for (const player of this.players) player.hand.push(/** @type {TileCode} */ (this.wall.pop()));
+      for (let player = 0; player < 4; player++) {
+        const guaranteed = player === this.wildOwner ? ownerWilds.shift() : undefined;
+        this.players[player].hand.push(guaranteed ?? /** @type {TileCode} */ (this.wall.pop()));
+      }
     }
     for (const player of this.players) player.hand.sort((a, b) => a - b);
     this.current = /** @type {PlayerId} */ (this.dealer);
