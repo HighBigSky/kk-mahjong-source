@@ -1,4 +1,4 @@
-import { tilePlane, planeCSS } from './flat-opponents.js';
+import { tilePlanes, planeCSS } from './flat-opponents.js';
 import { captureTileMaterial, applyTileMaterial } from './tile-material.js';
 
 // 开局发牌只重放公开的数量与牌背；真实手牌、牌墙、顺序和回合始终以服务端为准。
@@ -109,15 +109,19 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
     if (targets.some((nodes, index)=>nodes.length !== (index === state.dealer ? 14 : 13)) || sources.some(node=>!node)) { finish(); return; }
     // 先一次性读取所有落点，再插入动画节点，避免每张牌读写交替导致布局抖动。
     const destinations = targets.map(nodes=>nodes.map(node=>{
-      const box=rect(node),rack=node.closest('.opponent-rack');
+      const box=rect(node);
       const material=captureTileMaterial(node);
-      if(!rack)return{node,box,angle:0,material};
-      const plane=tilePlane(node,stage);
-      if(!plane)throw new Error('Missing deal destination plane');
-      return{node,plane,material,box:{left:0,top:0,width:plane.width,height:plane.height}};
+      return{node,box,angle:0,material};
     }));
     const sourceBoxes = sources.map(rect);
-    const sourcePlanes = sources.map(node=>tilePlane(node,stage));
+    const planes=tilePlanes([...sources,...targets.slice(1).flat()],stage);
+    for(const destination of destinations.slice(1).flat()){
+      const plane=planes.get(destination.node);
+      if(!plane)throw new Error('Missing deal destination plane');
+      destination.plane=plane;
+      destination.box={left:0,top:0,width:plane.width,height:plane.height};
+    }
+    const sourcePlanes = sources.map(node=>planes.get(node));
     const wallTemplate=stage.querySelector('.wall-piece.back:not(.is-next-piece):not(.is-head-piece)');
     const wallMaterial=wallTemplate?captureTileMaterial(wallTemplate):null;
     if (sourceBoxes.some(box=>box.width <= 0 || box.height <= 0) || destinations.flat().some(({box})=>box.width <= 0 || box.height <= 0)) { finish(); return; }

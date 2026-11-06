@@ -594,14 +594,18 @@ function rollIntroDice(values) {
   setDiceIntroPhase('rolling');
   const generation = diceIntroGeneration;
   // 布置完牌桌后同时启动 CSS 与换面时钟；最后一段已在结果面上逐步归正。
-  diceIntroFrame = requestAnimationFrame(startedAt => {
+  diceIntroFrame = requestAnimationFrame(() => {
     if (generation !== diceIntroGeneration || diceIntroPhase !== 'rolling') return;
     diceIntroFrame = null;
     holder.classList.add('is-rolling');
-    const advance = now => {
+    // 繁忙帧的 rAF 时间戳可能早于 CSS 真正起播；以同一动画时钟换面和收尾，
+    // 不能在 CSS 仍翻滚时按旧帧时间强行清理。无动画查询能力时按实时时间降级。
+    const animations=dice.flatMap(die=>die.getAnimations?.().filter(animation=>animation.animationName?.startsWith('dice-table-tumble'))||[]);
+    const startedAt=performance.now();
+    const advance = () => {
       if (generation !== diceIntroGeneration || diceIntroPhase !== 'rolling') return;
       diceIntroFrame = null;
-      const elapsedMs = Math.min(now - startedAt, DICE_INTRO_TIMING.rollMs);
+      const elapsedMs = Math.min(animations.length?Math.max(...animations.map(animation=>Number(animation.currentTime)||0)):performance.now()-startedAt, DICE_INTRO_TIMING.rollMs);
       tick(elapsedMs);
       if (elapsedMs < DICE_INTRO_TIMING.rollMs) {
         diceIntroFrame = requestAnimationFrame(advance);

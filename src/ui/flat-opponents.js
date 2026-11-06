@@ -23,6 +23,10 @@ function projection(node,width,height,stageBox) {
     const rect=probe.getBoundingClientRect();return{x:rect.left-stageBox.left,y:rect.top-stageBox.top};
   });
   probe.remove();
+  return cornerMatrix(p,width,height);
+}
+
+function cornerMatrix(p,width,height) {
   const dx1=p[1].x-p[2].x,dx2=p[3].x-p[2].x,dx3=p[0].x-p[1].x+p[2].x-p[3].x;
   const dy1=p[1].y-p[2].y,dy2=p[3].y-p[2].y,dy3=p[0].y-p[1].y+p[2].y-p[3].y;
   const denominator=dx1*dy2-dx2*dy1;
@@ -38,6 +42,34 @@ export function tilePlane(node,stage) {
   if(!(width>0&&height>0))return null;
   const matrix=projection(node,width,height,stage.getBoundingClientRect());
   return matrix?{width,height,matrix}:null;
+}
+
+// 发牌同时需要整批起点/终点。先读取尺寸、再放置所有探针，统一读取四角，
+// 避免每张牌四次写读交替阻塞骰子收起；计算方式与单牌投影完全相同。
+export function tilePlanes(nodes,stage) {
+  const stageBox=stage.getBoundingClientRect(),result=new Map();
+  const entries=[...new Set(nodes)].map(node=>{
+    const style=getComputedStyle(node),width=parseFloat(style.width),height=parseFloat(style.height);
+    if(!(width>0&&height>0))return null;
+    return{node,width,height,bx:parseFloat(style.borderLeftWidth),by:parseFloat(style.borderTopWidth),probes:[]};
+  }).filter(Boolean);
+  try {
+    for(const entry of entries){
+      const fragment=document.createDocumentFragment();
+      for(const [x,y]of [[0,0],[entry.width,0],[entry.width,entry.height],[0,entry.height]]){
+        const probe=document.createElement('i');
+        probe.style.cssText=`position:absolute;width:0;height:0;margin:0;padding:0;border:0;pointer-events:none;left:${x-entry.bx}px;top:${y-entry.by}px`;
+        entry.probes.push(probe);fragment.append(probe);
+      }
+      entry.node.append(fragment);
+    }
+    for(const {node,width,height,probes}of entries){
+      const points=probes.map(probe=>{const rect=probe.getBoundingClientRect();return{x:rect.left-stageBox.left,y:rect.top-stageBox.top};});
+      const matrix=cornerMatrix(points,width,height);
+      result.set(node,matrix?{width,height,matrix}:null);
+    }
+  } finally { for(const entry of entries)for(const probe of entry.probes)probe.remove(); }
+  return result;
 }
 
 export const planeCSS = n => `matrix3d(${[n[0],n[3],0,n[6],n[1],n[4],0,n[7],0,0,1,0,n[2],n[5],0,n[8]].join(',')})`;

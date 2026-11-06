@@ -13,15 +13,15 @@ const server=createServer({roomService:service});
 server.listen(0,'127.0.0.1'); await once(server,'listening');
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const report={passed:false,browser:browser.version(),cases:[],errors:[],note:'Real HTTP/SSE opening rooms; browser touch emulation, not physical phones. The dice auto-dismiss timeout is held for explicit test clicks; animation timing and game state are unchanged. Server newRound/discard are used only to exercise round and snapshot boundaries.'};
-mkdirSync('output',{recursive:true});
+const output='output/dice-review-20261106';mkdirSync(output,{recursive:true});
 const frames=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 const idle=page=>page.waitForFunction(()=>!document.querySelector('#game').classList.contains('is-opening-deal')&&!document.querySelector('#game').classList.contains('is-dice-intro')&&document.querySelector('#opening-deal').children.length===0);
 async function setup(size,reducedMotion='no-preference') {
   const context=await browser.newContext({viewport:size,hasTouch:size.touch,isMobile:size.touch,reducedMotion});
   await context.addInitScript(()=>{
-    // 骰子原有1.5秒自动收起会抢在慢速浏览器的click前；仅测试里留出手动收起窗口。
+    // 仅发牌几何验收留出手动收起窗口；真实800ms停留由骰子专项独立测量。
     const timeout=window.setTimeout.bind(window);
-    window.setTimeout=(callback,delay,...args)=>timeout(callback,typeof callback==='function'&&callback.name==='finishDiceIntro'&&delay===1500?60000:delay,...args);
+    window.setTimeout=(callback,delay,...args)=>timeout(callback,typeof callback==='function'&&delay===800&&String(callback).includes('diceIntroGeneration')?60000:delay,...args);
     Object.defineProperty(Element.prototype,'requestFullscreen',{configurable:true,value:()=>Promise.reject(Error('viewport fixture'))});
     if(screen.orientation)Object.defineProperty(screen.orientation,'lock',{configurable:true,value:()=>Promise.reject(Error('viewport fixture'))});
   });
@@ -104,7 +104,7 @@ try {
     service._changed(room);
     await page.waitForFunction(version=>window.mahjongRoom.room.version>=version,room.version);
     assert.equal(await page.evaluate(()=>window.__firstDealCard===document.querySelector('.deal-flight')),true,'重复快照不得重新创建动画');
-    if(process.env.KK_UI_SCREENSHOTS!=='0')await page.screenshot({path:`output/opening-deal-${size.touch?'phone':'pc'}-flying.png`});
+    if(process.env.KK_UI_SCREENSHOTS!=='0')await page.screenshot({path:`${output}/opening-deal-${size.touch?'phone':'pc'}-flying.png`});
     await idle(page); await frames(page);
     const unchangedMaterials=await page.evaluate(async()=>{const {captureTileMaterial}=await import('/src/ui/tile-material.js');const key=material=>JSON.stringify({...material,custom:Object.fromEntries(Object.entries(material.custom).sort(([a],[b])=>a.localeCompare(b)))});const differences=(a,b,prefix='')=>Object.keys({...a,...b}).flatMap(name=>{const x=a?.[name],y=b?.[name],path=prefix+name;return x&&y&&typeof x==='object'&&typeof y==='object'?differences(x,y,path+'.'):x===y?[]:[{path,after:String(x).slice(0,180),before:String(y).slice(0,180)}];});return window.__dealMaterialRecords.map(({seat,index,key:before})=>{const after=captureTileMaterial(document.querySelectorAll(seat?`#backs-${seat} .back`:'#hand button')[index]);return {seat,index,same:key(after)===before,differences:differences(after,JSON.parse(before))};});});
     assert.ok(unchangedMaterials.every(row=>row.same),'landing keeps the same material, texture, bevel, visible sides and thickness: '+JSON.stringify(unchangedMaterials.filter(row=>!row.same).slice(0,4)));
@@ -115,7 +115,7 @@ try {
     const positions=await page.evaluate(()=>[...document.querySelectorAll('#hand button')].map(node=>{const b=node.getBoundingClientRect();return [b.left,b.top,b.width,b.height];}));
     await frames(page);
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('#hand button')].map(node=>{const b=node.getBoundingClientRect();return [b.left,b.top,b.width,b.height];})),positions);
-    if(process.env.KK_UI_SCREENSHOTS!=='0')await page.screenshot({path:`output/opening-deal-${size.touch?'phone':'pc'}-finished.png`});
+    if(process.env.KK_UI_SCREENSHOTS!=='0')await page.screenshot({path:`${output}/opening-deal-${size.touch?'phone':'pc'}-finished.png`});
     report.cases.push({size,opening:data,landingError,serverUnchanged:true,noInput:true,stableFinish:true});
 
     // 刷新相同开局不补播，避免服务器响应与 SSE/重连重复触发。
@@ -175,6 +175,6 @@ try {
   assert.deepEqual(report.errors,[]); report.passed=true;
   console.log(JSON.stringify({passed:report.passed,browser:report.browser,cases:report.cases.length,errors:report.errors},null,2));
 } finally {
-  writeFileSync('output/opening-deal-verification.json',JSON.stringify(report,null,2));
+  writeFileSync(output+'/opening-deal.json',JSON.stringify(report,null,2));
   await browser.close(); service.close(); server.closeAllConnections(); await new Promise(resolve=>server.close(resolve));
 }
