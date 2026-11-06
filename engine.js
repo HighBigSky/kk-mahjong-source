@@ -612,7 +612,7 @@ export class MahjongGame {
     if (this.phase.kind === PHASE.CLAIM) {
       return this._responses[player] ? actions : this._rawClaimActions(player);
     }
-    if (this.phase.kind !== PHASE.DISCARD || this.current !== player) return actions;
+    if (!this.hasDiscardTurn(player)) return actions;
     const seat = this.players[player];
     const counts = countsOf(seat.hand);
     if (!counts) return actions;
@@ -633,9 +633,18 @@ export class MahjongGame {
     return actions;
   }
 
+  /** 普通出牌与本家自摸/杠共用实际出牌权；响应抢牌不使用此窗口。
+   * @param {number} player @returns {boolean}
+   */
+  hasDiscardTurn(player) {
+    return this._validPlayer(player) && this.phase.kind === PHASE.DISCARD &&
+      this.phase.seat === player && this.current === player && this.pendingDiscard === null &&
+      this.result === null && this.winner === null;
+  }
+
   /** @param {number} player @param {number} index @returns {boolean} */
   discard(player, index) {
-    if (!this._validPlayer(player) || this.phase.kind !== PHASE.DISCARD || this.current !== player ||
+    if (!this.hasDiscardTurn(player) ||
         !Number.isInteger(index) || index < 0 || index >= this.players[player].hand.length) return false;
     const seat = this.players[player];
     if (isSpecialGangTile(seat.hand[index], this.indicatorTile)) return false;
@@ -659,7 +668,7 @@ export class MahjongGame {
     if (action.kind === ACTION.DISCARD) return this.discard(player, action.index);
     if (action.kind === ACTION.PASS) return this.pass(player);
     const actions = this.getActions(player);
-    if (this.phase.kind === PHASE.DISCARD && this.current === player) {
+    if (this.hasDiscardTurn(player)) {
       if (action.kind === ACTION.HU && action.selfDraw === true && actions.hu) {
         this._finishWin(player, null, true); return true;
       }
@@ -918,7 +927,7 @@ export class MahjongGame {
       }
       return this._tryResolveClaims();
     }
-    if (this.phase.kind !== PHASE.DISCARD || this.current === 0) return false;
+    if (!this.hasDiscardTurn(this.current) || this.current === 0) return false;
     const player = this.current;
     const actions = this.getActions(player);
     if (actions.hu) return this.claim(player, 'hu');

@@ -43,7 +43,7 @@ export class RoomService {
     let code;
     do { code = String(randomInt(100000, 1000000)); } while (this.rooms.has(code));
     const seat = this._newSeat(name);
-    const room = { code, owner:0, seats:[seat, null, null, null], laizi, game:null, version:1, touched:this.now(), botTimer:null,
+    const room = { code, owner:0, seats:[seat, null, null, null], laizi, game:null, version:1, touched:this.now(), botTimer:null, botTask:null,
       actionNotice:null, _actionNoticeId:0, _actionState:null };
     this.rooms.set(code, room);
     return { token:seat.token, ...this.snapshot(room, 0) };
@@ -183,6 +183,7 @@ export class RoomService {
     this._owner(room, player);
     if (room.game) fail(409, 'ALREADY_STARTED', '房间已经开局。');
     this._canStart(room);
+    this._cancelBot(room);
     room.game = new MahjongGame({ seed:randomBytes(24).toString('hex'), names:room.seats.map(seat => seat.name), laizi:room.laizi });
     this._restoreCarry(room);
     this._changed(room);
@@ -194,6 +195,7 @@ export class RoomService {
     this._owner(room, player);
     if (!room.game || room.game.phase.kind !== 'ended') fail(409, 'NOT_ENDED', '请先完成当前对局。');
     this._canStart(room);
+    this._cancelBot(room);
     room.game.newRound();
     this._changed(room);
     return this.snapshot(room, player);
@@ -209,7 +211,9 @@ export class RoomService {
     }
     if (!Number.isSafeInteger(version)) fail(400, 'INVALID_VERSION', '操作缺少有效的状态版本。');
     if (version !== room.version) fail(409, 'STALE_STATE', '牌局已更新，请确认当前手牌后重试。');
-    if (!room.game || room.game.phase.kind === 'ended') fail(409, 'NOT_PLAYING', '当前没有进行中的对局。');
+    if (!room.game || !['discard','claim'].includes(room.game.phase.kind) || room.game.result !== null || room.game.winner !== null) {
+      fail(409, 'NOT_PLAYING', '当前没有允许操作的对局阶段。');
+    }
     if (room.seats.some(member => !member?.connected)) fail(409, 'PLAYER_DISCONNECTED', '有好友掉线，对局已暂停；好友重连后继续。');
     const command = this._command(room.game, player, action);
     if (!room.game.applyAction(player, command)) fail(409, 'ILLEGAL_ACTION', '当前不能执行这项操作。');
@@ -361,6 +365,7 @@ export class RoomService {
   }
   /** 中止或清空对局前，暂存各绝对座位的已结算积分与局数，供下一次开局恢复。 */
   _carryGame(room) {
+    this._cancelBot(room);
     if (!room.game) return;
     room.carry = {scores:room.game.players.map(member => member.score), round:room.game.round};
     room.game = null;
@@ -432,12 +437,15 @@ export class RoomService {
       expiresAt:executed.kind === 'hu' ? null : this.now() + ACTION_NOTICE_MS,
     };
   }
-  _cancelBot(room) { clearTimeout(room.botTimer); room.botTimer = null; }
+  _cancelBot(room) { clearTimeout(room.botTimer); room.botTimer = null; room.botTask = null; }
   _botTurn(room) {
     const game = room.game;
-    if (this.rooms.get(room.code) !== room || !game || game.phase.kind === 'ended' || room.seats.some(seat => !seat?.connected)) return null;
-    if (game.phase.kind === 'discard') return room.seats[game.current]?.bot ? game.current : null;
+    if (this.rooms.get(room.code) !== room || !game || game.result !== null || game.winner !== null ||
+        room.touched < this.now() - this.roomTtlMs || this._disconnectExpired(room) || room.seats.some(seat => !seat?.connected)) return null;
+    if (game.phase.kind === 'discard') return game.hasDiscardTurn(game.current) && room.seats[game.current]?.bot ? game.current : null;
     if (game.phase.kind === 'claim') {
+      const discard = game.pendingDiscard;
+      if (!discard || discard.from !== game.phase.discard?.from || discard.tile !== game.phase.discard?.tile) return null;
       for (let distance = 1; distance < 4; distance++) {
         const player = (game.phase.discard.from + distance) % 4;
         if (room.seats[player]?.bot && game.getActions(player).pass) return player;
@@ -445,17 +453,32 @@ export class RoomService {
     }
     return null;
   }
+  /** 令牌只描述异步任务归属，不另建牌局阶段；wallInfo 也覆盖同局重发。 */
+  _botTaskValid(room, task) {
+    const game = room.game;
+    return !!task && room.botTask === task && game === task.game && game.round === task.round &&
+      game.wallInfo === task.wallInfo && game.phase === task.phase && room.seats[task.player] === task.seat &&
+      this._botTurn(room) === task.player;
+  }
   _scheduleBot(room) {
-    if (this._botTurn(room) === null) { this._cancelBot(room); return; }
-    if (room.botTimer) return;
-    room.botTimer = setTimeout(() => {
+    const player = this._botTurn(room);
+    if (player === null) { this._cancelBot(room); return; }
+    if (room.botTimer && this._botTaskValid(room, room.botTask)) return;
+    this._cancelBot(room);
+    const game = room.game;
+    const task = {game, round:game.round, wallInfo:game.wallInfo, phase:game.phase, player, seat:room.seats[player]};
+    room.botTask = task;
+    const timer = setTimeout(() => {
+      // 取消后即使旧回调已入队，也不能清掉新任务或借用下一局的出牌权。
+      if (room.botTask !== task || room.botTimer !== timer) return;
+      if (!this._botTaskValid(room, task)) {
+        this._cancelBot(room);
+        this._scheduleBot(room);
+        return;
+      }
       room.botTimer = null;
-      // Recheck after the delay: a human may have disconnected or ended the round.
-      const player = this._botTurn(room);
-      if (player === null) return;
-      const game = room.game;
       const actions = game.getActions(player);
-      let action;
+      let action, drawReason = null;
       if (game.phase.kind === 'claim') {
         const choice = game._botClaim(player, actions);
         action = this._command(game, player, {kind:choice.action, sequence:choice.tiles, mode:'exposed'});
@@ -471,15 +494,21 @@ export class RoomService {
           const index = chooseDiscard(game.players[player].hand, game.players[player].melds, game._visibleTiles(), game.wildTile, game.indicatorTile);
           // 与本地人机相同：无普通出牌候选即流局，并广播结算、取消后续定时器。
           if (index < 0) {
-            game._finishDraw(game.players[player].hand.includes(game.wildTile) ? '人机没有可打出的普通牌，本局流局' : '牌墙已空，杠牌无法补摸，本局流局');
-            this._changed(room); return;
-          }
-          action = {kind:'discard', player, index};
+            drawReason = game.players[player].hand.includes(game.wildTile) ? '人机没有可打出的普通牌，本局流局' : '牌墙已空，杠牌无法补摸，本局流局';
+          } else action = {kind:'discard', player, index};
         }
       }
+      // 决策仍是原有同步策略；在任何手牌/弃牌/结算写入之前再确认一次归属。
+      if (!this._botTaskValid(room, task)) {
+        if (room.botTask === task) { this._cancelBot(room); this._scheduleBot(room); }
+        return;
+      }
+      this._cancelBot(room);
+      if (drawReason !== null) { game._finishDraw(drawReason); this._changed(room); return; }
       if (game.applyAction(player, action)) this._changed(room);
     }, this.botDelayMs);
-    room.botTimer.unref();
+    room.botTimer = timer;
+    timer.unref();
   }
   _write(response, snapshot) { if (response.destroyed || response.writableEnded) return; if (response.writableLength > 262144) { response.destroy(); return; } response.write(`event: state\ndata: ${JSON.stringify(snapshot)}\n\n`); }
   /** 语音信令与牌局快照分开推送，避免信令触发客户端重绘牌桌。 */
