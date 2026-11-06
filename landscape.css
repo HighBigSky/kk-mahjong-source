@@ -248,8 +248,12 @@ html.landscape-app #game.is-landscape {
 .is-landscape .wall-tail-heading { left:calc(50% - var(--table-unit) * 11.5); top:calc(50% + var(--table-unit) * 11); width:calc(var(--table-unit) * 23); }
 /* 骰子在牌桌中央，翻开的痞子牌面留在原墩；牌墙不再显示文字说明。 */
 .is-landscape .wall-tail-heading { display:none; }
-.is-landscape .seat-action-notice { width:calc(var(--table-unit) * 3); height:calc(var(--table-unit) * 3); font-size:calc(var(--table-unit) * 2.8); }
-.is-landscape .seat-action-notice[data-player="0"] { left:calc(50% - var(--table-unit) * 1.5); bottom:calc(2% + var(--tile-face-height) + var(--table-unit) * .45); }
+.is-landscape .seat-action-notice {
+  --seat-action-font-size:max(20px,calc(var(--table-unit) * 2.8));
+  width:calc(var(--seat-action-font-size) * 1.4);
+  height:calc(var(--seat-action-font-size) * 1.45);
+  font-size:var(--seat-action-font-size);
+}
 
 /* 手牌行贴到最底部：标题行在横屏隐藏，出牌提示并入右侧操作区。 */
 .is-landscape .hand-zone,.is-landscape .hand-zone.has-melds { top:auto; }

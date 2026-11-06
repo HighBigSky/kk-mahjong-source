@@ -65,6 +65,7 @@ let resultTimer = null;
 let actionNoticeTimer = null;
 let actionNoticeKey = null;
 let actionNoticeDeadline = 0;
+let actionNoticeLayoutFrame = null;
 let voiceAnnouncing = false;
 let diceIntroKey = null;
 let diceIntroTimer = null;
@@ -106,6 +107,12 @@ let hintDescription = '';
 let handTap = null;
 let specialGangPending = false;
 const ACTION_NOTICE_LABELS = Object.freeze({ chi: '吃', peng: '碰', gang: '杠', hu: '胡' });
+const ACTION_NOTICE_OBSTACLES = [
+  '.table .river .tile', '.table .opponent-rack .tile', '.table .opponent-rack .back',
+  '.table .wall-piece:not(.is-empty)', '#hand button', '.my-melds .tile', '.table-center',
+  '.player-seat', '.topbar', '.action-zone:not([hidden])', '#hint-details:not([hidden])',
+  '#play-assist:not([hidden])', '.turn-message', '.last-event', '.table-labels .table-label', '#toast',
+].join(',');
 const tableLabelNodes = new Map();
 const openingDeal = createOpeningDeal({stage:$('#game'), storage:(()=>{try{return sessionStorage;}catch{return null;}})(),
   canPlay:()=>!diceIntroBlocked() && $('#dice-intro').hidden,
@@ -446,8 +453,9 @@ function displayGameText(text) {
 function toast(message) {
   $('#toast').textContent = displayGameText(message);
   $('#toast').classList.add('visible');
+  requestActionNoticeLayout();
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $('#toast').classList.remove('visible'), 2500);
+  toastTimer = setTimeout(() => { $('#toast').classList.remove('visible'); requestActionNoticeLayout(); }, 2500);
 }
 
 function playSound(kind = 'tile') {
@@ -757,7 +765,7 @@ function positionTableLabels() {
   document.querySelectorAll('.table .direction').forEach(source => add(`direction-${source.dataset.player}`, source, source, 'center', 'direction'));
   const keys = new Set(descriptors.map(item => item.key));
   for (const [key, node] of tableLabelNodes) if (!keys.has(key)) { node.remove(); tableLabelNodes.delete(key); }
-  const obstacles = [...document.querySelectorAll('.table .river .tile,.table .opponent-rack .tile,.table .opponent-rack .back,.table .wall-piece:not(.is-empty),#hand button,.my-melds .tile,.player-seat,.action-zone:not([hidden]) button,.table-die')]
+  const obstacles = [...document.querySelectorAll('.table .river .tile,.table .opponent-rack .tile,.table .opponent-rack .back,.table .wall-piece:not(.is-empty),#hand button,.my-melds .tile,.player-seat,.action-zone:not([hidden]) button,.table-die,.seat-action-notice:not([hidden])')]
     .filter(visible).map(stageRect);
   const occupied = [];
   const intersects = (a, b) => a.left < b.left + b.width + .3 && a.left + a.width + .3 > b.left && a.top < b.top + b.height + .3 && a.top + a.height + .3 > b.top;
@@ -919,6 +927,7 @@ function updateHintDetails() {
   $('#hint-details').hidden = !open;
   $('#hint-btn').setAttribute('aria-expanded', String(open));
   $('#hint-btn').setAttribute('aria-label', `${open ? PLAY_TEXT.hint : PLAY_TEXT.openHint}：${hintDescription}`);
+  requestActionNoticeLayout();
 }
 
 function closeHintDetails() {
@@ -935,28 +944,79 @@ function interactionChanged() {
   syncOpeningReady();
 }
 
-// 提示固定在本家手牌朝向桌心的一侧，不再随牌河拥挤、手牌数量或副露变化而游走。
-// 桌面锚点只投影一次，文字仍在平直 HUD 上显示，不改变牌体模型与热区。
+function requestActionNoticeLayout() {
+  if (actionNoticeLayoutFrame !== null) return;
+  actionNoticeLayoutFrame = requestAnimationFrame(() => {
+    actionNoticeLayoutFrame = null;
+    positionActionNotice();
+  });
+}
+
+// 只移动现有 HUD 提示；以真实投影后的牌面和界面边界找空位，不改桌面或操作热区。
 function positionActionNotice() {
-  const element = document.querySelector('.seat-action-notice:not([hidden])');
-  if (!element) return;
-  const stage = $('#game');
-  const player = Number(element.dataset.player);
-  if (player === 0) return; // 自家提示由固定的最大手牌占位定位，牌数减少时也不下移。
-  const size = parseFloat(getComputedStyle(element).width);
-  const table = $('.table');
-  const plane = tilePlane(table, stage);
-  if (!plane) return;
-  const surface = getComputedStyle(table, '::before');
-  const direction = {1:[1,0],2:[0,-1],3:[-1,0]}[player];
-  // 暗手位于桌心半径 .39、牌墙约 .29；固定提示放在两者之间的 .34 圈。
-  const px = parseFloat(surface.left) + parseFloat(surface.width) * (.5 + direction[0] * .34);
-  const py = parseFloat(surface.top) + parseFloat(surface.height) * (.5 + direction[1] * .34);
-  const m = plane.matrix, w = m[6] * px + m[7] * py + m[8];
-  const x = (m[0] * px + m[1] * py + m[2]) / w;
-  const y = (m[3] * px + m[4] * py + m[5]) / w;
-  element.style.left = `${x - size / 2 - stage.clientLeft}px`;
-  element.style.top = `${y - size / 2 - stage.clientTop}px`;
+  const notices = [...document.querySelectorAll('.seat-action-notice:not([hidden])')];
+  if (!notices.length) return;
+  const stage = $('#game'), stageBox = stage.getBoundingClientRect();
+  const visible = node => {
+    const style = getComputedStyle(node);
+    return node.getClientRects().length && style.display !== 'none' && style.visibility !== 'hidden' &&
+      (node.id !== 'toast' || node.classList.contains('visible') || Number(style.opacity) > 0);
+  };
+  const rect = node => {
+    const box = node.getBoundingClientRect();
+    return {left:box.left-stageBox.left-stage.clientLeft, top:box.top-stageBox.top-stage.clientTop, width:box.width, height:box.height};
+  };
+  const obstacles = [...document.querySelectorAll(ACTION_NOTICE_OBSTACLES)].filter(visible).map(node => {
+    const box = rect(node);
+    // 选牌抬起使用 transform，不触发 ResizeObserver；提前为整个抬起过程留空间。
+    const lift = node.matches('#hand button') ? stageBox.height * .019 : 0;
+    return {...box, top:box.top-lift, height:box.height+lift};
+  });
+  const occupied = [];
+  const clamp = (value, low, high) => Math.max(low, Math.min(value, high));
+  for (const element of notices) {
+    const player = Number(element.dataset.player);
+    const width = element.offsetWidth, height = element.offsetHeight;
+    const gap = Math.max(6, parseFloat(getComputedStyle(element).fontSize) * .16);
+    const minX = gap, maxX = stage.clientWidth-width-gap;
+    const minY = gap, maxY = stage.clientHeight-height-gap;
+    const tiles = [...document.querySelectorAll(player === 0 ? '#hand button' : `#backs-${player} .back,#backs-${player} .tile`)].filter(visible).map(rect);
+    const anchor = tiles.length ? {
+      left:Math.min(...tiles.map(box=>box.left)), top:Math.min(...tiles.map(box=>box.top)),
+      right:Math.max(...tiles.map(box=>box.left+box.width)), bottom:Math.max(...tiles.map(box=>box.top+box.height)),
+    } : (() => { const box = rect($(`#opponent-${player}`)); return {...box,right:box.left+box.width,bottom:box.top+box.height}; })();
+    const preferred = {left:(anchor.left+anchor.right-width)/2, top:(anchor.top+anchor.bottom-height)/2};
+    if (player === 0) preferred.top = anchor.top-stageBox.height*.019-height-gap;
+    else if (player === 1) preferred.left = anchor.left-width-gap;
+    else if (player === 2) preferred.top = anchor.bottom+gap;
+    else preferred.left = anchor.right+gap;
+    const blocked = [...obstacles,...occupied].map(box => ({left:box.left-gap, top:box.top-gap, right:box.left+box.width+gap, bottom:box.top+box.height+gap}));
+    // 空位的纵向边界必来自画布或某个障碍物；逐行合并横向禁区，避免固定网格漏掉窄空隙。
+    const rows = new Set([preferred.top,minY,maxY,...blocked.flatMap(box=>[box.top-height,box.bottom])].map(y=>clamp(y,minY,maxY)));
+    let placed = null, distance = Infinity;
+    const consider = (left, top) => {
+      const score = (left-preferred.left)**2 + (top-preferred.top)**2;
+      if (score < distance) { distance = score; placed = {left,top,width,height}; }
+    };
+    for (const top of rows) {
+      if ((top-preferred.top)**2 > distance) continue;
+      const intervals = blocked.filter(box=>box.top < top+height && box.bottom > top)
+        .map(box=>[box.left-width,box.right]).sort((a,b)=>a[0]-b[0]);
+      let cursor = minX;
+      for (const [left,right] of intervals) {
+        if (right <= cursor) continue;
+        if (left > cursor) consider(clamp(preferred.left,cursor,Math.min(left,maxX)),top);
+        cursor = Math.max(cursor,right);
+        if (cursor > maxX) break;
+      }
+      if (cursor <= maxX) consider(clamp(preferred.left,cursor,maxX),top);
+    }
+    // 防御性处理没有可用空位的宿主尺寸；不通过隐藏提示或缩小文字掩盖空间不足。
+    placed ||= {left:clamp(preferred.left,minX,maxX),top:clamp(preferred.top,minY,maxY),width,height};
+    element.style.left = `${placed.left}px`;
+    element.style.top = `${placed.top}px`;
+    occupied.push(placed);
+  }
 }
 
 // The server announces only completed public actions. Repeated snapshots of
@@ -993,7 +1053,13 @@ function renderActionNotice() {
   }
   positionActionNotice();
   if (visible && Number.isFinite(actionNoticeDeadline)) {
-    actionNoticeTimer = setTimeout(renderActionNotice, Math.max(1, actionNoticeDeadline - Date.now()));
+    const key = actionNoticeKey;
+    const timer = setTimeout(() => {
+      if (actionNoticeTimer !== timer || actionNoticeKey !== key) return;
+      actionNoticeTimer = null;
+      renderActionNotice();
+    }, Math.max(1, actionNoticeDeadline - Date.now()));
+    actionNoticeTimer = timer;
   }
 }
 
@@ -1491,7 +1557,7 @@ $('#room-dialog').addEventListener('cancel', event => {
 $('#room-dialog').addEventListener('close', render);
 roomChanged();
 const actionNoticeLayout = new ResizeObserver(positionOverlays);
-for (const element of [$('#game'), ...document.querySelectorAll('.opponent-rack,.hand-zone')]) actionNoticeLayout.observe(element);
+for (const element of [$('#game'), ...document.querySelectorAll('.opponent-rack,.hand-zone,#hand,#hint-details,.action-zone')]) actionNoticeLayout.observe(element);
 document.fonts.ready.then(positionOverlays);
 openModal('#room-dialog');
 network.restore();

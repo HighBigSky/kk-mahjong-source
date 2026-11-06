@@ -345,26 +345,32 @@
   justify-content:center;
 }
 
-/* 各座位提示固定在手牌前方；粗体与深色描边保证绿色绒布上也能看清。 */
+/* 动作成功后的四席 HUD 提示；动作色集中管理，座位只影响锚点。 */
 :root {
   --seat-action-size:6cqw;
   --seat-action-font-size:5.6cqw;
   --seat-action-chi:#9fd9b3;
   --seat-action-peng:#9bcce7;
   --seat-action-gang:#f1cf83;
-  --seat-action-hu:#ff9385;
+  --seat-action-hu:#e64b3c;
 }
 
 .seat-action-notice {
   position:absolute;
-  z-index:4;
+  z-index:7;
   display:grid;
   place-items:center;
+  box-sizing:border-box;
   margin:0;
-  padding:0;
+  padding:.12em .16em .2em;
+  overflow:visible;
+  white-space:nowrap;
   font:900 var(--seat-action-font-size)/1 "Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
   text-align:center;
   letter-spacing:0;
+  color:var(--seat-action-ink,var(--cream));
+  -webkit-text-fill-color:currentColor;
+  background:none;
   -webkit-text-stroke:.055em #102e25;
   paint-order:stroke fill;
   text-shadow:0 1px 0 #001c18,0 2px 3px #001611cc;
@@ -373,7 +379,7 @@
 }
 
 .seat-action-notice[hidden] { display:none; }
-.seat-action-notice[data-kind="chi"] { color:var(--seat-action-chi); }
-.seat-action-notice[data-kind="peng"] { color:var(--seat-action-peng); }
-.seat-action-notice[data-kind="gang"] { color:var(--seat-action-gang); }
-.seat-action-notice[data-kind="hu"] { color:var(--seat-action-hu); }
+.seat-action-notice[data-kind="chi"] { --seat-action-ink:var(--seat-action-chi); }
+.seat-action-notice[data-kind="peng"] { --seat-action-ink:var(--seat-action-peng); }
+.seat-action-notice[data-kind="gang"] { --seat-action-ink:var(--seat-action-gang); }
+.seat-action-notice[data-kind="hu"] { --seat-action-ink:var(--seat-action-hu); }
