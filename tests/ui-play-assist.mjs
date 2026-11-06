@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -24,7 +25,7 @@ try{
   await page.locator('#room-name').fill('交互验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
   const room=service.rooms.get((await page.locator('#room-current-code').textContent()).trim());
   for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-  await page.locator('#room-ready').click();await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});
+  await ensureReady(page);await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});
   const sync=async()=>{await page.waitForFunction(version=>window.mahjongRoom.room.version>=version&&!window.mahjongRoom.busy,room.version);await page.waitForTimeout(40);};
   const publish=async (game,{sameRound=false}={})=>{clearTimeout(room.botTimer);room.botTimer=null;game.round=room.game.round+(sameRound?0:1);assertInvariants(game);room.game=game;service._changed(room);await sync();if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();sent=[];};
   const tap=async locator=>touch?locator.tap():locator.click();
@@ -226,7 +227,7 @@ try{
   await page.locator('#room-name').fill('换房提示验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
   const nextRoom=service.rooms.get((await page.locator('#room-current-code').textContent()).trim());assert.notEqual(nextRoom.code,room.code);
   for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-  await page.locator('#room-ready').click();await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});
+  await ensureReady(page);await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});
   const nextReady=readyGame();nextReady.round=nextRoom.game.round+1;assertInvariants(nextReady);nextRoom.game=nextReady;clearTimeout(nextRoom.botTimer);nextRoom.botTimer=null;service._changed(nextRoom);
   await page.waitForFunction(v=>window.mahjongRoom.room?.version>=v&&!window.mahjongRoom.busy,nextRoom.version);
   if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();

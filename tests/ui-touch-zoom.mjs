@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -38,7 +39,7 @@ try {
   await page.locator('#room-waiting:not([hidden])').waitFor();
   const room = service.rooms.get((await page.locator('#room-current-code').textContent()).trim());
   for (const seat of [1,2,3]) await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-  await page.locator('#room-ready').click(); await page.locator('#room-start').click();
+  await ensureReady(page); await page.locator('#room-start').click();
   await page.locator('#room-dialog').waitFor({state:'hidden'});
   const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const measure = () => page.evaluate(() => ({scale:visualViewport.scale, width:document.querySelector('#game').clientWidth, height:document.querySelector('#game').clientHeight}));

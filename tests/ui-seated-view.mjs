@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {RIVER_LAYOUT,riverCell} from '../src/ui/river-layout.js';
 import { once } from 'node:events';
@@ -63,7 +64,7 @@ async function createPlayer(size) {
   await page.locator('#room-waiting:not([hidden])').waitFor();
   const room = service.rooms.get((await page.locator('#room-current-code').textContent()).trim());
   for (const seat of [1, 2, 3]) await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-  await page.locator('#room-ready').click();
+  await ensureReady(page);
   await page.locator('#room-start').click();
   await page.locator('#room-dialog').waitFor({ state: 'hidden' });
   const sync = async () => {

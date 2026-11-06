@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -39,7 +40,7 @@ try{
     const page=await context.newPage(),cdp=await context.newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});page.on('pageerror',error=>report.errors.push(error.message));
     try{
       await page.goto(base,{waitUntil:'networkidle'});await page.locator('#room-name').fill('紧凑手牌无截图验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
-      for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();await page.locator('#room-ready').click();await page.locator('#room-start').click();
+      for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();await ensureReady(page);await page.locator('#room-start').click();
       // 公网请求尚未返回时骰子层也处于 hidden；必须先等真实对局快照和横屏牌区出现。
       await page.locator('#room-dialog').waitFor({state:'hidden'});
       await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&document.querySelector('#game').classList.contains('is-landscape')&&document.querySelector('#hand button')?.getBoundingClientRect().width>0&&document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));await page.evaluate(()=>window.mahjongRoom.destroy());

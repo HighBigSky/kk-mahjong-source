@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -65,7 +66,7 @@ try{
   }
   const restored=await player('activation',true);await create(restored);await restored.reload({waitUntil:'domcontentloaded'});
   await until(()=>restored.evaluate(()=>window.mahjongRoom?.status==='connected'&&document.documentElement.classList.contains('fullscreen-fallback')),'restored room has safe fallback without activation');
-  await restored.locator('#room-ready').click();await until(()=>restored.evaluate(()=>document.fullscreenElement===document.documentElement),'ordinary room interaction restores fullscreen');await leave(restored);
+  await ensureReady(restored);await until(()=>restored.evaluate(()=>document.fullscreenElement===document.documentElement),'ordinary room interaction restores fullscreen');await leave(restored);
   report.fullscreen.push({restoreAttempt:true,rejectedWithoutActivation:true,recoveredOnOrdinaryGesture:true});
   const late=await player('late',false);await create(late);await leave(late);await late.evaluate(()=>window.__resolveFullscreen());await frames(late);
   assert.equal(await late.evaluate(()=>Boolean(document.fullscreenElement)),false,'late fullscreen resolution cannot leak after leaving');report.fullscreen.push({lateResolutionAfterLeave:true,fullscreenLeak:false});
@@ -75,7 +76,7 @@ try{
   const page=await player('reject',true);await page.setViewportSize({width:640,height:360});await create(page);
   const code=(await page.locator('#room-current-code').textContent()).trim(),room=service.rooms.get(code);
   for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-  await page.locator('#room-ready').click();await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});
+  await ensureReady(page);await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});
   await until(()=>page.evaluate(()=>window.mahjongRoom.room?.status==='playing'&&!window.mahjongRoom.busy),'game entered');
   if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();
   for(const viewport of [{width:640,height:360},{width:844,height:390},{width:1920,height:1080}]){

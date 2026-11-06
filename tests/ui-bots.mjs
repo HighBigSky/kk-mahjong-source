@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
@@ -223,7 +224,7 @@ async function clickCommand(page, room, command) {
 
 async function startRoom(owner, room, humans = [owner]) {
   for (const page of humans) await page.setViewportSize({ width: 844, height: 390 });
-  for (const page of humans) await page.locator('#room-ready:enabled').click();
+  for (const page of humans) await ensureReady(page);
   await waitFor(() => room.seats.every(seat => seat?.ready && seat.connected), 'humans and bots ready');
   await owner.locator('#room-start:enabled').click();
   await waitFor(() => !!room.game, 'game started');

@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
@@ -231,7 +232,7 @@ try {
     await page.locator(`.room-bot-add[data-seat="${seat}"]:visible:enabled`).click();
     await until(() => room.seats[seat]?.bot, `bot ${seat} added`);
   }
-  await page.locator('#room-ready:enabled').click();
+  await ensureReady(page);
   await until(() => room.seats.every(seat => seat?.ready), 'four seats ready');
   await page.locator('#room-start:visible:enabled').click();
   await until(() => !!room.game, 'real round started');

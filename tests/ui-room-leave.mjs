@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -83,8 +84,8 @@ try{
   let focused=false;for(let i=0;i<30;i++){await page.keyboard.press('Tab');focused=await page.locator('#room-leave').evaluate(n=>n===document.activeElement);if(focused)break;}
   assert.ok(focused,'keyboard Tab reaches the leave button');assert.equal(await page.locator('#room-leave').evaluate(n=>n.matches(':focus-visible')),true);
   const focus=(await snapshot(page)).leave;assert.match(focus.outline,/2px/);report.focus=focus;
-  const code=await page.locator('#room-current-code').textContent(),peer=await player();await peer.page.locator('#room-name').fill('离房同行验证');await peer.page.locator('#room-code').fill(code.trim());await peer.page.locator('#room-join').click();await peer.page.locator('#room-waiting:not([hidden])').waitFor();await peer.page.waitForFunction(()=>window.mahjongRoom.status==='connected'&&!window.mahjongRoom.busy);await peer.page.locator('#room-ready').click();
-  for(const seat of [2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await page.locator('#room-ready').click();await page.setViewportSize({width:640,height:360});await page.locator('#room-start:enabled').click();await page.locator('#room-dialog').waitFor({state:'hidden'});await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&!window.mahjongRoom.busy);
+  const code=await page.locator('#room-current-code').textContent(),peer=await player();await peer.page.locator('#room-name').fill('离房同行验证');await peer.page.locator('#room-code').fill(code.trim());await peer.page.locator('#room-join').click();await peer.page.locator('#room-waiting:not([hidden])').waitFor();await peer.page.waitForFunction(()=>window.mahjongRoom.status==='connected'&&!window.mahjongRoom.busy);await ensureReady(peer.page);
+  for(const seat of [2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await ensureReady(page);await page.setViewportSize({width:640,height:360});await page.locator('#room-start:enabled').click();await page.locator('#room-dialog').waitFor({state:'hidden'});await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&!window.mahjongRoom.busy);
   await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
   await page.locator('#settings-btn').click();await page.locator('#settings-home').click();await page.locator('#room-dialog[open]').waitFor();
   for(const viewport of [{width:640,height:360},{width:844,height:390},{width:1920,height:1080}])await compare(page,'playing',viewport);

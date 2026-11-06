@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -49,7 +50,7 @@ function verify(before,after,pair){
   for(const die of after.dice){const casts=split(die.shadow).filter(s=>!s.includes('inset'));assert.equal(casts.length,1);const [x,y,b,spread]=[...casts[0].matchAll(/(-?[\d.]+)px/g)].map(m=>Number(m[1])),extent=3*b+spread,[dx,dy,dw,dh]=die.rect;assert.ok(x<0&&y>0);assert.ok(dx+x-extent>=px&&dx+dw+x+extent<=px+pw&&dy+y-extent>=py&&dy+dh+y+extent<=py+ph);}
 }
 try{
-  await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill('中央物件验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();for(const seat of [1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await page.locator('#room-ready').click();await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
+  await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill('中央物件验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();for(const seat of [1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await ensureReady(page);await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
   await page.evaluate(()=>{window.mahjongRoom.destroy();window.mahjongRoom.availableActions=()=>({chi:[],peng:false,gang:false,hu:false,pass:false,redGang:false,piziGang:false,wildGang:false,concealedGangs:[],addedGangs:[]});const g=window.mahjongGame;g.players.forEach((p,i)=>{p.hand=Array.from({length:i?10:14},(_,n)=>n);p.discards=Array.from({length:9},(_,n)=>(n+i*9)%34);p.melds=[];p.redGangs=[];p.piziGangs=[];});window.centerWallFixture={wall:g.wall,info:{...g.wallInfo},taken:g.indicatorTaken};g.pendingDiscard=null;g.lastDiscard=null;g.lastDraw=null;g.actionNotice=null;g.events=['中央物件展示夹具'];window.renderMahjong();});
   for(const size of [{width:640,height:360},{width:844,height:390},{width:1280,height:720},{width:1920,height:1080}]){
     await page.setViewportSize(size);await frames();

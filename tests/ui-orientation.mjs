@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -110,7 +111,7 @@ try{
   assert.equal(await friend.evaluate(()=>Boolean(document.fullscreenElement)),true);await canvas(friend,'join fullscreen');
   for(const seat of[2,3])await owner.locator('.room-bot-add[data-seat="'+seat+'"]').click();
   await owner.locator('.room-bot-remove[data-seat="3"]').click();await owner.locator('.room-bot-add[data-seat="3"]').click();
-  await friend.locator('#room-ready').click();await owner.locator('#room-ready').click();await owner.locator('#room-start:enabled').waitFor();await owner.locator('#room-start').click();
+  await ensureReady(friend);await ensureReady(owner);await owner.locator('#room-start:enabled').waitFor();await owner.locator('#room-start').click();
   for(const page of[owner,friend])await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'));
   for(const size of sizes){await owner.setViewportSize(size);await canvas(owner,'game '+size.width+'x'+size.height);}
   await owner.setViewportSize({width:844,height:390});

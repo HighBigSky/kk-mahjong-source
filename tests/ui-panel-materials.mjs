@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -91,7 +92,7 @@ try {
   for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();await page.waitForFunction(()=>!window.mahjongRoom.busy&&window.mahjongRoom.room.seats.every(seat=>seat.occupied));await compare('360x640 waiting room');
   const onlineMember=await page.locator('#room-members li[data-seat="1"]').evaluate(n=>{const saved={classes:n.className,text:n.querySelector('.room-member-state').textContent};n.classList.add('is-offline');n.querySelector('.room-member-state').textContent='离线重连中';return saved;});
   await compare('waiting room offline color');await page.locator('#room-members li[data-seat="1"]').evaluate((n,saved)=>{n.className=saved.classes;n.querySelector('.room-member-state').textContent=saved.text;},onlineMember);
-  await page.locator('#room-ready').click();await page.setViewportSize({width:640,height:360});await page.locator('#room-start').click();await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&document.querySelector('#game').classList.contains('is-landscape'));await page.locator('#room-dialog').waitFor({state:'hidden'});
+  await ensureReady(page);await page.setViewportSize({width:640,height:360});await page.locator('#room-start').click();await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing'&&document.querySelector('#game').classList.contains('is-landscape'));await page.locator('#room-dialog').waitFor({state:'hidden'});
   await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
   await page.evaluate(()=>{window.mahjongRoom.destroy();window.mahjongRoom.availableActions=()=>({chi:[],peng:false,gang:false,hu:false,pass:false,redGang:false,piziGang:false,wildGang:false,concealedGangs:[],addedGangs:[]});const game=window.mahjongGame;game.current=0;game.phase={kind:'discard',seat:0};game.pendingDiscard=null;game.lastDiscard=null;game.lastDraw=null;game.actionNotice=null;game.events=['面板材质显示夹具'];window.renderMahjong();document.querySelector('.action-zone').hidden=false;for(const id of ['action-chi','action-peng','action-gang','action-hu','action-pass']){const n=document.getElementById(id);n.disabled=false;n.hidden=false;}document.querySelectorAll('.player-seat').forEach(n=>n.classList.remove('is-active'));});
   for(const size of [{width:640,height:360},{width:844,height:390},{width:1920,height:1080}]){

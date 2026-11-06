@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -32,7 +33,7 @@ async function measure(){return page.evaluate(async()=>{
 function check(data,label){assert.equal(data.fill,colors[data.kind],label+' actual fill');assert.equal(data.color,colors[data.kind]);assert.ok(data.fontSize>=20);assert.deepEqual(data.collisions,[],label+' collisions '+JSON.stringify(data));assert.deepEqual(data.clipped,[],label+' clipping');assert.equal(data.pointerEvents,'none');assert.equal(data.hitsNotice,false);assert.equal(data.otherNotices,false);assert.ok(data.ink.left>=data.stage.left-.5&&data.ink.right<=data.stage.right+.5&&data.ink.top>=data.stage.top-.5&&data.ink.bottom<=data.stage.bottom+.5);}
 try{
  await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill('动作提示审核');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();const code=(await page.locator('#room-current-code').textContent()).trim();
- for(const seat of [1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await page.locator('#room-ready').click();await page.locator('#room-start').click();await page.waitForFunction(()=>!window.mahjongRoom.room?.opening&&!window.mahjongRoom.busy&&!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'));
+ for(const seat of [1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await ensureReady(page);await page.locator('#room-start').click();await page.waitForFunction(()=>!window.mahjongRoom.room?.opening&&!window.mahjongRoom.busy&&!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'));
  await page.evaluate(()=>{window.__noticeLayoutSaved={room:structuredClone(window.mahjongRoom.room),game:JSON.parse(JSON.stringify(window.mahjongGame)),actions:window.mahjongRoom.availableActions};});
  const template=service.rooms.get(service.create({name:'投影夹具'}).room.code);for(const seat of [1,2,3])service.addBot(template.code,template.seats[0].token,{seat});template.seats[0].connected=true;template.code=code;
  const sizes=[{width:568,height:320},{width:640,height:360},{width:844,height:390},{width:1280,height:720},{width:1920,height:1080}];let id=1000000;
@@ -57,7 +58,7 @@ try{
  // 不把客户端静态夹具中的牌序或状态当成服务端交付。
  await page.evaluate(async()=>{window.mahjongRoom.availableActions=window.__noticeLayoutSaved.actions;await window.mahjongRoom.leave();});
  await page.locator('#room-entry:not([hidden])').waitFor();await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
- for(const seat of [1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await page.locator('#room-ready').click();await page.locator('#room-start').click();await page.waitForFunction(()=>!window.mahjongRoom.room?.opening&&!window.mahjongRoom.busy&&!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'));
+ for(const seat of [1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await ensureReady(page);await page.locator('#room-start').click();await page.waitForFunction(()=>!window.mahjongRoom.room?.opening&&!window.mahjongRoom.busy&&!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'));
  await page.evaluate(()=>{window.mahjongGame.actionNotice={id:2000000,player:0,kind:'peng',remainingMs:null};window.renderMahjong();});
  const index=await page.evaluate(()=>{const g=window.mahjongGame;return g.players[0].hand.findIndex(t=>t!==31&&t!==g.indicatorTile&&t!==g.wildTile);});const tile=page.locator('#hand button[data-index="'+index+'"]');await tile.click();await tile.click();await page.waitForFunction(()=>window.mahjongGame.players[0].discards.length===1);report.checks.push({realDiscardWhileNoticeVisible:true,flowNotBlocked:true});
  assert.deepEqual(report.errors,[]);assert.deepEqual(report.resources,[]);report.passed=true;

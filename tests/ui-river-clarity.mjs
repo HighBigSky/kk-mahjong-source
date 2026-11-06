@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -33,7 +34,7 @@ try {
     await page.goto(base,{waitUntil:'networkidle'});await page.locator('#room-name').fill('牌河清晰度验收');await page.locator('#room-create').click();
     await page.waitForFunction(()=>window.mahjongRoom.status==='connected');
     for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-    await page.locator('#room-ready').click();await page.locator('#room-start').click();await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing');
+    await ensureReady(page);await page.locator('#room-start').click();await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing');
     await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden);
     await page.waitForFunction(()=>!document.querySelector('#game').classList.contains('is-opening-deal'));
     const baseline=await page.evaluate(()=>{const hand=getComputedStyle(document.querySelector('#hand button')),probe=document.createElement('span');probe.className='tile';probe.style.cssText='position:absolute';document.querySelector('#river-0').append(probe);const s=getComputedStyle(probe),river=[parseFloat(s.width),parseFloat(s.height)];probe.remove();return {hand:[hand.width,hand.height],river};});

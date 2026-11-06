@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -55,7 +56,7 @@ try {
     await page.locator('#room-name').fill('读牌回归验收');await page.locator('#room-create').click();
     await page.waitForFunction(()=>window.mahjongRoom.status==='connected');
     for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-    await page.locator('#room-ready').click();await page.locator('#room-start').click();
+    await ensureReady(page);await page.locator('#room-start').click();
     await page.waitForFunction(()=>window.__speechEnvelope?.room.status==='playing');
     if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();
     await page.locator('#hand button:enabled').first().waitFor();

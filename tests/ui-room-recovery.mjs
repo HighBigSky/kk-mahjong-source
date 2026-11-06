@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -47,7 +48,7 @@ try {
     const ownerId=await identity(owner),code=ownerId.code;
     await friend.locator('#room-name').fill('重连好友');await friend.locator('#room-code').fill(code);await friend.locator('#room-join').click();await connected(friend);
     for(const seat of [2,3])await owner.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-    await friend.locator('#room-ready').click();await owner.locator('#room-ready').click();await owner.locator('#room-start').click();
+    await ensureReady(friend);await ensureReady(owner);await owner.locator('#room-start').click();
     await Promise.all([owner,friend].map(page=>page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing')));
     const room=remote?null:service.rooms.get(code),initial=room&&JSON.stringify(room.game);
     const friendId=await identity(friend),hand=await friend.evaluate(()=>[...window.mahjongGame.players[0].hand]);
@@ -88,7 +89,7 @@ try {
     if(!remote){assert.equal(room.game,null);assert.deepEqual(room.carry.scores,[1030,990,990,990]);}
     report.cases.push({size,activeLeave:true,remainingPlayersWaiting:true,identityRevoked:true});
 
-    await owner.locator('.room-bot-add[data-seat="1"]').click();await owner.locator('#room-ready').click();await owner.locator('#room-start').click();
+    await owner.locator('.room-bot-add[data-seat="1"]').click();await ensureReady(owner);await owner.locator('#room-start').click();
     await owner.waitForFunction(()=>window.mahjongRoom.room?.status==='playing');
     if(!remote)assert.deepEqual(room.game.players.map(player=>player.score),[1030,1000,990,990]);
     await lobby(owner);

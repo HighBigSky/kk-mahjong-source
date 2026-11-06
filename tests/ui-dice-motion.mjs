@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {execFileSync} from 'node:child_process';
@@ -49,7 +50,7 @@ async function open(version,size,motion='no-preference'){
  page.on('requestfailed',r=>{if(r.failure()?.errorText!=='net::ERR_ABORTED')report.resources.push({url:r.url(),error:r.failure()?.errorText});});
  await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill('骰子运动审核');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
  const code=(await page.locator('#room-current-code').textContent()).trim();
- for(const seat of[1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await page.locator('#room-ready').click();await page.locator('#room-start').click();
+ for(const seat of[1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await ensureReady(page);await page.locator('#room-start').click();
  await page.waitForFunction(()=>window.__motion.phases.length>0);
  const room=service.rooms.get(code);if(version==='before'&&room?.opening)service.openingComplete(code,room.seats[0].token,{id:room.opening.id});
  await idle(page);

@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
@@ -61,7 +62,7 @@ async function player(mobile) {
   const code = (await page.locator('#room-current-code').textContent()).trim(); const room = service.rooms.get(code);
   await until(() => room.seats[0].connected, 'owner SSE connected');
   for (const seat of [1, 2, 3]) { await page.locator(`.room-bot-add[data-seat="${seat}"]:visible:enabled`).click(); await until(() => room.seats[seat]?.bot, 'bot seated'); }
-  await page.locator('#room-ready:enabled').click(); await until(() => room.seats.every(seat => seat?.ready), 'all ready');
+  await ensureReady(page); await until(() => room.seats.every(seat => seat?.ready), 'all ready');
   await page.locator('#room-start:visible:enabled').click(); await until(() => !!room.game, 'real round begins');
   await page.locator('#room-dialog:not([open])').waitFor({ state: 'attached' });
   await until(() => page.evaluate(() => !document.querySelector('#game').classList.contains('is-dice-intro') && (!document.querySelector('#dice-intro') || document.querySelector('#dice-intro').hidden)), 'opening dice overlay finishes');

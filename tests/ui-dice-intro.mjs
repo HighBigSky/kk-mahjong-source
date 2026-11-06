@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -63,7 +64,7 @@ async function setup(size,reducedMotion='no-preference',startHidden=false){
   await page.locator('#room-waiting:not([hidden])').waitFor();
   const code=(await page.locator('#room-current-code').textContent()).trim();
   for(const seat of[1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-  await page.locator('#room-ready').click();await page.locator('#room-start').click();
+  await ensureReady(page);await page.locator('#room-start').click();
   await page.waitForFunction(()=>window.mahjongRoom.room?.status==='playing');
   return {page,context,actions,room:service.rooms.get(code)};
 }

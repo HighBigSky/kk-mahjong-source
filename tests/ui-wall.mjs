@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {installVisualGeometry} from './browser-geometry.mjs';
 import { once } from 'node:events';
@@ -68,7 +69,7 @@ async function createPlayingRoom(name, laizi) {
     await waitFor(() => room.version > version && room.seats[seat]?.bot, `bot ${seat} joined`);
     await synchronize(page, room);
   }
-  await page.locator('#room-ready:enabled').click();
+  await ensureReady(page);
   await waitFor(() => room.seats.every(seat => seat?.ready && seat.connected), 'all seats ready');
   await page.locator('#room-start:enabled').click();
   await waitFor(() => !!room.game, 'game started through actual room controls');

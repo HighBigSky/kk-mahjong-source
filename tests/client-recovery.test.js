@@ -116,3 +116,37 @@ test('failed leave whose stream closes resumes retry and duplicate leave submits
   assert.equal(h.client.status,'reconnecting');assert.equal(h.client.sessionCode(),identity.code);
   t.mock.timers.tick(500);assert.equal(h.streams.length,2);
 });
+
+test('pending room creation deduplicates entry and stale completion cannot revive a destroyed client',async t=>{
+ const h=harness(t);let resolve;h.pending.push(()=>new Promise(done=>{resolve=done;}));const first=h.client.create('准备人机');
+ assert.equal(h.client.busy,true);assert.equal(await h.client.create('重复入口'),false);h.client.destroy();resolve({ok:true,status:201,json:async()=>({...snapshot(),token:identity.token})});
+ assert.equal(await first,false);assert.equal(h.client.room,null);assert.equal(h.client.busy,false);assert.equal(h.streams.length,0);assert.equal(h.session.getItem(KEY),null);
+});
+
+test('ordinary and four-wild calls share one in-flight command and transmit explicit rule parameters',async t=>{
+ const h=harness(t);await h.enter();let resolve;const bodies=[];h.pending.push((_url,options)=>{bodies.push(JSON.parse(options.body));return new Promise(done=>{resolve=done;});});
+ const first=h.client.start(0);assert.equal(await h.client.start(null),false);resolve({ok:true,status:200,json:async()=>snapshot(2)});assert.equal(await first,true);
+ h.pending.push(async(_url,options)=>{bodies.push(JSON.parse(options.body));return{ok:true,status:200,json:async()=>snapshot(3)};});await h.client.start();assert.deepEqual(bodies,[{wildOwner:0},{wildOwner:null}]);
+});
+
+test('leaving during bot filling waits for the command and ignores its late state',async t=>{
+ const h=harness(t);await h.enter();let resolve;h.pending.push(()=>new Promise(done=>{resolve=done;}));const filling=h.client.ready(true),old=h.streams[0];
+ h.reply({left:true});const leaving=h.client.leave();assert.equal(await h.client.start(0),false);resolve({ok:true,status:200,json:async()=>snapshot(8)});
+ assert.equal(await filling,false);assert.equal(await leaving,true);old.emit(snapshot(9));await flush();assert.equal(h.client.room,null);assert.equal(h.client.busy,false);assert.equal(h.client.sessionCode(),null);
+});
+
+test('leaving also waits for a failed start stale-state read without applying it',async t=>{
+ const h=harness(t);await h.enter();let resolve;h.reply({error:'changed'},409);h.pending.push(()=>new Promise(done=>{resolve=done;}));const starting=h.client.start(0),rejected=assert.rejects(starting,/changed/);await flush();
+ h.reply({left:true});const leaving=h.client.leave();resolve({ok:true,status:200,json:async()=>snapshot(20)});await rejected;assert.equal(await leaving,true);assert.equal(h.client.room,null);assert.equal(h.client.busy,false);
+});
+
+test('late refresh after leaving cannot overwrite a newly entered room',async t=>{
+ const h=harness(t);await h.enter();let resolve;h.pending.push(()=>new Promise(done=>{resolve=done;}));const refresh=h.client.refresh();h.reply({left:true});await h.client.leave();
+ const newer={...snapshot(1),room:{...snapshot().room,code:'654321'},token:'b'.repeat(48)};h.reply(newer);await h.client.create('新房间');h.streams.at(-1).emit(newer);
+ resolve({ok:true,status:200,json:async()=>snapshot(99)});assert.equal(await refresh,false);assert.equal(h.client.room.code,'654321');assert.equal(h.client.sessionCode(),'654321');assert.equal(h.client.busy,false);
+});
+
+test('failed start releases busy and the next ordinary request does not inherit the rejected mode',async t=>{
+ const h=harness(t);await h.enter();h.reply({error:'unavailable'},503);await assert.rejects(h.client.start(0),/unavailable/);assert.equal(h.client.busy,false);
+ h.pending.push(async(_url,options)=>{assert.deepEqual(JSON.parse(options.body),{wildOwner:null});return{ok:true,status:200,json:async()=>snapshot(2)};});assert.equal(await h.client.start(),true);assert.equal(h.client.busy,false);
+});

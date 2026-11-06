@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -32,7 +33,7 @@ async function setup(dpr) {
   await page.goto(`http://127.0.0.1:${server.address().port}`,{waitUntil:'networkidle'});
   await page.locator('#room-name').fill(`牌面质感${dpr}x`);await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
   for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-  await page.locator('#room-ready').click();await page.locator('#room-start').click();
+  await ensureReady(page);await page.locator('#room-start').click();
   await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
   await page.evaluate(()=>{window.mahjongRoom.destroy();const game=window.mahjongGame;game.players.forEach(player=>{player.hand=[0,9,18,27,31,32,33,1,2,3,4,5,6,7];player.discards=[0,9,18,27,31,32,33,1,2];player.redGangs=[];player.piziGangs=[];player.melds=[{kind:'peng',tiles:[20,20,20],from:1,concealed:false}];});game.current=0;game.phase={kind:'discard',seat:0};game.pendingDiscard=null;game.lastDiscard=null;game.lastDraw=null;game.actionNotice=null;game.events=['牌面质感与清晰度展示夹具'];window.renderMahjong();});
   await settle(page);return {context,page};

@@ -76,7 +76,7 @@ html.landscape-app .room-modal .room-invite .secondary-button { min-height:32px;
 .room-bot-button:focus-visible { outline:2px solid var(--gold-light); outline-offset:2px; }
 .room-play-controls { display:flex; align-items:stretch; gap:var(--room-gap); }
 .room-play-controls>button { flex:1; }
-.room-play-controls>#room-ready { flex:0 0 auto; }
+.room-play-controls>#room-ready { flex:0 0 auto; width:auto; min-width:calc(4em + 24px); }
 .room-start-options { flex:1; min-width:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--room-gap); }
 .room-start-options button { display:grid; align-content:center; justify-items:center; gap:2px; width:100%; height:100%; }
 .room-start-options small { font-size:clamp(9px,calc(var(--room-unit) * 2.5),11px); font-weight:400; opacity:.82; line-height:1.2; }

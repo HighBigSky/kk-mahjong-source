@@ -258,11 +258,13 @@ function updateRoom() {
   $('#room-ready').textContent = room.status !== 'waiting' ? '已开局' : room.seats[0].ready ? '取消准备' : '准备';
   $('#room-start').hidden = room.owner !== 0 || room.status !== 'waiting';
   $('#room-start').disabled = busy || !connected || !canStart;
-  $('#room-start-label').textContent = roomStartPending ? '处理中…' : '开始游戏';
+  $('#room-start-label').textContent = roomStartPending?.wildOwner === null ? '启动中…' : '开始游戏';
   const fourWildsReady = connected && !botPreparation && room.fourWildsReady === true && canChooseFourWilds(room);
   $('#room-four-wilds').hidden = !fourWildsReady || busy && !roomStartPending;
   $('#room-four-wilds').disabled = busy || !fourWildsReady;
-  $('#room-four-wilds-label').textContent = roomStartPending ? '处理中…' : '四癞子爽局';
+  $('#room-four-wilds-label').textContent = roomStartPending && roomStartPending.wildOwner !== null ? '启动中…' : '四癞子爽局';
+  $('#room-start').setAttribute('aria-busy',String(roomStartPending?.wildOwner === null));
+  $('#room-four-wilds').setAttribute('aria-busy',String(Boolean(roomStartPending && roomStartPending.wildOwner !== null)));
   $('#room-leave').disabled = busy && !botPreparation;
   $('#room-leave').title = room.status === 'playing' ? '离开并中止本局，其他玩家返回等待房间' : '离开房间';
   for (let index = 0; index < 4; index++) {

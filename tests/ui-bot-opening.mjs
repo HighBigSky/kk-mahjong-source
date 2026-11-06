@@ -1,3 +1,4 @@
+import {ensureReady} from './ui-ready.mjs';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {createRequire} from 'node:module';
@@ -5,7 +6,7 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
-const output='output/bot-review-20261106';mkdirSync(output,{recursive:true});
+const output=process.env.KK_UI_OUTPUT||'output/bot-review-20261106';mkdirSync(output,{recursive:true});
 const service=new RoomService(),server=createServer({roomService:service});server.listen(0,'127.0.0.1');await once(server,'listening');
 const target=process.env.KK_UI_TARGET_URL||'http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'}),contexts=[];
@@ -37,7 +38,7 @@ try{
  const owner=await player('审核房主',!process.env.KK_UI_TARGET_URL),friend=await player('审核好友');
  await owner.locator('#room-create').click();await owner.locator('#room-waiting:not([hidden])').waitFor();const code=(await owner.locator('#room-current-code').textContent()).trim();
  await owner.locator('.room-bot-add[data-seat="1"]').click();await friend.locator('#room-code').fill(code);await friend.locator('#room-join').click();await friend.locator('#room-waiting:not([hidden])').waitFor();await owner.locator('.room-bot-add[data-seat="3"]').click();
- await friend.locator('#room-ready').click();await owner.locator('#room-ready').click();await owner.waitForTimeout(900);
+ await ensureReady(friend);await ensureReady(owner);await owner.waitForTimeout(900);
  const waiting=await fresh(owner);assert.equal(waiting.room.status,'waiting');assert.equal(waiting.state,null);report.checks.push({waitingNoGameOrActions:true});
  await friend.evaluate(()=>{window.__holdDeal=true;});await owner.locator('#room-start:enabled').click();
  await friend.waitForFunction(()=>document.querySelector('#opening-deal').dataset.phase==='running');
@@ -46,7 +47,7 @@ try{
  await formal(owner);await formal(friend);assert.equal(await friend.locator('.deal-flight').count(),0);report.checks.push({slowPeerClearsExpiredOpening:true,ownerCompletionAfterPresentation:await requestsAfterPresentation(owner),retryRecovered:!process.env.KK_UI_TARGET_URL});
  const index=await owner.evaluate(()=>{const g=window.mahjongGame;return g.players[0].hand.findIndex(t=>t!==31&&t!==g.indicatorTile&&t!==g.wildTile);});
  const tile=owner.locator('#hand button[data-index="'+index+'"]');await tile.click();await tile.click();await owner.waitForFunction(()=>window.mahjongGame.players[0].discards.length===1);await friend.waitForFunction(()=>window.mahjongGame.players.find(p=>p.name==='审核房主').discards.length===1);report.checks.push({humanDealerFirst:true,realDiscardAndPeerMessage:true});
- await leave(friend);await owner.locator('#room-waiting:not([hidden])').waitFor();await owner.locator('.room-bot-add[data-seat="2"]').click();await owner.locator('#room-ready').click();
+ await leave(friend);await owner.locator('#room-waiting:not([hidden])').waitFor();await owner.locator('.room-bot-add[data-seat="2"]').click();await ensureReady(owner);
  await owner.evaluate(()=>{window.__holdDeal=true;window.__held=[];});await owner.locator('#room-start:enabled').click();
  await owner.waitForFunction(()=>window.mahjongGame.round===2&&window.mahjongGame.phase.kind==='dealing');const start=await fresh(owner);assert.equal(start.state.dealer,1);assert.equal(start.room.seats[1].bot,true);
  await owner.waitForFunction(()=>document.querySelector('#opening-deal').dataset.phase==='running');await owner.waitForTimeout(850);
@@ -55,7 +56,7 @@ try{
  await formal(owner);await owner.waitForFunction(()=>{const g=window.mahjongGame,p=g.players[1];return p.discards.length||p.redGangs.length||p.piziGangs.length||p.melds.length||g.winner===1;});
  const acted=await fresh(owner);assert.equal(acted.room.opening,null);assert.notEqual(acted.state.phase.kind,'dealing');await requestsAfterPresentation(owner);report.checks.push({botDealerPreserved:true,botHeldUntilOpeningComplete:true,legalBotFirstAction:true});
  await leave(owner);
- await owner.locator('#room-create').click();await owner.locator('#room-waiting:not([hidden])').waitFor();for(const seat of[1,2,3])await owner.locator('.room-bot-add[data-seat="'+seat+'"]').click();await owner.locator('#room-ready').click();await owner.locator('#room-start').click();
+ await owner.locator('#room-create').click();await owner.locator('#room-waiting:not([hidden])').waitFor();for(const seat of[1,2,3])await owner.locator('.room-bot-add[data-seat="'+seat+'"]').click();await ensureReady(owner);await owner.locator('#room-start').click();
  await owner.waitForFunction(()=>window.mahjongGame.phase.kind==='dealing'&&document.querySelector('#game').classList.contains('is-dice-intro'));await owner.reload({waitUntil:'networkidle'});await formal(owner);assert.equal(await owner.locator('#hand button:enabled').count(),14);report.checks.push({reloadDuringOpeningRecovers:true,noReplayOrStuckInput:true});
  if(!process.env.KK_UI_TARGET_URL){
   const currentCode=(await fresh(owner)).room.code,room=service.rooms.get(currentCode),pair=[...room.game.wallInfo.dice],round=room.game.round;
