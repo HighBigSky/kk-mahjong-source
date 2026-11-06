@@ -117,7 +117,7 @@ test('a disconnected voice seat is cleared after the grace period and the HTTP v
   });
 
   const created = await (await fetch(`${base}/api/rooms`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '语音房主' }),
+    method: 'POST', headers: {'X-KK-Opening':'1', 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '语音房主' }),
   })).json();
   const code = created.room.code;
   const configResponse = await fetch(`${base}/api/rooms/${code}/voice`, { headers: { Authorization: `Bearer ${created.token}` } });

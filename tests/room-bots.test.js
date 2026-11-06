@@ -45,7 +45,9 @@ function roomHarness(t, { humans = 1, ...options } = {}) {
   const request = (player, action) => service.action(code, tokens[player], { action, version: room.version, requestId: `human-${++sequence}` });
   const start = () => {
     for (const token of tokens) service.ready(code, token, { ready: true });
-    return service.start(code, owner.token);
+    const started=service.start(code, owner.token);
+    assert.equal(started.state.phase.kind,'dealing');
+    return service.openingComplete(code,owner.token,{id:started.room.opening.id});
   };
   return { service, code, room, tokens, streams, start, request };
 }
@@ -68,7 +70,7 @@ test('HTTP bot endpoints validate owner and seats, cannot remove humans, and nev
   t.after(async () => { service.close(); const done = once(server, 'close'); server.close(); server.closeAllConnections(); await done; });
   const base = `http://127.0.0.1:${server.address().port}`;
   async function post(path, body, token) {
-    const response = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
+    const response = await fetch(base + path, { method: 'POST', headers: {'X-KK-Opening':'1', 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
     return { status: response.status, data: await response.json() };
   }
   const owner = (await post('/api/rooms', { name: '房主' })).data;
@@ -104,6 +106,9 @@ test('bots count toward four ready seats; only the waiting room permits bot edit
   const next = h.service.next(h.code, h.tokens[0]);
   assert.equal(next.state.round, 2);
   assert.equal(next.state.current, 1, 'the next round may begin with a bot dealer');
+  assert.equal(next.state.phase.kind,'dealing');
+  assert.equal(h.room.botTimer,null,'bot dealer waits for the authoritative opening completion');
+  h.service.openingComplete(h.code,h.tokens[0],{id:next.room.opening.id});
   assert.ok(h.room.botTimer);
 });
 

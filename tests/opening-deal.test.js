@@ -49,3 +49,14 @@ test('开局检测不改变发牌，普通消息、杠后补牌和中途重连�
     assertInvariants(game);
   }
 });
+
+test('权威开局阶段允许展示，正式放行后即使尚无出牌也不重播', () => {
+  const game=new MahjongGame({seed:'opening-authority',laizi:true});
+  const room={status:'playing',paused:false,opening:{id:'current-opening'}};
+  game._setPhase({kind:'dealing',dealt:53});
+  assert.equal(isOpeningDeal(room,game),true);
+  game._setPhase({kind:'discard',seat:game.dealer});
+  assert.equal(isOpeningDeal({...room,opening:null},game),false);
+  assert.equal(game.players.reduce((sum,player)=>sum+player.discards.length,0),0);
+  assertInvariants(game);
+});

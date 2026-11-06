@@ -13,7 +13,7 @@ const target=process.env.KK_UI_TARGET_URL||`http://127.0.0.1:${server.address().
 const baseline=execFileSync('git',['show','83a63dd:landscape.css'],{encoding:'utf8'});
 const current=process.env.KK_UI_TARGET_URL?await(await fetch(target+'/landscape.css')).text():readFileSync('landscape.css','utf8');
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
-const output='output/dice-review-20261106';
+const output=process.env.KK_UI_OUTPUT||'output/dice-review-20261106';
 const contexts=[],report={passed:false,cases:[],errors:[],resources:[],screenshots:0};mkdirSync(output,{recursive:true});
 async function setup(size,reducedMotion='no-preference',startHidden=false){
   const context=await browser.newContext({viewport:size,hasTouch:size.width<1000,reducedMotion});contexts.push(context);
@@ -76,7 +76,7 @@ async function sameGeometry(page){
     const prior=read();style.textContent=current;return {before,prior,after:read()};
   },{baseline,current});
 }
-async function idle(page){await page.waitForFunction(()=>!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'));}
+async function idle(page){await page.waitForFunction(()=>!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal')&&!window.mahjongRoom.room?.opening&&!window.mahjongRoom.busy);}
 async function trajectory(page){
   // 合成动画不依赖主线程 rAF 帧率；在不可见的中央原骰子上遍历整个周期，
   // 补足慢速公网无头浏览器的少量真实帧，不降低任何几何边界要求。
@@ -141,21 +141,21 @@ try{
     await page.reload({waitUntil:'networkidle'});await page.waitForFunction(()=>window.mahjongRoom.status==='connected');
     assert.equal(await page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0);
     if(room){
-      clearTimeout(room.botTimer);room.game.newRound('dice-live-snapshot');service._changed(room);
+      clearTimeout(room.botTimer);room.game.newRound('dice-live-snapshot');service._beginOpening(room);service._changed(room);
       await page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');
       const counts=await page.evaluate(()=>[...document.querySelectorAll('.opponent-rack .backs')].map(n=>n.children.length));
       const dealer=room.game.dealer,index=room.game.players[dealer].hand.findIndex(t=>t!==31&&t!==room.game.indicatorTile&&t!==room.game.wildTile);
-      assert.equal(room.game.discard(dealer,index),true);service._changed(room);
+      const before=JSON.stringify(room.game);assert.equal(room.game.discard(dealer,index),false);assert.equal(JSON.stringify(room.game),before);service._changed(room);
       await page.waitForFunction(version=>window.mahjongRoom.room.version>=version,room.version);
       assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('.opponent-rack .backs')].map(n=>n.children.length)),counts,'server advances while presentation keeps its opening fixture');
       await page.locator('#dice-intro').click();await idle(page);
       for(let seat=1;seat<4;seat++)assert.equal(await page.locator(`#backs-${seat} .back`).count(),room.game.players[seat].hand.length);
-      report.cases.push({size,serverAdvancedDuringRoll:true,latestSnapshotAfterDeal:true});
-      clearTimeout(room.botTimer);room.game.newRound('dice-refresh-mid-roll');service._changed(room);
+      report.cases.push({size,serverHeldDuringRoll:true,latestSnapshotAfterDeal:true});
+      clearTimeout(room.botTimer);room.game.newRound('dice-refresh-mid-roll');service._beginOpening(room);service._changed(room);
       await page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');
       await page.reload({waitUntil:'networkidle'});await page.waitForFunction(()=>window.mahjongRoom.status==='connected');
       assert.equal(await page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'refresh mid-roll never replays either animation');
-      clearTimeout(room.botTimer);room.game.newRound('dice-reconnect-mid-roll');service._changed(room);
+      clearTimeout(room.botTimer);room.game.newRound('dice-reconnect-mid-roll');service._beginOpening(room);service._changed(room);
       await page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');
       await page.evaluate(()=>window.mahjongRoom.reconnect());await page.waitForFunction(()=>window.mahjongRoom.status==='connected');
       assert.equal(await page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0,'reconnect mid-roll clears lock without replay');
@@ -193,7 +193,7 @@ try{
   assert.equal(await hidden.page.locator('#dice-intro').isVisible(),false);
   assert.equal(await hidden.page.locator('#hand button:enabled').count(),0);
   const hiddenMarkers=await hidden.page.evaluate(()=>{
-    const room=window.mahjongRoom.room,key=`${room.code}:${window.mahjongGame.round}:${window.mahjongGame.wallInfo.dice.join(',')}`;
+    const room=window.mahjongRoom.room,key=`${room.code}:${window.mahjongGame.round}:${window.mahjongGame.wallInfo.dice.join(',')}:${room.opening.id}`;
     return {key,pending:JSON.parse(sessionStorage.getItem('kk-dice-intro-pending')||'[]'),seen:JSON.parse(sessionStorage.getItem('kk-dice-intro-seen')||'[]')};
   });
   assert.ok(hiddenMarkers.pending.includes(hiddenMarkers.key),'hidden start writes a pending marker instead of a seen marker');
@@ -222,7 +222,7 @@ try{
   // 直接推进服务端快照的用例仅在本地运行；公网仍验证后台恢复与去重。
   if(hidden.room){
   // 换局后重新播放一次：刷新后页面仍处于隐藏状态，新局写待播，恢复可见再补播。
-  clearTimeout(hidden.room.botTimer);hidden.room.game.newRound('dice-hidden-new-round');service._changed(hidden.room);
+  clearTimeout(hidden.room.botTimer);hidden.room.game.newRound('dice-hidden-new-round');service._beginOpening(hidden.room);service._changed(hidden.room);
   await hidden.page.waitForFunction(version=>window.mahjongRoom.room.version>=version,hidden.room.version);
   assert.equal(await hidden.page.locator('#game.is-dice-intro,#game.is-opening-deal').count(),0);
   await hidden.page.evaluate(()=>{
@@ -239,8 +239,10 @@ try{
     Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'hidden'});
     Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});
   });
-  clearTimeout(hidden.room.botTimer);hidden.room.game.newRound('dice-hidden-progress');service._changed(hidden.room);
+  clearTimeout(hidden.room.botTimer);hidden.room.game.newRound('dice-hidden-progress');service._beginOpening(hidden.room);service._changed(hidden.room);
   await hidden.page.waitForFunction(version=>window.mahjongRoom.room.version>=version,hidden.room.version);
+  // 代表同一房主的另一个有效页面已完成开场；普通出牌仍须先经过权威放行。
+  service.openingComplete(hidden.room.code,hidden.room.seats[0].token,{id:hidden.room.opening.id});
   const hiddenDealer=hidden.room.game.dealer,hiddenIndex=hidden.room.game.players[hiddenDealer].hand.findIndex(t=>t!==31&&t!==hidden.room.game.indicatorTile&&t!==hidden.room.game.wildTile);
   assert.equal(hidden.room.game.discard(hiddenDealer,hiddenIndex),true);
   // 合法推进到自己的下一次出牌，确认跳过过期开场时会解除输入锁。

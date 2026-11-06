@@ -29,7 +29,7 @@ export function openingDealSlots(indicatorPosition = null) {
 
 /** 只接收尚未发生任何打牌或杠牌的真实开局快照，重连中途牌局不补播。 */
 export function isOpeningDeal(room, game) {
-  return room?.status === 'playing' && !room.paused && game.phase?.kind === 'discard' &&
+  return room?.status === 'playing' && room.opening!==null && !room.paused && ['dealing','discard'].includes(game.phase?.kind) &&
     Number.isInteger(game.dealer) && game.current === game.dealer &&
     game.players?.length === 4 && game.players.every((player, index) =>
       player.hand.length === (index === game.dealer ? 14 : 13) &&
@@ -79,13 +79,13 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
   }
   function prepare(room, game) {
     if (phase !== 'idle' || !isOpeningDeal(room,game)) return false;
-    const key = `${room.code}:${game.round}:${game.wallInfo.dice.join(',')}:${game.indicatorTile}`;
+    const key = `${room.code}:${game.round}:${game.wallInfo.dice.join(',')}:${game.indicatorTile}:${room.opening?.id||''}`;
     if (seen.has(key)) return false;
     // 后台未播放的开场留给恢复可见后的掷骰流程；主动减少动态效果仍按已处理去重。
     if (document.hidden) return false;
     remember(key);
     if (matchMedia('(prefers-reduced-motion: reduce)').matches || typeof layer.animate !== 'function') return false;
-    state = {key, code:room.code, round:game.round, dealer:game.dealer,
+    state = {key, code:room.code, round:game.round, openingId:room.opening?.id||null, dealer:game.dealer,
       drawnIndex:game.dealer === 0 ? game.lastDraw?.index : null, slots:openingDealSlots(game.wallInfo.indicatorPosition)};
     phase = 'waiting'; layer.dataset.phase = phase;
     stage.classList.add('is-opening-deal'); onLockChange();
@@ -182,7 +182,7 @@ export function createOpeningDeal({stage, storage = null, canPlay = () => true, 
   }
   function retain(room, game, connected = true) {
     if (phase === 'idle') return false;
-    if (!connected || room?.status !== 'playing' || room.paused || room.code !== state.code || game.round !== state.round || game.phase.kind === 'ended') {
+    if (!connected || room?.status !== 'playing' || room.paused || room.code !== state.code || game.round !== state.round || (room.opening?.id||null)!==state.openingId || game.phase.kind === 'ended') {
       finish(false); return false;
     }
     return true;

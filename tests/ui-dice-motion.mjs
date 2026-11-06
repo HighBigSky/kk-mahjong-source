@@ -7,18 +7,19 @@ import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
 
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
-const output='output/dice-review-20261106';mkdirSync(output,{recursive:true});
+const output=process.env.KK_UI_OUTPUT||'output/dice-review-20261106';mkdirSync(output,{recursive:true});
 const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});
 server.listen(0,'127.0.0.1');await once(server,'listening');
 const target=process.env.KK_UI_TARGET_URL||'http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'}),contexts=[];
-const baseline='d311bcf0a0aef97defb7cd12618f11bb797aed2d';
+const baseline='fceddc011f6f33505a9160673639088cad164341';
 const prior=new Map(['app.js','landscape.css','src/ui/opening-deal.js','src/ui/flat-opponents.js'].map(f=>[f,execFileSync('git',['show',baseline+':'+f])]));
-const report={passed:false,baseline,target,timing:[],pairs:[],lifecycle:[],errors:[],resources:[],screenshots:[],note:'Timing uses real, unmodified browser clocks and automatic completion. All 36 result-pair checks use explicit client display fixtures in one isolated local room; they do not claim naturally dealt rounds. Native CSS motion samples and actual HTTP/SSE opening flows are tested separately.'};
-const idle=page=>page.waitForFunction(()=>!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal'));
+const report={passed:false,baseline,target,timing:[],pairs:[],lifecycle:[],errors:[],resources:[],screenshots:[],note:'Real browser clocks and automatic completion. All 36 dice pairs use a controlled existing engine dice stream in isolated server rounds, not naturally sampled rounds. The frozen prior UI is explicitly released by the local controller to reproduce its former immediate-play contract.'};
+const idle=page=>page.waitForFunction(()=>!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal')&&!window.mahjongRoom.room?.opening&&!window.mahjongRoom.busy);
 
 async function open(version,size,motion='no-preference'){
  const context=await browser.newContext({viewport:size,reducedMotion:motion});contexts.push(context);
+ if(version==='before')await context.setExtraHTTPHeaders({'X-KK-Opening':'1'});
  if(version==='before')await context.route('**/*',route=>{const f=new URL(route.request().url()).pathname.slice(1),body=prior.get(f);return body?route.fulfill({body,contentType:f.endsWith('.css')?'text/css':'text/javascript'}):route.continue();});
  await context.addInitScript(()=>{
   localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));
@@ -49,7 +50,9 @@ async function open(version,size,motion='no-preference'){
  await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill('骰子运动审核');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
  const code=(await page.locator('#room-current-code').textContent()).trim();
  for(const seat of[1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await page.locator('#room-ready').click();await page.locator('#room-start').click();
- await page.waitForFunction(()=>window.__motion.phases.length>0);await idle(page);
+ await page.waitForFunction(()=>window.__motion.phases.length>0);
+ const room=service.rooms.get(code);if(version==='before'&&room?.opening)service.openingComplete(code,room.seats[0].token,{id:room.opening.id});
+ await idle(page);
  const data=await page.evaluate(()=>window.__motion),phases=data.phases;
  assert.deepEqual(phases.map(p=>p.phase),motion==='reduce'?['showing','idle']:['rolling','settled','enlarging','showing','idle']);
  assert.ok(phases.filter(p=>p.phase!=='idle').every(p=>p.enabled===0));
@@ -67,8 +70,9 @@ async function open(version,size,motion='no-preference'){
  return {page,context,room:service.rooms.get(code)};
 }
 
-async function fixture(page,pair){
- await page.evaluate(pair=>{window.renderMahjong();window.mahjongGame.round++;window.mahjongGame.wallInfo={...window.mahjongGame.wallInfo,dice:pair};window.__motion={phases:[],frames:[],deals:[],faces:[]};window.renderMahjong();},pair);
+async function fixture(page,pair,room){
+ await page.evaluate(()=>{window.__motion={phases:[],frames:[],deals:[],faces:[]};});
+ const random=room.game._diceRandom,values=[...pair];room.game._diceRandom=()=> (values.shift()-.5)/6;room.game.newRound();room.game._diceRandom=random;service._beginOpening(room);service._changed(room);
  await page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='showing');
 }
 
@@ -80,13 +84,12 @@ try{
  }
  if(!process.env.KK_UI_TARGET_URL){
   const old=await open('before',sizes[0],'reduce');await old.page.evaluate(()=>window.mahjongRoom.leave());await old.context.close();
-  for(const size of sizes){const a=report.timing.find(r=>r.version==='before'&&r.size.width===size.width&&r.motion==='no-preference'),b=report.timing.find(r=>r.version==='after'&&r.size.width===size.width);assert.ok(a.hold-b.hold>400,'hold is materially shorter');assert.ok(a.total-b.total>400,'time saved is not moved to other phases');assert.ok(b.roll<a.roll+250&&b.settled<a.settled+150&&b.enlarge<a.enlarge+150);}
+  for(const size of sizes){const a=report.timing.find(r=>r.version==='before'&&r.size.width===size.width&&r.motion==='no-preference'),b=report.timing.find(r=>r.version==='after'&&r.size.width===size.width);assert.ok(Math.abs(a.holdTimer-b.holdTimer)<250,'800ms readable hold is preserved');assert.ok(b.total<a.total+500,'authority gating adds no wait to the presentation');assert.ok(b.roll<a.roll+250&&b.settled<a.settled+150&&b.enlarge<a.enlarge+150);}
  }
  const current=await open('after',sizes[0],'reduce');await current.page.emulateMedia({reducedMotion:'no-preference'});
  if(!process.env.KK_UI_TARGET_URL){
-  await current.page.evaluate(()=>window.mahjongRoom.destroy());
   for(let first=1;first<=6;first++)for(let second=1;second<=6;second++){
-   const pair=[first,second];await fixture(current.page,pair);
+   const pair=[first,second];await fixture(current.page,pair,current.room);
    const result=await current.page.evaluate(()=>{
     const read=selector=>[...document.querySelector(selector).children].map(n=>({value:n.children.length,points:[...n.children].map(p=>p.style.gridArea).sort(),key:n.classList.contains('is-key'),transform:getComputedStyle(n).transform}));
     return{central:read('#table-dice'),shown:read('#dice-intro-dice'),truth:window.mahjongGame.wallInfo.dice,history:window.__motion.phases,frames:window.__motion.frames};
@@ -104,10 +107,10 @@ try{
  if(!process.env.KK_UI_TARGET_URL){
   // Real incoming round snapshots must pass through roomChanged, which cancels the previous intro.
   const live=await open('after',sizes[0]),room=live.room;
-  clearTimeout(room.botTimer);room.game.newRound('dice-cancel-first');service._changed(room);
+  clearTimeout(room.botTimer);room.game.newRound('dice-cancel-first');service._beginOpening(room);service._changed(room);
   await live.page.waitForFunction(()=>document.querySelector('#dice-intro').dataset.phase==='rolling');await live.page.waitForTimeout(180);
   await live.page.evaluate(()=>{window.__motion={phases:[],frames:[],deals:[],faces:[]};});
-  clearTimeout(room.botTimer);room.game.newRound('dice-cancel-replacement');service._changed(room);const nextRound=room.game.round;
+  clearTimeout(room.botTimer);room.game.newRound('dice-cancel-replacement');service._beginOpening(room);service._changed(room);const nextRound=room.game.round;
   await live.page.waitForFunction(round=>window.mahjongGame.round===round&&document.querySelector('#dice-intro').dataset.phase==='rolling',nextRound);
   await idle(live.page);const lifecycle=await live.page.evaluate(()=>window.__motion);writeFileSync(output+'/lifecycle.json',JSON.stringify(lifecycle,null,2));
   const phases=lifecycle.phases.filter(r=>r.round===nextRound);assert.deepEqual(phases.map(r=>r.phase),['rolling','settled','enlarging','showing','idle']);assert.ok(phases[1].time-phases[0].time>=1000,'replacement roll is not finished by old callbacks');assert.ok(lifecycle.frames.at(-1).dice.every((d,i)=>d.animation>=[940*.96,35+965*.96][i]),'each CSS track reaches its own settled tail before cleanup');assert.equal(lifecycle.deals.length,1);report.lifecycle.push({cancelAndRestart:true,realRoundSnapshots:true,oldCallbacksIgnored:true,cssClockSettled:true,dealOnce:true});

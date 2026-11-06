@@ -44,7 +44,7 @@ export class RoomService {
     do { code = String(randomInt(100000, 1000000)); } while (this.rooms.has(code));
     const seat = this._newSeat(name);
     const room = { code, owner:0, seats:[seat, null, null, null], laizi, game:null, version:1, touched:this.now(), botTimer:null, botTask:null,
-      actionNotice:null, _actionNoticeId:0, _actionState:null };
+      opening:null, completedOpening:null, actionNotice:null, _actionNoticeId:0, _actionState:null };
     this.rooms.set(code, room);
     return { token:seat.token, ...this.snapshot(room, 0) };
   }
@@ -186,6 +186,7 @@ export class RoomService {
     this._cancelBot(room);
     room.game = new MahjongGame({ seed:randomBytes(24).toString('hex'), names:room.seats.map(seat => seat.name), laizi:room.laizi });
     this._restoreCarry(room);
+    this._beginOpening(room);
     this._changed(room);
     return this.snapshot(room, player);
   }
@@ -197,8 +198,25 @@ export class RoomService {
     this._canStart(room);
     this._cancelBot(room);
     room.game.newRound();
+    this._beginOpening(room);
     this._changed(room);
     return this.snapshot(room, player);
+  }
+
+  /** 房主的开场结束放行，不等待其他客户端；旧局通知不能放行新局。 */
+  openingComplete(code, token, { id } = {}) {
+    const {room, player} = this.authenticate(code, token);
+    this._owner(room, player);
+    if (typeof id !== 'string' || !/^[a-f0-9]{24}$/.test(id)) fail(400, 'INVALID_OPENING', '开局标识无效。');
+    const previous=room.completedOpening,game=room.game;
+    if (previous?.id===id && game===previous.game && game.round===previous.round && game.wallInfo===previous.wallInfo) return this.snapshot(room,player);
+    if (!this._openingValid(room) || room.opening.id!==id) fail(409, 'STALE_OPENING', '本次开局已失效，请等待最新牌局。');
+    if (room.seats.some(seat=>!seat?.connected)) fail(409, 'PLAYER_DISCONNECTED', '有好友掉线，对局已暂停；好友重连后继续。');
+    room.completedOpening=room.opening;
+    room.opening=null;
+    game._setPhase({kind:'discard',seat:game.dealer});
+    this._changed(room);
+    return this.snapshot(room,player);
   }
 
   action(code, token, { action, version, requestId } = {}) {
@@ -285,6 +303,7 @@ export class RoomService {
       code:room.code, self:0, seat:viewer, owner:relative(room.owner, viewer), version:room.version,
       status:room.game ? room.game.phase.kind === 'ended' ? 'ended' : 'playing' : 'waiting',
       laizi:room.laizi, paused,
+      opening:this._openingValid(room)?{id:room.opening.id,round:room.opening.round}:null,
       seats:rotate(room.seats, viewer).map(seat => ({name:seat?.name || '等待好友', occupied:!!seat, connected:!!seat?.connected, voice:!!seat?.voice, ready:!!seat?.ready, bot:!!seat?.bot})),
     };
     if (!room.game) return {room:roomView, state:null};
@@ -354,6 +373,7 @@ export class RoomService {
     if (this.rooms.get(room.code) !== room) return;
     this.rooms.delete(room.code);
     this._cancelBot(room);
+    room.opening=null;room.completedOpening=null;
     for (const seat of room.seats) if (seat) {
       this._clearDisconnect(seat);
       seat.connected = false;
@@ -366,6 +386,7 @@ export class RoomService {
   /** 中止或清空对局前，暂存各绝对座位的已结算积分与局数，供下一次开局恢复。 */
   _carryGame(room) {
     this._cancelBot(room);
+    room.opening=null;room.completedOpening=null;
     if (!room.game) return;
     room.carry = {scores:room.game.players.map(member => member.score), round:room.game.round};
     room.game = null;
@@ -382,6 +403,19 @@ export class RoomService {
     }
   }
   _owner(room, player) { if (room.owner !== player) fail(403, 'OWNER_ONLY', '仅房主可以操作。'); }
+  _openingValid(room) {
+    const opening=room.opening,game=room.game;
+    return !!opening && game===opening.game && game.round===opening.round && game.wallInfo===opening.wallInfo &&
+      game.phase===opening.phase && game.phase.kind==='dealing' && game.phase.dealt===53 &&
+      game.current===game.dealer && game.pendingDiscard===null && game.result===null && game.winner===null;
+  }
+  _beginOpening(room) {
+    this._cancelBot(room);
+    const game=room.game;
+    game._setPhase({kind:'dealing',dealt:53});
+    room.opening={id:randomBytes(12).toString('hex'),game,round:game.round,wallInfo:game.wallInfo,phase:game.phase};
+    room.completedOpening=null;
+  }
   _editBot(room, player, target) {
     this._owner(room, player);
     if (room.game) fail(409, 'ALREADY_STARTED', '对局开始后不能添加或移除人机。');
@@ -393,6 +427,9 @@ export class RoomService {
     if (room.seats.some(seat => !seat.ready)) fail(409, 'NOT_READY', '请等待所有好友准备。');
   }
   _changed(room) {
+    if (room.opening && !this._openingValid(room)) room.opening=null;
+    const completed=room.completedOpening,game=room.game;
+    if (completed && (game!==completed.game || game.round!==completed.round || game.wallInfo!==completed.wallInfo)) room.completedOpening=null;
     this._updateActionNotice(room);
     room.version++; room.touched = this.now();
     for (let player = 0; player < 4; player++) for (const stream of room.seats[player]?.streams || []) this._write(stream, this.snapshot(room, player));

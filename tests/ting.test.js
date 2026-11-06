@@ -145,6 +145,7 @@ test('hints agree with authoritative self-draw and discard-claim actions for eve
       game.players[0].hand = [...fixture.hand, type];
       game.current = 0;
       game.phase = { kind: 'discard', seat: 0 };
+      game.pendingDiscard = null;
       game.lastDraw = { player: 0, tile: type, index: fixture.hand.length, replacement: false };
       assert.equal(Boolean(waitFor(hints, type)?.selfDraw), game.getActions(0).hu, `self-draw ${type}`);
       game.players[0].hand = [...fixture.hand];

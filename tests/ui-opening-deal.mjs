@@ -13,9 +13,9 @@ const server=createServer({roomService:service});
 server.listen(0,'127.0.0.1'); await once(server,'listening');
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const report={passed:false,browser:browser.version(),cases:[],errors:[],note:'Real HTTP/SSE opening rooms; browser touch emulation, not physical phones. The dice auto-dismiss timeout is held for explicit test clicks; animation timing and game state are unchanged. Server newRound/discard are used only to exercise round and snapshot boundaries.'};
-const output='output/dice-review-20261106';mkdirSync(output,{recursive:true});
+const output=process.env.KK_UI_OUTPUT||'output/dice-review-20261106';mkdirSync(output,{recursive:true});
 const frames=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-const idle=page=>page.waitForFunction(()=>!document.querySelector('#game').classList.contains('is-opening-deal')&&!document.querySelector('#game').classList.contains('is-dice-intro')&&document.querySelector('#opening-deal').children.length===0);
+const idle=page=>page.waitForFunction(()=>!document.querySelector('#game').classList.contains('is-opening-deal')&&!document.querySelector('#game').classList.contains('is-dice-intro')&&document.querySelector('#opening-deal').children.length===0&&!window.mahjongRoom.room?.opening&&!window.mahjongRoom.busy);
 async function setup(size,reducedMotion='no-preference') {
   const context=await browser.newContext({viewport:size,hasTouch:size.touch,isMobile:size.touch,reducedMotion});
   await context.addInitScript(()=>{
@@ -108,7 +108,8 @@ try {
     await idle(page); await frames(page);
     const unchangedMaterials=await page.evaluate(async()=>{const {captureTileMaterial}=await import('/src/ui/tile-material.js');const key=material=>JSON.stringify({...material,custom:Object.fromEntries(Object.entries(material.custom).sort(([a],[b])=>a.localeCompare(b)))});const differences=(a,b,prefix='')=>Object.keys({...a,...b}).flatMap(name=>{const x=a?.[name],y=b?.[name],path=prefix+name;return x&&y&&typeof x==='object'&&typeof y==='object'?differences(x,y,path+'.'):x===y?[]:[{path,after:String(x).slice(0,180),before:String(y).slice(0,180)}];});return window.__dealMaterialRecords.map(({seat,index,key:before})=>{const after=captureTileMaterial(document.querySelectorAll(seat?`#backs-${seat} .back`:'#hand button')[index]);return {seat,index,same:key(after)===before,differences:differences(after,JSON.parse(before))};});});
     assert.ok(unchangedMaterials.every(row=>row.same),'landing keeps the same material, texture, bevel, visible sides and thickness: '+JSON.stringify(unchangedMaterials.filter(row=>!row.same).slice(0,4)));
-    assert.equal(JSON.stringify(room.game),before,'动画不得修改服务端状态'); assertInvariants(room.game);
+    assert.equal(room.game.phase.kind,'discard','开场结束后由房主放行正式回合');
+    assert.equal(JSON.stringify({...room.game,phase:JSON.parse(before).phase}),before,'开场仅放行阶段，不得改变手牌、牌墙、出牌权或计分'); assertInvariants(room.game);
     assert.equal(requests.length,0,'发牌期间点击或 Enter 不得发送游戏操作');
     assert.equal(await page.locator('#hand button:enabled').count(),14);
     assert.equal(await page.locator('.deal-flight').count(),0);
@@ -123,25 +124,26 @@ try {
     assert.equal(await page.locator('#game.is-opening-deal').count(),0);
     if(await page.locator('#dice-intro').isVisible())await page.locator('#dice-intro').click();
 
-    // 下一局庄家换座：即使人机在动画期间已出牌，网络继续接收，结束后显示最新状态。
-    clearTimeout(room.botTimer); room.game.newRound('opening-animation-next'); service._changed(room);
+    // 下一局庄家换座：动画期间权威入口拒绝提前出牌，重复快照不打断动画。
+    clearTimeout(room.botTimer); room.game.newRound('opening-animation-next'); service._beginOpening(room); service._changed(room);
     await startFlight(page);
     assertBatches(await metadata(page),1);
     const countsBefore=await page.evaluate(()=>[...document.querySelectorAll('.opponent-rack .backs')].map(node=>node.children.length));
     const index=room.game.players[1].hand.findIndex(tile=>tile!==31&&tile!==room.game.indicatorTile);
-    assert.equal(room.game.discard(1,index),true); assertInvariants(room.game); service._changed(room);
+    const openingState=JSON.stringify(room.game);
+    assert.equal(room.game.discard(1,index),false); assert.equal(JSON.stringify(room.game),openingState); assertInvariants(room.game); service._changed(room);
     await page.waitForFunction(version=>window.mahjongRoom.room.version>=version,room.version);
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('.opponent-rack .backs')].map(node=>node.children.length)),countsBefore,'网络更新不得打断正在播放的发牌');
     await idle(page); await frames(page);
     for(let seat=1;seat<4;seat++)assert.equal(await page.locator(`#backs-${seat} .back`).count(),room.game.players[seat].hand.length);
     assert.equal(Number(await page.locator('#wall-count').textContent()),room.game.wall.length);
-    report.cases.push({size,nextRound:true,rotatedDealer:true,reloadDoesNotReplay:true,latestSnapshotRendered:true});
+    report.cases.push({size,nextRound:true,rotatedDealer:true,reloadDoesNotReplay:true,prematureDiscardRejected:true,latestSnapshotRendered:true});
 
-    clearTimeout(room.botTimer); room.game.newRound('opening-animation-resize'); service._changed(room);
+    clearTimeout(room.botTimer); room.game.newRound('opening-animation-resize'); service._beginOpening(room); service._changed(room);
     await startFlight(page);
     await page.setViewportSize({width:size.width-24,height:size.height});
     await idle(page); assert.equal(await page.locator('#opening-deal .deal-flight').count(),0);
-    clearTimeout(room.botTimer); room.game.newRound('opening-animation-leave'); service._changed(room);
+    clearTimeout(room.botTimer); room.game.newRound('opening-animation-leave'); service._beginOpening(room); service._changed(room);
     await startFlight(page);
     await page.locator('#settings-btn').click(); await page.locator('#settings-home').click();
     await idle(page);

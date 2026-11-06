@@ -25,7 +25,7 @@ test('four remote clients see real red and indicator kongs at rotated seats, ret
     service.close(); const closed = once(server, 'close'); server.close(); server.closeAllConnections(); await closed;
   });
   async function api(route, token, body) {
-    const response = await fetch(base + route, {method:body ? 'POST' : 'GET', headers:{...(token ? {Authorization:`Bearer ${token}`} : {}), ...(body ? {'Content-Type':'application/json'} : {})}, ...(body ? {body:JSON.stringify(body)} : {})});
+    const response = await fetch(base + route, {method:body ? 'POST' : 'GET', headers:{'X-KK-Opening':'1',...(token ? {Authorization:`Bearer ${token}`} : {}), ...(body ? {'Content-Type':'application/json'} : {})}, ...(body ? {body:JSON.stringify(body)} : {})});
     return {status:response.status, data:await response.json()};
   }
   const first = await api('/api/rooms', null, {name:'公开甲', laizi:true});

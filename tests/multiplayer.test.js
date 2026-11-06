@@ -35,7 +35,7 @@ async function harness(t) {
   async function api(route, { token, body, method = body === undefined ? 'GET' : 'POST', headers = {} } = {}) {
     const response = await fetch(base + route, {
       method,
-      headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
+      headers: {'X-KK-Opening':'1', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     const text = await response.text();
@@ -104,7 +104,10 @@ async function fourPlayers(h, { laizi = false } = {}) {
     for (let player = 0; player < 4; player++) assert.equal((await request(player, 'ready', { ready: true })).status, 200);
     const result = await request(0, 'start');
     assert.equal(result.status, 200);
-    return result;
+    assert.equal(result.data.state.phase.kind,'dealing');
+    const completed=await request(0,'openingComplete',{id:result.data.room.opening.id});
+    assert.equal(completed.status,200);
+    return completed;
   }
   return { names, code, tokens, streams, sync, request, start, room: h.service.rooms.get(code) };
 }
@@ -357,7 +360,9 @@ test('a win reveals all four hands over SSE and HTTP, survives reconnect, and hi
   assert.equal(JSON.stringify(game), afterHu, 'snapshot reveal and reconnect never change rules, scores or events');
 
   const scores = game.players.map(player => player.score);
-  const next = await room.request(0, 'next');
+  let next = await room.request(0, 'next');
+  assert.equal(next.data.state.phase.kind,'dealing');
+  next=await room.request(0,'openingComplete',{id:next.data.room.opening.id});
   assert.equal(next.status, 200);
   assert.equal(room.room.game.phase.kind, 'discard');
   assert.equal(room.room.game.result, null);
@@ -453,13 +458,13 @@ test('waiting-room owner can leave, ownership transfers, and departed identity c
 test('HTTP room endpoints reject non-JSON, malformed/oversized bodies and do not expose private server files', async t => {
   const h = await harness(t);
   for (const body of ['null', '[]', '"nickname"', '{broken']) {
-    const response = await fetch(h.base + '/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    const response = await fetch(h.base + '/api/rooms', { method: 'POST', headers: {'X-KK-Opening':'1', 'Content-Type': 'application/json' }, body });
     assert.equal(response.status, 400);
     assert.equal((await response.json()).code, 'INVALID_JSON');
   }
   const form = await fetch(h.base + '/api/rooms', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: '{"name":"好友"}' });
   assert.equal(form.status, 415);
-  const oversized = await fetch(h.base + '/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '友'.repeat(4000) }) });
+  const oversized = await fetch(h.base + '/api/rooms', { method: 'POST', headers: {'X-KK-Opening':'1', 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '友'.repeat(4000) }) });
   assert.equal(oversized.status, 413);
   for (const route of ['/src/server/rooms.js', '/docs/部署.md', '/tests/ui-multiplayer.mjs', '/.env', '/Dockerfile']) {
     assert.equal((await h.api(route)).status, 404);

@@ -59,6 +59,7 @@ let previousRoomCode = null;
 let previousRound = 0;
 let previousVersion = -1;
 let previousStatus = 'waiting';
+let previousOpeningId = null;
 let roomBusy = false;
 let resultTimer = null;
 let actionNoticeTimer = null;
@@ -70,6 +71,8 @@ let diceIntroTimer = null;
 let diceIntroFrame = null;
 let diceIntroPhase = 'idle';
 let diceIntroGeneration = 0;
+let openingReadyTask = null;
+let openingReadyTimer = null;
 const DICE_INTRO_TIMING = Object.freeze({rollMs:1000, settledMs:120, enlargeMs:300, holdMs:800});
 // 每颗骰子的节奏独立；最后一个换面点之后只做小幅回弹，真实点数一直保留到落定。
 const DICE_ROLL_TRACKS = Object.freeze([
@@ -271,6 +274,7 @@ function updateRoom() {
   }
   $('#room-status').textContent = !connected ? '连接中断，正在恢复原座位；10分钟未重连将自动解散房间。'
     : room.paused ? '有好友离线，对局暂停；10分钟未重连将自动解散房间。'
+    : room.opening ? '正在开局，房主开场结束后进入正式回合。'
     : room.status === 'playing' ? '对局进行中，关闭此面板返回牌桌。'
     : room.seats.some(member => member.occupied && !member.bot && !member.connected) ? '等待好友连接；掉线后保留10分钟，超时自动解散房间。'
     : room.status === 'ended' ? '本局结束，房主可以开始下一局。'
@@ -281,11 +285,16 @@ function updateRoom() {
 
 function roomChanged() {
   const room = network.room;
+  // 正式回合已由房主放行；慢客户端不继续重放已经过期的开场。
+  if (previousRoomCode===room?.code && previousOpeningId && !room.opening && game.phase.kind!==PHASE.DEALING) {
+    forgetDiceIntroPending(diceIntroKey);dismissDiceIntro();openingDeal.cancel();
+  }
+  previousOpeningId=room?.opening?.id||null;
   // 发牌动画暂缓 render 时也记录连接边沿，重连后允许重新首次展开。
   hintDisclosure.update({session:`${room?.code || ''}:${game.round}`, connected:network.status === 'connected'});
-  // 发牌期间只暂缓画面更新，网络与服务端照常推进；结束后一次性绘制最新快照。
+  // 开场先保留初始画面；正式回合由房主完成放行，后续快照仍以服务端为准。
   if (diceIntroActive() && (network.status !== 'connected' || room?.status !== 'playing' || room.paused || game.phase.kind === PHASE.ENDED ||
-      diceIntroKey !== `${room.code}:${game.round}:${(game.wallInfo?.dice || []).join(',')}`)) dismissDiceIntro();
+      diceIntroKey !== diceIntroSessionKey(room))) dismissDiceIntro();
   const retainOpening = openingDeal.retain(room,game,network.status === 'connected');
   roomFullscreen.setInRoom(Boolean(room));
   const changedRoom = (room?.code || null) !== previousRoomCode;
@@ -335,6 +344,7 @@ function roomChanged() {
   previousRound = game.round;
   previousStatus = room?.status || 'waiting';
   updateRoom(); if (!retainOpening) render();
+  syncOpeningReady();
   // 语音在线状态随房间快照同步；本地麦克风状态与服务器状态互相校正。
   for (let index = 0; index < 4; index++) {
     const member = room?.seats[index];
@@ -482,6 +492,10 @@ function setHTMLIfChanged(element, html) {
 
 function diceIntroActive() { return diceIntroPhase !== 'idle'; }
 function diceIntroBlocked() { return diceIntroActive() || diceIntroPending.has(diceIntroKey); }
+function diceIntroSessionKey(room) {
+  const base=`${room.code}:${game.round}:${(game.wallInfo?.dice||[]).join(',')}`;
+  return room.opening?.id?`${base}:${room.opening.id}`:base;
+}
 
 function setDiceIntroPhase(phase) {
   diceIntroPhase = phase;
@@ -523,6 +537,27 @@ function finishDiceIntro() {
   openingDeal.play();
   if (!openingDeal.active) render();
   interactionChanged();
+}
+
+// 房主完成自己的既有开场后放行权威回合；不等待全员，不按固定延时猜测结束。
+function syncOpeningReady() {
+  const room=network.room,opening=room?.opening,key=opening?`${room.code}:${opening.id}`:null;
+  if (openingReadyTask?.key!==key) openingReadyTask=null;
+  const eligible=opening && room.owner===0 && opening.round===game.round && game.phase.kind===PHASE.DEALING &&
+    diceIntroKey===diceIntroSessionKey(room) && diceIntroSeen.has(diceIntroKey) &&
+    network.status==='connected' && !room.paused && !document.hidden && !diceIntroBlocked() && !openingDeal.active && $('#dice-intro').hidden;
+  if (!eligible) { clearTimeout(openingReadyTimer);openingReadyTimer=null;return; }
+  if (openingReadyTask || openingReadyTimer || network.busy) return;
+  const task={key};openingReadyTask=task;
+  void network.openingComplete(opening.id).catch(()=>{
+    // 网络失败沿既有重连和快照恢复；保留开局阶段，不能擅自放行。
+  }).finally(()=>{
+    if (openingReadyTask!==task) return;
+    openingReadyTask=null;
+    if (network.room?.code===room.code && network.room?.opening?.id===opening.id) {
+      openingReadyTimer=setTimeout(()=>{openingReadyTimer=null;syncOpeningReady();},500);
+    }
+  });
 }
 
 function showDiceIntro() {
@@ -652,7 +687,7 @@ function replayDiceIntro() {
   const room = network.room;
   const values = game.wallInfo?.dice || [];
   if (!room || room.status !== 'playing' || values.length !== 2) return;
-  const key = `${room.code}:${game.round}:${values.join(',')}`;
+  const key = diceIntroSessionKey(room);
   if (key !== diceIntroKey || !diceIntroPending.has(key)) return;
   // 该局已经推进（有人打出/杠出）或已结束就不再补播，避免打断对局；发牌动画随后由 render 的 prepare 接续。
   if (!isOpeningDeal(room, game)) { forgetDiceIntroPending(key); interactionChanged(); return; }
@@ -662,13 +697,16 @@ function replayDiceIntro() {
 
 function renderDiceIntro() {
   const room = network.room;
+  if (room?.status==='playing' && room.opening===null) {
+    forgetDiceIntroPending(diceIntroKey);dismissDiceIntro();return;
+  }
   const values = game.wallInfo?.dice || [];
   if (!room || room.status !== 'playing' || values.length !== 2) {
     dismissDiceIntro();
     if (!room || room.status === 'waiting') diceIntroKey = null;
     return;
   }
-  const key = `${room.code}:${game.round}:${values.join(',')}`;
+  const key = diceIntroSessionKey(room);
   if (key === diceIntroKey) { replayDiceIntro(); return; }
   dismissDiceIntro();
   diceIntroKey = key;
@@ -685,9 +723,10 @@ diceIntroMotion.addEventListener('change', () => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { finishDiceIntro(); return; }
   replayDiceIntro();
+  syncOpeningReady();
 });
 
-window.addEventListener('pagehide', dismissDiceIntro);
+window.addEventListener('pagehide', ()=>{clearTimeout(openingReadyTimer);openingReadyTimer=null;openingReadyTask=null;dismissDiceIntro();});
 
 function stageRect(element) {
   const stage = $('#game').getBoundingClientRect();
@@ -893,6 +932,7 @@ function interactionChanged() {
   updateActionControls();
   updateRoom();
   renderTing();
+  syncOpeningReady();
 }
 
 // 提示固定在本家手牌朝向桌心的一侧，不再随牌河拥挤、手牌数量或副露变化而游走。
@@ -982,6 +1022,7 @@ function updateTurnMessage(actions = network.availableActions()) {
   else if (game.phase.kind === PHASE.ENDED) message = game.winner === null ? '牌墙已空，本局流局' : game.winner === 0 ? '好牌，胡了！' : `${displayNames[game.winner]}${game.result.selfDraw ? '自摸' : '胡牌'}，下局再来`;
   else if (diceIntroActive()) message = diceIntroPhase === 'rolling' ? '正在掷骰…' : '开局点数展示中…';
   else if (openingDeal.active) message = DEAL_TEXT.progress;
+  else if (game.phase.kind === PHASE.DEALING) message = '等待房主开场完成…';
   else if (actions.pass) message = specialName ? `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}；手中有${specialName}，不能胡牌` : `${displayNames[game.pendingDiscard.from]}打出${tileName(game.pendingDiscard.tile)}，请选择操作`;
   else if (myTurn) message = actions.hu ? '好牌来了，可以自摸胡牌！' : selected >= 0 ? specialGangKind(hand[selected], game.indicatorTile, game.wildTile) ? `${PLAY_TEXT[specialGangKind(hand[selected], game.indicatorTile, game.wildTile)]}：${PLAY_TEXT.single}` : `已选${tileName(hand[selected])}，再点一次打出` : specialName ? `${specialName}只能杠出，全部杠出后才能胡牌` : '轮到你了，请选择一张牌打出';
   else message = game.phase.kind === PHASE.CLAIM ? '等待其他玩家响应…' : `${displayNames[game.current]}正在思考…`;
@@ -1023,7 +1064,7 @@ function render() {
   $('#hand-count').textContent = `${hand.length} 张`;
   $('.hand-zone').classList.toggle('has-melds', game.players[0].melds.length + game.players[0].redGangs.length + (game.players[0].piziGangs?.length || 0) > 0);
 
-  const drawnIndex = game.phase.kind === PHASE.DISCARD && game.current === 0 && game.lastDraw?.player === 0 ? game.lastDraw.index : -1;
+  const drawnIndex = [PHASE.DEALING,PHASE.DISCARD].includes(game.phase.kind) && game.current === 0 && game.lastDraw?.player === 0 ? game.lastDraw.index : -1;
   const tilePriority = type => specialTile(type) ? 0 : type === game.wildTile ? 1 : 2;
   // 所有新摸或补入的牌（含癞子、痞子和红中）先留在右侧；旧牌仍按原优先组排序。
   const separatedDrawnIndex = drawnIndex;
@@ -1113,6 +1154,7 @@ function render() {
   positionTableLabels();
   if (!diceIntroPending.has(diceIntroKey)) openingDeal.prepare(room,game);
   openingDeal.play();
+  syncOpeningReady();
   if (game.phase.kind === PHASE.ENDED && resultShown !== game.round) {
     resultShown = game.round;
     persist();

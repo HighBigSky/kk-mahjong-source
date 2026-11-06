@@ -79,8 +79,11 @@ export function createServer({ roomService = new RoomService({ iceServers:create
           if (origin && !allowed.has(origin)) throw new RoomError(403, 'ORIGIN_REJECTED', '请求来源不受支持。');
           if (!/^application\/json(?:;|$)/i.test(request.headers['content-type'] || '')) throw new RoomError(415, 'JSON_REQUIRED', '请发送 JSON 请求。');
         }
-        if (pathname === '/api/rooms' && request.method === 'POST') { json(response, 201, roomService.create(await bodyOf(request))); return; }
-        const match = /^\/api\/rooms\/(\d{6})\/(join|state|events|ready|start|next|action|leave|addBot|removeBot|removePlayer|voice|signal)$/.exec(pathname);
+        if (pathname === '/api/rooms' && request.method === 'POST') {
+          if (request.headers['x-kk-opening']!=='1') throw new RoomError(409,'CLIENT_UPDATE_REQUIRED','开局流程已更新，请刷新页面后重新创建或加入房间。');
+          json(response, 201, roomService.create(await bodyOf(request))); return;
+        }
+        const match = /^\/api\/rooms\/(\d{6})\/(join|state|events|ready|start|next|openingComplete|action|leave|addBot|removeBot|removePlayer|voice|signal)$/.exec(pathname);
         if (!match) throw new RoomError(404, 'NOT_FOUND', '接口不存在。');
         const [, code, operation] = match;
         if (operation === 'events' && request.method === 'GET') { roomService.connect(code, url.searchParams.get('token'), response); return; }
@@ -88,6 +91,7 @@ export function createServer({ roomService = new RoomService({ iceServers:create
         if (operation === 'voice' && request.method === 'GET') { json(response, 200, roomService.voiceConfig(code, tokenOf(request))); return; }
         if (request.method !== 'POST' || operation === 'events' || operation === 'state') throw new RoomError(405, 'METHOD_NOT_ALLOWED', '请求方法不支持。');
         const body = await bodyOf(request, operation === 'signal' ? 24576 : 8192);
+        if (['join','start','next'].includes(operation) && request.headers['x-kk-opening']!=='1') throw new RoomError(409,'CLIENT_UPDATE_REQUIRED','开局流程已更新，请刷新页面后重新创建或加入房间。');
         const result = operation === 'join' ? roomService.join(code, body)
           : operation === 'voice' ? roomService.setVoice(code, tokenOf(request), body)
           : roomService[operation](code, tokenOf(request), body);

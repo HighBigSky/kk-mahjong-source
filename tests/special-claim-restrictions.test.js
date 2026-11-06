@@ -81,7 +81,7 @@ test('HTTP 状态不开放特殊牌吃碰，伪造请求返回 409 且不产生�
   const base = `http://127.0.0.1:${server.address().port}`;
   async function api(route, token, body) {
     const response = await fetch(base + route, {method:body ? 'POST' : 'GET',
-      headers:{...(token ? {Authorization:`Bearer ${token}`} : {}), ...(body ? {'Content-Type':'application/json'} : {})},
+      headers:{'X-KK-Opening':'1',...(token ? {Authorization:`Bearer ${token}`} : {}), ...(body ? {'Content-Type':'application/json'} : {})},
       ...(body ? {body:JSON.stringify(body)} : {})});
     return {status:response.status, data:await response.json()};
   }

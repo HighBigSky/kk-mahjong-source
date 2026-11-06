@@ -21,7 +21,7 @@ async function harness(t) {
   });
   async function raw(path, chunks, headers = {}) {
     return new Promise((resolve, reject) => {
-      const request = http.request(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers } }, response => {
+      const request = http.request(base + path, { method: 'POST', headers: {'X-KK-Opening':'1', 'Content-Type': 'application/json', ...headers } }, response => {
         let text = '';
         response.setEncoding('utf8');
         response.on('data', chunk => { text += chunk; });

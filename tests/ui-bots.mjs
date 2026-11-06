@@ -20,7 +20,7 @@ await once(server, 'listening');
 const baseURL = `http://127.0.0.1:${server.address().port}`;
 const edge = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const browser = await playwright.chromium.launch({ headless: true, ...(existsSync(edge) ? { executablePath: edge } : {}) });
-const output = path.resolve('output');
+const output = path.resolve(process.env.KK_UI_OUTPUT || 'output');
 mkdirSync(output, { recursive: true });
 const report = { baseURL, steps: [], errors: [], screenshots: [], viewports: [], round: null };
 const contexts = [];
@@ -227,6 +227,7 @@ async function startRoom(owner, room, humans = [owner]) {
   await waitFor(() => room.seats.every(seat => seat?.ready && seat.connected), 'humans and bots ready');
   await owner.locator('#room-start:enabled').click();
   await waitFor(() => !!room.game, 'game started');
+  await waitFor(() => !room.opening && room.game.phase.kind !== 'dealing', 'owner completed authoritative opening', 15000);
   for (const page of humans) await page.locator('#room-dialog:not([open])').waitFor({ state: 'attached' });
   await synchronized(humans, room);
   for (const page of humans) assert.equal(await page.evaluate(() => {

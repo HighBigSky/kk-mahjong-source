@@ -100,7 +100,7 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
     try {
       const response = await fetch(path, {
         method:body === undefined ? 'GET' : 'POST',
-        headers:{ ...(body === undefined ? {} : {'Content-Type':'application/json'}), ...(authenticated && credentials ? {Authorization:`Bearer ${credentials.token}`} : {}) },
+        headers:{'X-KK-Opening':'1', ...(body === undefined ? {} : {'Content-Type':'application/json'}), ...(authenticated && credentials ? {Authorization:`Bearer ${credentials.token}`} : {}) },
         body:body === undefined ? undefined : JSON.stringify(body),
         signal:controller.signal,
         cache:'no-store',
@@ -195,7 +195,7 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
       throw error;
     } finally { setBusy(false); }
   }
-  client.canAct = () => client.status === 'connected' && !client.busy && client.room?.status === 'playing' && !client.room.paused;
+  client.canAct = () => client.status === 'connected' && !client.busy && client.room?.status === 'playing' && !client.room.paused && [PHASE.DISCARD,PHASE.CLAIM].includes(client.game.phase.kind);
   // Layout can show the next authoritative choices while the previous request
   // finishes. Execution still uses getActions/canAct and remains busy-guarded.
   client.availableActions = () => client.status === 'connected' && client.room?.status === 'playing' && !client.room.paused ? actions : emptyActions();
@@ -212,6 +212,7 @@ export function createRoomClient({ onChange = () => {}, onBusyChange, onError = 
   client.removeBot = seat => seatCommand('removeBot', seat);
   client.removePlayer = seat => seatCommand('removePlayer', seat);
   client.next = () => command('next');
+  client.openingComplete = id => command('openingComplete', {id});
   client.voice = enabled => command('voice', {enabled});
   client.voiceConfig = () => credentials
     ? request(`/api/rooms/${credentials.code}/voice`)
