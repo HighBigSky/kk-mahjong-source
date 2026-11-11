@@ -1599,6 +1599,7 @@ $('#room-leave').addEventListener('click', () => {
     const code = network.sessionCode();
     try { if (!await network.leave()) throw new Error('退出请求未完成，请重试。'); }
     catch (error) { await refreshRoomAfterFailure(code); throw error; }
+    finally { if (preparing && botPreparation === preparing) botPreparation = null; }
   }, {interrupt:Boolean(preparing)});
 });
 $('#room-close').addEventListener('click', () => {
