@@ -225,17 +225,44 @@ async function stopVoice() {
   try { await network.voice(false); } catch { /* 离开房间时服务端会清理语音状态。 */ }
 }
 
+// 普通人机局就绪与四癞子能力分开判断；取消准备后只更新显示，不自动准备。
+function isBotRoomReady(room) {
+  return canPrepareBotRoom(room,0) && isSoloHumanBotTable(room.seats,0) &&
+    room.seats.every(seat => seat.connected === true && seat.ready === true);
+}
+
 function updateRoom() {
   const room = network.room;
   const connected = network.status === 'connected';
   const restoring = !room && Boolean(network.sessionCode());
   const busy = roomBusy || network.busy;
+  const waiting = room?.status === 'waiting' && !room.paused;
+  const allSeated = Boolean(room && room.seats.every(seat => seat.occupied));
+  const allReady = allSeated && room.seats.every(seat => seat.connected && seat.ready);
+  const botReady = connected && isBotRoomReady(room);
+  const fourQualified = connected && room?.fourWildsReady === true && canChooseFourWilds(room,0);
+  // 显隐只取决于当前资格与准备阶段；复制邀请等请求只暂时禁用选项。
+  const showFourWilds = fourQualified && !botPreparation;
+  const canStartFourWilds = showFourWilds && !busy && !roomStartPending;
+  const canStart = connected && waiting && room.owner === 0 && allReady && !botPreparation;
+  const startingStandard = roomStartPending?.wildOwner === null;
+  const startingFourWilds = Boolean(roomStartPending && roomStartPending.wildOwner !== null);
   $('#room-dialog').setAttribute('aria-busy', String(busy));
-  $('#room-four-wilds').hidden = true;
-  $('#room-start-options').hidden = !room || room.owner !== 0 || room.status !== 'waiting';
+  $('#room-start-options').hidden = !waiting || room.owner !== 0;
   $('#room-bot-entry').hidden = Boolean(room && !canPrepareBotRoom(room));
-  $('#room-bot-entry').disabled = busy || restoring || Boolean(room && !connected);
-  $('#room-bot-entry').textContent = botPreparation ? '正在准备人机…' : '人机对局';
+  $('#room-bot-entry').disabled = busy || restoring || Boolean(roomStartPending) || botReady || Boolean(room && !connected);
+  $('#room-bot-entry').textContent = botPreparation ? '正在准备人机…' : botReady ? '人机已就绪' : '人机对局';
+  $('#room-bot-entry').setAttribute('aria-busy',String(Boolean(botPreparation)));
+  $('#room-bot-entry').title = botReady ? showFourWilds ? '准备已完成，请选择「开始游戏」或「四癞子爽局」。' : '准备已完成，请点击「开始游戏」。'
+    : '只建房、补齐人机并准备，完成后再选择开局。';
+  $('#room-start').hidden = !waiting || room.owner !== 0;
+  $('#room-start').disabled = !canStart || busy || Boolean(roomStartPending);
+  $('#room-start-label').textContent = startingStandard ? '启动中…' : '开始游戏';
+  $('#room-four-wilds').hidden = !showFourWilds;
+  $('#room-four-wilds').disabled = !canStartFourWilds;
+  $('#room-four-wilds-label').textContent = startingFourWilds ? '启动中…' : '四癞子爽局';
+  $('#room-start').setAttribute('aria-busy',String(startingStandard));
+  $('#room-four-wilds').setAttribute('aria-busy',String(startingFourWilds));
   $('#room-entry').hidden = Boolean(room);
   $('#room-waiting').hidden = !room;
   $('#room-close').hidden = !room || room.status === 'waiting';
@@ -244,28 +271,25 @@ function updateRoom() {
   reconnectButton.hidden = connected || !network.sessionCode();
   reconnectButton.disabled = busy;
   $('#connection-status').dataset.state = network.status;
-  $('#connection-text').textContent = !room && !restoring ? '未加入房间' : connected ? room.paused ? '等待重连' : '好友联机' : '正在重连';
+  $('#connection-text').textContent = !room && !restoring ? '未加入房间' : connected ? room?.paused ? '等待重连' : '好友联机' : '正在重连';
   $('#room-label').textContent = room ? room.code : '------';
   $('#room-code-pill').hidden = !room;
   if (!room) {
-    $('#room-status').textContent = restoring ? `正在恢复房间 ${network.sessionCode()} 的原座位，请检查网络或点击重新连接。` : '创建房间，或输入好友发来的房间码。';
+    $('#room-status').textContent = restoring ? `正在恢复房间 ${network.sessionCode()} 的原座位，请检查网络或点击重新连接。`
+      : botPreparation ? '正在创建人机房间，随后补位和准备；完成后再选择开局。'
+      : '创建房间、输入好友房间码，或点击「人机对局」先准备一桌人机。';
     return;
   }
   $('#room-current-code').textContent = room.code;
-  const canStart = room.seats.every(seat => seat.occupied && seat.connected && seat.ready);
   const canManageBots = room.owner === 0 && room.status === 'waiting';
-  $('#room-ready').disabled = busy || !connected || room.status !== 'waiting';
+  $('#room-ready').disabled = busy || !connected || !waiting || Boolean(botPreparation || roomStartPending);
   $('#room-ready').textContent = room.status !== 'waiting' ? '已开局' : room.seats[0].ready ? '取消准备' : '准备';
-  $('#room-start').hidden = room.owner !== 0 || room.status !== 'waiting';
-  $('#room-start').disabled = busy || !connected || !canStart;
-  $('#room-start-label').textContent = roomStartPending?.wildOwner === null ? '启动中…' : '开始游戏';
-  const fourWildsReady = connected && !botPreparation && room.fourWildsReady === true && canChooseFourWilds(room);
-  $('#room-four-wilds').hidden = !fourWildsReady || busy && !roomStartPending;
-  $('#room-four-wilds').disabled = busy || !fourWildsReady;
-  $('#room-four-wilds-label').textContent = roomStartPending && roomStartPending.wildOwner !== null ? '启动中…' : '四癞子爽局';
-  $('#room-start').setAttribute('aria-busy',String(roomStartPending?.wildOwner === null));
-  $('#room-four-wilds').setAttribute('aria-busy',String(Boolean(roomStartPending && roomStartPending.wildOwner !== null)));
-  $('#room-leave').disabled = busy && !botPreparation;
+  $('#room-start').title = !connected ? '连接恢复后才能开始。'
+    : botPreparation ? '请等待人机准备完成。'
+    : !allSeated ? `还缺 ${room.seats.filter(seat => !seat.occupied).length} 席，请先邀请好友或添加人机。`
+    : room.seats.some(seat => !seat.connected) ? '请等待所有玩家连接。'
+    : !allReady ? '请等待所有玩家准备。' : '按普通规则开局。';
+  $('#room-leave').disabled = busy && (!botPreparation || botPreparation.cancelled);
   $('#room-leave').title = room.status === 'playing' ? '离开并中止本局，其他玩家返回等待房间' : '离开房间';
   for (let index = 0; index < 4; index++) {
     const member = room.seats[index];
@@ -300,11 +324,16 @@ function updateRoom() {
     : room.paused ? '有好友离线，对局暂停；10分钟未重连将自动解散房间。'
     : room.opening ? '正在开局，房主开场结束后进入正式回合。'
     : room.status === 'playing' ? '对局进行中，关闭此面板返回牌桌。'
-    : room.seats.some(member => member.occupied && !member.bot && !member.connected) ? '等待好友连接；掉线后保留10分钟，超时自动解散房间。'
     : room.status === 'ended' ? '本局结束，房主可以开始下一局。'
-    : canStart ? room.owner === 0 ? '全员准备好了，可以开始对局。' : '全员准备好了，等待房主开局。'
-    : room.seats.every(seat => seat.occupied) ? '人机已自动准备，等待真人玩家准备。'
-    : room.owner === 0 ? '邀请好友，或点击空位添加人机；满四席并准备后开局。' : '等待好友入座，房主也可添加人机补位。';
+    : botPreparation ? botPreparation.cancelled ? '人机准备已取消，正在更新房间状态。'
+      : `正在准备人机…已入座 ${room.seats.filter(seat => seat.occupied).length}/4 席；准备完成后再选择开局。`
+    : roomStartPending ? `正在启动${startingFourWilds ? '四癞子爽局' : '普通对局'}，请稍候。`
+    : room.seats.some(member => member.occupied && !member.connected) ? '等待玩家连接；掉线后保留10分钟，超时自动解散房间。'
+    : botReady ? showFourWilds ? '人机已就绪：选择「开始游戏」按普通规则开局，或选择「四癞子爽局」。'
+      : '人机已就绪：点击「开始游戏」按普通规则开局。'
+    : allReady ? room.owner === 0 ? '全员准备好了，点击「开始游戏」按普通规则开局。' : '全员准备好了，等待房主开局。'
+    : allSeated ? !room.seats[0].ready ? '四席已满，请点击「准备」；全员准备后由房主开局。' : '四席已满，等待其他真人玩家准备。'
+    : room.owner === 0 ? `还缺 ${room.seats.filter(seat => !seat.occupied).length} 席，可邀请好友或添加人机；全员准备后开局。` : '等待好友入座，房主也可添加人机补位。';
 }
 
 function roomChanged() {
@@ -381,7 +410,7 @@ function roomChanged() {
 }
 
 async function roomOperation(operation, {interrupt = false} = {}) {
-  if (roomBusy && !interrupt) return;
+  if (!interrupt && (roomBusy || network.busy || botPreparation || roomStartPending)) return;
   const generation = ++roomOperationGeneration;
   roomBusy = true; $('#room-error').hidden = true; updateRoom();
   try { await operation(); }
@@ -395,14 +424,17 @@ async function refreshRoomAfterFailure(code) {
   catch { if (code && network.sessionCode() === code) network.reconnect(); }
 }
 
-// 快捷入口只补位并准备；手动添加也复用此流程，绝不调用 start。
+// 快捷入口补齐人机，手动入口只添加指定空位（允许混合真人房）；两者均不调用 start。
 async function prepareBotRoom({seat = null} = {}) {
+  if (botPreparation || roomStartPending) return;
+  // 就绪快照已经足够，不再重复 addBot、ready 或 refresh；不依赖四癞子是否可用。
+  if (network.status === 'connected' && isBotRoomReady(network.room)) return;
   const task = {code:network.room?.code || null,cancelled:false};
   botPreparation = task; updateRoom();
   const requireCurrent = () => {
     const room = network.room;
     if (task.cancelled || botPreparation !== task || !room || room.code !== task.code || network.sessionCode() !== task.code ||
-        room.status !== 'waiting' || room.owner !== 0 || !room.seats[0].occupied || room.seats[0].bot) {
+        room.status !== 'waiting' || room.paused || room.owner !== 0 || !room.seats[0].occupied || room.seats[0].bot) {
       throw new Error('人机准备已取消，或当前房间状态已改变。');
     }
     return room;
@@ -446,9 +478,12 @@ async function prepareBotRoom({seat = null} = {}) {
 }
 
 async function startRoom(fourWilds = false) {
+  if (roomStartPending || botPreparation) return;
   const room = network.room;
-  if (!room || room.status !== 'waiting' || room.owner !== 0 || network.status !== 'connected') throw new Error('当前不能开始对局。');
-  if (fourWilds && (room.fourWildsReady !== true || !canChooseFourWilds(room))) throw new Error('请先完成一名真人与三个人机的准备。');
+  if (!room || room.status !== 'waiting' || room.paused || room.owner !== 0 || network.status !== 'connected') throw new Error('当前不能开始对局。');
+  if (!room.seats.every(seat => seat.occupied && seat.connected && seat.ready)) throw new Error('请先等待四席入座、连接并准备完成。');
+  if (fourWilds && (room.fourWildsReady !== true || !canChooseFourWilds(room,0))) throw new Error('请先完成一名真人与三个人机的准备。');
+  // 界面自己为相对座位 0；四癞子请求必须用实际服务端座位，普通开始显式传 null。
   const pending = {wildOwner:fourWilds ? room.seat : null};
   roomStartPending = pending; updateRoom();
   try {
