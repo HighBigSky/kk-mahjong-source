@@ -13,7 +13,7 @@ export async function materialSnapshot(page,selector,validate=true) {
       return {
         shape:{width:s.width,height:s.height,radius:s.borderRadius,borderWidths:[s.borderTopWidth,s.borderRightWidth,s.borderBottomWidth,s.borderLeftWidth],rect:[r.x,r.y,r.width,r.height],margin:s.margin,gap:getComputedStyle(n.parentElement).gap,transform:s.transform,svg:svgStyle?[svgStyle.width,svgStyle.height,svgStyle.transform,svg.getAttribute('viewBox')]:null},
         version:s.getPropertyValue('--tile-model-version').trim(),grade:s.getPropertyValue('--tile-model-grade').trim(),strength:number('--tile-model-strength'),
-        back:n.classList.contains('back'),wall:n.classList.contains('wall-piece'),
+        back:n.classList.contains('back'),wall:n.classList.contains('wall-piece'),wallMarker:n.matches('.wall-piece:is(.is-next-piece,.is-head-piece)'),
         paint:n.classList.contains('back')?s.backgroundImage:b.backgroundImage,paintLayers:split(n.classList.contains('back')?s.backgroundImage:b.backgroundImage).map(v=>v.trim()),body:s.backgroundImage,bevel:split(b.boxShadow).map(v=>({inset:v.includes('inset'),px:[...v.matchAll(/(-?(?:\d*\.?\d+)(?:e[+-]?\d+)?)px/g)].map(m=>Number(m[1]))})),
         ivory:s.getPropertyValue('--tile-ivory').trim(),faceColors:['--tile-face-light','--tile-face-base','--tile-ivory','--tile-face-shade'].map(name=>s.getPropertyValue(name).trim()),curve:s.getPropertyValue('--tile-model-face-curve').trim(),
         modelWidth:px('--tile-model-width'),corners:[s.borderTopLeftRadius,s.borderTopRightRadius,s.borderBottomRightRadius,s.borderBottomLeftRadius].map(parseFloat),
@@ -88,8 +88,12 @@ export async function materialSnapshot(page,selector,validate=true) {
     assert.equal(row.ground.length,2,selector);
     for(const [index,shadow]of row.ground.entries()) {
       assert.equal(shadow.inset,true,selector);
-      // 牌墙当前摸/补槽的第二层仍为原描边环；它替代主影以遵守两层预算。
-      if(index===1&&shadow.px[0]===0&&shadow.px[1]===0&&shadow.px[2]===0&&shadow.px[3]>0)continue;
+      // 正式基线的摸/补槽以带模糊的内环替代主影；只允许实际标记牌，精确验证其原有范围。
+      if(index===1&&row.wallMarker){
+        assert.deepEqual(shadow.px.slice(0,2),[0,0],selector+' marker ring remains centered');
+        assert.ok(Math.abs(shadow.px[2]-row.modelWidth*.055)<.0001&&Math.abs(shadow.px[3]-row.modelWidth*.025)<.0001,selector+' marker ring retains baseline blur and spread');
+        continue;
+      }
       const unit=[.025,.045][index]*row.strength*row.modelWidth;
       const t=row.angle*Math.PI/180,[x,y]=shadow.px;
       assert.ok(Math.abs(x*Math.cos(t)-y*Math.sin(t)-unit)<.0001,selector+' inward left edge: '+JSON.stringify({index,shadow,unit,angle:row.angle}));
@@ -102,7 +106,11 @@ export async function materialSnapshot(page,selector,validate=true) {
     {
       if(!row.back)assert.equal(row.bottom,'0px',selector);
       assert.ok(row.bevel.every(shadow=>shadow.inset),selector+' bevels stay in frame');
-      if(!row.back)assert.ok(Math.abs(Math.hypot(...row.bevel[0].px.slice(0,2))/row.modelWidth-Math.hypot(1,.25)*.025)<.0001,'right-side outer bevel follows common light');
+      // T1 精修将绘制亮带从宽度的 .025 收至 .022；外框/可见面尺寸仍由独立断言保护。
+      if(!row.back){const t=row.angle*Math.PI/180,[x,y]=row.bevel[0].px;
+        assert.ok(Math.abs((x*Math.cos(t)-y*Math.sin(t))/row.modelWidth+.022)<.0001,'refined outer bevel keeps the common scene-light x direction');
+        assert.ok(Math.abs((x*Math.sin(t)+y*Math.cos(t))/row.modelWidth-.022*.25)<.0001,'refined outer bevel keeps the common scene-light slope');
+      }
     }
     for(const name of ['light','shadow','main'])assert.ok(row[name].every((v,i)=>Math.abs(v-[-1,.25][i])<1e-6),`${selector} ${name}: ${row[name]}`);
     assert.ok(Math.abs(((row.gradientAngle+row.angle-255)%360+360)%360)<1e-6,`${selector} global glaze direction`);
@@ -124,7 +132,7 @@ export async function checkMaterialAreas(page,{baseline=false}={}) {
     const groups=[result.hand,result['meld-0'],result.wall,result['river-0']];
     assert.deepEqual(groups.map(rows=>rows[0].thickness),[4,3,2,1],'hand > meld > wall > river thickness');
     assert.deepEqual(groups.map(rows=>rows[0].strength),[1,.8,.6,.4],'contact shadow strength follows thickness');
-    assert.ok(groups.every(rows=>{const row=rows.find(row=>row.ground[1].px[2]>0);return row&&Math.abs(row.ground[1].px[2]/row.modelWidth-.045*row.strength)<.0001;}),'short main shadow is proportional to actual width and tier');
+    assert.ok(groups.every(rows=>{const row=rows.find(row=>!row.wallMarker&&row.ground[1].px[2]>0);return row&&Math.abs(row.ground[1].px[2]/row.modelWidth-.045*row.strength)<.0001;}),'unmarked short main shadow is proportional to actual width and tier');
     const contactAlpha=groups.map(rows=>rows[0].ground[0].alpha);assert.ok(contactAlpha.every((value,index)=>!index||value<contactAlpha[index-1]),'rendered contact opacity decreases with thickness');
     for(const seat of [0,1,2,3]){assert.ok(result[`river-${seat}`].every(row=>row.thickness===1&&row.strength===.4));assert.ok(result[`meld-${seat}`].every(row=>row.thickness===3&&row.strength===.8));}
     // 在完整桌面透视后验证径向高光仍在右侧略偏前上方，不只检查局部渐变角度。

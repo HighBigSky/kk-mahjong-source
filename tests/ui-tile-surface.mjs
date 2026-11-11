@@ -18,7 +18,7 @@ server.listen(0,'127.0.0.1');await once(server,'listening');
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const report={passed:false,browser:browser.version(),assetSha256:sha(asset),cases:[],errors:[],screenshots:0,note:'Actual HTTP/SSE rooms and existing markup; display fixtures send no game actions. Borders are checked in CSS pixels, not screenshot/physical-pixel sampling. CSS zoom is separately reported because Blink quantizes border used widths; DPR does not change the 100% CSS width.'};
 const contexts=[];
-mkdirSync('output',{recursive:true});
+const output=process.env.KK_UI_OUTPUT||'output';mkdirSync(output,{recursive:true});
 const frames=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 const rgb=value=>value.startsWith('#')?[1,3,5].map(index=>parseInt(value.slice(index,index+2),16)):(value.match(/[\d.]+/g)||[]).slice(0,3).map(Number);
 const properties=rows=>Object.fromEntries(rows.map(row=>[row.name,row.value]));
@@ -145,5 +145,5 @@ try {
   assert.deepEqual(report.errors,[]);report.passed=true;
   console.log(JSON.stringify({passed:true,cases:report.cases.length,faces:report.cases.reduce((sum,row)=>sum+Object.keys(row.faces).length,0),glyphs:report.cases.reduce((sum,row)=>sum+row.glyphs.length,0),dpr:report.cases.map(row=>row.dpr),zoom:[.8,1,1.25],errors:report.errors,screenshots:0}));
 } finally {
-  writeFileSync('output/tile-surface-verification.json',JSON.stringify(report,null,2));await Promise.allSettled(contexts.map(context=>context.close()));await browser.close();service.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
+  writeFileSync(output+'/tile-surface-verification.json',JSON.stringify(report,null,2));await Promise.allSettled(contexts.map(context=>context.close()));await browser.close();service.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
 }

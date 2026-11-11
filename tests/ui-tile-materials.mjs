@@ -15,14 +15,16 @@ const service=new RoomService({botDelayMs:600000}),server=createServer({roomServ
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
 const context=await browser.newContext({viewport:{width:640,height:360},reducedMotion:'reduce'});
 await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('fixed viewport'))});});
-const BASELINE='3ad9bd9';
+const BASELINE=process.env.KK_TILE_BASELINE||'3ad9bd9';
 const sheets=['tiles-depth.css','landscape.css','styles.css','seats-layout.css','wall-layout.css'];
 for(const file of sheets)await context.route(`**/${file}?material-baseline=*`,route=>route.fulfill({body:execFileSync('git',['show',`${BASELINE}:${file}`]),contentType:'text/css'}));
-const page=await context.newPage(),report={passed:false,errors:[],cases:[],screenshots:0,note:`Client display fixtures only. Dialog and animation examples reuse existing markup classes; no product DOM or game actions are added. Geometry is compared to ${BASELINE}; no screenshot pixel sampling.`};
+const page=await context.newPage(),report={passed:false,baseline:BASELINE,errors:[],resources:[],cases:[],screenshots:[],note:`After an optional live interaction in its own online test room, display fixtures are frozen locally. Dialog and animation examples reuse existing markup classes. Geometry is compared to ${BASELINE}; optional before/after screenshots share the same frozen scene, viewport, DPR and zoom.`};
 await page.addInitScript(installVisualGeometry);
 const targetURL=process.env.KK_UI_TARGET_URL||`http://127.0.0.1:${server.address().port}`;
 const cdp=await context.newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});
-page.on('pageerror',e=>report.errors.push(e.message));mkdirSync('output',{recursive:true});
+const output=process.env.KK_UI_OUTPUT||'output';
+page.on('pageerror',e=>report.errors.push(e.message));mkdirSync(output,{recursive:true});
+page.on('response',response=>{if(response.status()>=400&&/\.(?:css|js|svg)(?:\?|$)/.test(response.url()))report.resources.push({url:new URL(response.url()).pathname,status:response.status()});});
 const frames=()=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
 async function sheet(baseline) {
   await page.evaluate(({baseline,sheets})=>Promise.all(sheets.map(file=>new Promise((resolve,reject)=>{const link=[...document.querySelectorAll('link[rel=stylesheet]')].find(n=>n.href.includes('/'+file));link.onload=resolve;link.onerror=reject;link.href='/'+file+'?material-'+(baseline?'baseline':'current')+'='+Date.now();}))),{baseline,sheets});
@@ -30,7 +32,20 @@ async function sheet(baseline) {
   await page.evaluate(()=>window.dispatchEvent(new Event('resize')));await frames();
 }
 async function checkPair(size,area,read) {
-  const pair=[];for(const baseline of [true,false]){await sheet(baseline);pair.push(await read(baseline));}
+  const pair=[];for(const baseline of [true,false]){await sheet(baseline);
+    if(process.env.KK_TILE_SCREENSHOTS==='1'&&area==='table'){
+      const label=baseline?'base':'current',prefix=`${output}/${size.width}x${size.height}-${label}`;
+      const metadata=await page.evaluate(()=>({dpr:devicePixelRatio,zoom:getComputedStyle(document.documentElement).zoom}));
+      const full=prefix+'-table.png';await page.screenshot({path:full,animations:'disabled'});report.screenshots.push({path:full,size,label,...metadata});
+      for(const [name,selector]of [['hand','#hand'],['river','#river-0'],['wall','#wall-tail']]){
+        const box=await page.locator(selector).boundingBox();if(!box)continue;
+        const x=Math.max(0,box.x-4),y=Math.max(0,box.y-4),right=Math.min(size.width,box.x+box.width+4),bottom=Math.min(size.height,box.y+box.height+4);
+        if(right<=x||bottom<=y)continue;const file=prefix+'-'+name+'.png';
+        await page.screenshot({path:file,clip:{x,y,width:right-x,height:bottom-y},animations:'disabled'});report.screenshots.push({path:file,size,label,...metadata});
+      }
+    }
+    pair.push(await read(baseline));
+  }
   const shapes=rows=>Object.fromEntries(Object.entries(rows).map(([name,data])=>[name,data.map(row=>{
     // 牌框几何严格不变；图案视口允许按实际牌面居中，交由ui-tile-glyphs逐类验证。
     const shape=Object.fromEntries(Object.entries(row.shape).filter(([key])=>key!=='rect'&&key!=='svg'));
@@ -48,6 +63,7 @@ async function checkPair(size,area,read) {
     assert.equal(row.topSize,old.topSize,'visible top plane size unchanged');assert.equal(row.rightSize,old.rightSize,'visible right plane size unchanged');
     assert.deepEqual(row.edgeSizes,old.edgeSizes,'rounded edge coverage sizes unchanged');
     assert.deepEqual(row.edgePositions,old.edgePositions,'rounded edge coverage positions unchanged');
+    assert.deepEqual(row.ground,old.ground,'contact shadows and existing wall-marker rings are unchanged');
     for(const shadows of [row.ground,row.bevel,row.edgeShadow,row.glyph])assert.ok(shadows.length<=2,'each drawing layer uses at most two shadows');
 
   }
@@ -72,7 +88,15 @@ async function checkSvgCornerRefresh(selector) {
 try {
   await page.goto(targetURL,{waitUntil:'networkidle'});await page.locator('#room-name').fill('全牌区共享材质验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
   for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
-  await ensureReady(page);await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));await page.evaluate(()=>window.mahjongRoom.destroy());
+  await ensureReady(page);await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
+  if(process.env.KK_UI_TARGET_URL){
+    await page.waitForFunction(()=>!window.mahjongRoom.busy&&window.mahjongGame.phase.kind==='discard'&&window.mahjongGame.current===0);
+    const index=await page.evaluate(()=>{const g=window.mahjongGame;return g.players[0].hand.findIndex(t=>t!==31&&t!==g.indicatorTile&&t!==g.wildTile);});assert.ok(index>=0,'a legal ordinary tile exists');
+    const tile=page.locator(`#hand button[data-index="${index}"]`);await tile.click();assert.equal(await tile.evaluate(n=>n.classList.contains('selected')),true,'actual hand click selects the tile');await tile.click();
+    await page.waitForFunction(()=>window.mahjongGame.players[0].discards.length===1&&!window.mahjongRoom.busy);
+    report.liveInteraction={ownRoom:true,actualTileClicks:2,selectionVisible:true,authoritativeDiscardCount:1};
+  }
+  await page.evaluate(()=>window.mahjongRoom.destroy());
   for(const size of [{width:640,height:360},{width:844,height:390},{width:1920,height:1080}]) {
     await page.setViewportSize(size);
     await page.evaluate(()=>{const g=window.mahjongGame;g.players.forEach((p,i)=>{p.hand=Array.from({length:i?10:14},(_,n)=>n);p.discards=Array.from({length:36},(_,n)=>(n+i*9)%34);p.redGangs=[];p.piziGangs=[];p.melds=[{kind:'peng',tiles:[20,20,20],from:1,concealed:false},{kind:'gang',tiles:[21,21,21,21],from:1,concealed:false}];});g.current=0;g.phase={kind:'discard',seat:0};g.pendingDiscard=null;g.lastDiscard=null;g.actionNotice=null;g.events=['全牌区材质展示夹具'];g.lastDraw=null;window.renderMahjong();});await frames();
@@ -89,8 +113,8 @@ try {
     await checkPair(size,'animation',async baseline=>({face:await materialSnapshot(page,'.deal-flight .tile.deal-face',!baseline),backs:await materialSnapshot(page,'.deal-flight .back.deal-face,.deal-source.back',!baseline)}));
     await page.evaluate(()=>{const layer=document.querySelector('#opening-deal');layer.replaceChildren();layer.hidden=true;});
   }
-  assert.deepEqual(report.errors,[]);report.passed=true;console.log(JSON.stringify({passed:true,cases:report.cases.length,tiles:report.cases.reduce((n,c)=>n+c.tiles,0),errors:report.errors,screenshots:0}));
-} finally {
+  assert.deepEqual(report.errors,[]);assert.deepEqual(report.resources,[]);report.passed=true;console.log(JSON.stringify({passed:true,cases:report.cases.length,tiles:report.cases.reduce((n,c)=>n+c.tiles,0),errors:report.errors,resources:report.resources,screenshots:report.screenshots.length,liveInteraction:report.liveInteraction}));
+} catch(error){report.failure=error.stack;throw error;} finally {
   if(process.env.KK_UI_TARGET_URL)try{report.testRoomLeft=await page.evaluate(()=>window.mahjongRoom.leave());}catch(error){report.cleanupError=error.message;}
-  writeFileSync(process.env.KK_UI_TARGET_URL?'output/shared-tile-materials-online.json':'output/shared-tile-materials.json',JSON.stringify(report,null,2));await browser.close();service.close();server.closeAllConnections();await new Promise(r=>server.close(r));
+  writeFileSync(output+'/'+(process.env.KK_UI_TARGET_URL?'shared-tile-materials-online.json':'shared-tile-materials.json'),JSON.stringify(report,null,2));await browser.close();service.close();server.closeAllConnections();await new Promise(r=>server.close(r));
 }
