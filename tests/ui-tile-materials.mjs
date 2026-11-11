@@ -85,16 +85,24 @@ async function checkSvgCornerRefresh(selector) {
   assert.deepEqual(result.restored,result.before,'hide/show restores the same symmetric SVG corner profile');
   report.svgCornerRefresh??=[];report.svgCornerRefresh.push(result);
 }
-try {
+async function openTestRoom(){
   await page.goto(targetURL,{waitUntil:'networkidle'});await page.locator('#room-name').fill('全牌区共享材质验收');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
   for(const seat of [1,2,3])await page.locator(`.room-bot-add[data-seat="${seat}"]`).click();
   await ensureReady(page);await page.locator('#room-start').click();await page.locator('#room-dialog').waitFor({state:'hidden'});await page.waitForFunction(()=>document.querySelector('#dice-intro').hidden&&!document.querySelector('#game').classList.contains('is-opening-deal'));
+}
+try {
+  await openTestRoom();
   if(process.env.KK_UI_TARGET_URL){
     await page.waitForFunction(()=>!window.mahjongRoom.busy&&window.mahjongGame.phase.kind==='discard'&&window.mahjongGame.current===0);
     const index=await page.evaluate(()=>{const g=window.mahjongGame;return g.players[0].hand.findIndex(t=>t!==31&&t!==g.indicatorTile&&t!==g.wildTile);});assert.ok(index>=0,'a legal ordinary tile exists');
     const tile=page.locator(`#hand button[data-index="${index}"]`);await tile.click();assert.equal(await tile.evaluate(n=>n.classList.contains('selected')),true,'actual hand click selects the tile');await tile.click();
     await page.waitForFunction(()=>window.mahjongGame.players[0].discards.length===1&&!window.mahjongRoom.busy);
     report.liveInteraction={ownRoom:true,actualTileClicks:2,selectionVisible:true,authoritativeDiscardCount:1};
+    // 实际点击后先离开牌面，普通材质夹具不能误采鼠标悬停态的合法亮色。
+    await page.mouse.move(1,1);
+    // 实际出牌会推进云端牌墙；材质成对比较使用另一间刚完成开局的独立房间。
+    report.liveInteraction.roomLeft=await page.evaluate(()=>window.mahjongRoom.leave());assert.equal(report.liveInteraction.roomLeft,true);
+    await openTestRoom();
   }
   await page.evaluate(()=>window.mahjongRoom.destroy());
   for(const size of [{width:640,height:360},{width:844,height:390},{width:1920,height:1080}]) {
