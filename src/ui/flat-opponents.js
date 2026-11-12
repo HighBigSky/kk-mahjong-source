@@ -15,14 +15,19 @@ const project = (m,x,y) => {const w=m[6]*x+m[7]*y+m[8];return{x:(m[0]*x+m[1]*y+m
 /** 由浏览器真实投影的四角反算平面，不依赖设备方向或人为压扁系数。 */
 function projection(node,width,height,stageBox) {
   const style=getComputedStyle(node),bx=parseFloat(style.borderLeftWidth),by=parseFloat(style.borderTopWidth);
-  const probe=document.createElement('i');
-  probe.style.cssText='position:absolute;width:0;height:0;margin:0;padding:0;border:0;pointer-events:none';
-  node.append(probe);
-  const p=[[0,0],[width,0],[width,height],[0,height]].map(([x,y])=>{
-    probe.style.left=`${x-bx}px`;probe.style.top=`${y-by}px`;
-    const rect=probe.getBoundingClientRect();return{x:rect.left-stageBox.left,y:rect.top-stageBox.top};
+  // 四角先统一写入，再集中读取；逐角移动同一个探针会强制刷新四次样式/布局。
+  // 与 tilePlanes 的批量探针相同，保留真实投影、边框补偿和原始坐标精度。
+  const fragment=document.createDocumentFragment();
+  const probes=[[0,0],[width,0],[width,height],[0,height]].map(([x,y])=>{
+    const probe=document.createElement('i');
+    probe.style.cssText=`position:absolute;width:0;height:0;margin:0;padding:0;border:0;pointer-events:none;left:${x-bx}px;top:${y-by}px`;
+    fragment.append(probe);return probe;
   });
-  probe.remove();
+  let p;
+  try {
+    node.append(fragment);
+    p=probes.map(probe=>{const rect=probe.getBoundingClientRect();return{x:rect.left-stageBox.left,y:rect.top-stageBox.top};});
+  } finally { for(const probe of probes)probe.remove(); }
   return cornerMatrix(p,width,height);
 }
 

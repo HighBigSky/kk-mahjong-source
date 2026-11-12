@@ -1289,7 +1289,9 @@ function render() {
       handNodes.set(key, node);
     }
     node.dataset.index = String(index);
-    node.className = `tile ${special ? 'red-kong-tile' : ''} ${wild ? 'is-wild' : ''} ${index === separatedDrawnIndex ? 'drawn' : ''}`.trim();
+    const className = `tile ${special ? 'red-kong-tile' : ''} ${wild ? 'is-wild' : ''} ${index === separatedDrawnIndex ? 'drawn' : ''}`.trim();
+    // 同值 class 也会通知材质观察器；只提交实际变化，选中/提示仍由 updateHandState 更新。
+    if (node.className !== className) node.className = className;
     node.setAttribute('aria-label', `${tileName(type)}${special ? '，只能杠出，不能打出' : ''}${wild ? '，癞子' : ''}${index === drawnIndex ? '，摸到的牌' : ''}`);
     if (special) node.title = '只能单张杠出，从牌墙末端补摸一张牌';
     else node.removeAttribute('title');
