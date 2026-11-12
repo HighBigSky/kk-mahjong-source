@@ -76,9 +76,13 @@ export function renderWall(element, game) {
   const info = game.wallInfo;
   if (!info || info.dice.length !== 2 || !info.dice.every(value => Number.isInteger(value) && value >= 1 && value <= 6)) {
     element.hidden = true;
+    element.closest('.table')?.classList.toggle('has-wall', false);
     return;
   }
   element.hidden = false;
+  // Derive the layout gate from this render, rather than a descendant :has()
+  // invalidation on every temporary projection probe inserted into the table.
+  element.closest('.table')?.classList.toggle('has-wall', true);
   const view = views.get(element) || createView(element);
   const indicator = game.indicatorTile !== null && info.indicatorPosition !== null ? info.indicatorPosition : -1;
   const indicatorTaken = game.indicatorTaken === true;

@@ -19,10 +19,15 @@ assert.ok(playwright, 'An installed Playwright runtime is required');
 const baselineArgument = process.argv.find(argument => argument.startsWith('--baseline='));
 const baseline = process.argv.includes('--baseline') || Boolean(baselineArgument);
 const baselineRef = baselineArgument ? baselineArgument.slice('--baseline='.length) : 'HEAD';
-const output = path.resolve('output');
+// Scoped discard review keeps the hint/claim/geometry checks, without running
+// the independent historical dice-duration acceptance scenario.
+const discardReview = process.argv.includes('--discard-review');
+const output = path.resolve(process.env.KK_UI_OUTPUT || 'output');
+const geometryBaseline = process.env.KK_UI_GEOMETRY_BASELINE ? JSON.parse((await import('node:fs')).readFileSync(process.env.KK_UI_GEOMETRY_BASELINE,'utf8')) : null;
 mkdirSync(output, { recursive: true });
-const report = { passed: false, baseline, createdAt: new Date().toISOString(), browser: '', errors: [], checks: [], screenshots: [], geometry: [], actions: [], mutations: [], fixtureNote: 'Four independent real Edge sessions use HTTP commands and SSE snapshots. Injected action states conserve all 136 tiles; they are not claimed to be naturally dealt complete rounds.' };
+const report = { passed: false, baseline, discardReview, skipped:discardReview ? ['Independent historical dice-duration scenario; opening release still runs normally.'] : [], createdAt: new Date().toISOString(), browser: '', errors: [], checks: [], screenshots: [], geometry: [], actions: [], mutations: [], fixtureNote: 'Four independent real Edge sessions use HTTP commands and SSE snapshots. Injected action states conserve all 136 tiles; they are not claimed to be naturally dealt complete rounds.' };
 if (baseline) report.baselineCommit = execFileSync('git', ['rev-parse', baselineRef], { encoding: 'utf8', windowsHide: true }).trim();
+report.measurementNote = 'domAt observes the expected DOM node; frameAt is the next rAF callback, not proof of paint or physical presentation. Five samples per action are functional smoke measurements, not stable tail-latency evidence.';
 const sizes = [
   { width: 640, height: 360 }, { width: 844, height: 390 },
   { width: 1280, height: 720 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 },
@@ -128,6 +133,7 @@ async function beginMeasure(page, kind, selector) {
       if (event.target.closest(selector)) { result.clickedAt = performance.now(); document.removeEventListener('click', listener, true); }
     };
     document.addEventListener('click', listener, true);
+    window.__polishHandNodes = kind === 'discard' ? [...document.querySelectorAll('#hand button')].slice(1) : null;
     window.__polishMeasure = { result, observer };
   }, { kind, selector });
 }
@@ -147,13 +153,15 @@ async function actionTrials(room, names) {
       await page.locator(selector).click();
       await until(() => room.version > version, `${kind} accepted by server`);
       await sync(room);
-      await until(() => page.evaluate(() => window.__polishMeasure.result.frameAt !== null), `${kind} DOM painted`);
+      await until(() => page.evaluate(() => window.__polishMeasure.result.frameAt !== null), `${kind} DOM observed and next rAF reached`);
       await sleep(100);
       const measured = await page.evaluate(() => {
         const { result, observer } = window.__polishMeasure;
         observer.disconnect();
-        return { ...result, domMs: Number((result.domAt - result.clickedAt).toFixed(2)), frameMs: Number((result.frameAt - result.clickedAt).toFixed(2)) };
+        const retained = window.__polishHandNodes;
+        return { ...result, retainedHandNodes:retained ? retained.every(node => node.isConnected && node.parentElement.id === 'hand') : null, domMs: Number((result.domAt - result.clickedAt).toFixed(2)), frameMs: Number((result.frameAt - result.clickedAt).toFixed(2)) };
       });
+      if (kind === 'discard') assert.equal(measured.retainedHandNodes, true, 'Discard retains every surviving hand node and its mounted SVG');
       assertInvariants(room.game);
       assert.equal(kind === 'discard' ? room.game.players[0].discards.length : room.game.players[0].melds.length, 1);
       assert.equal(collectPhysicalTiles(room.game).length, 136);
@@ -168,10 +176,17 @@ async function actionTrials(room, names) {
 }
 async function unchangedRenders() {
   const stats = await pages[0].evaluate(async () => {
-    const counters = Object.fromEntries(['hand', 'rivers', 'melds'].map(kind => [kind, { records: 0, added: 0, removed: 0 }]));
+    const counters = Object.fromEntries(['hand', 'rivers', 'melds'].map(kind => [kind, { records: 0, added: 0, removed: 0, semanticRecords:0, probesAdded:0, probesRemoved:0 }]));
     const selectors = { hand: '#hand', rivers: '.river', melds: '[id^="melds-"]' };
+    const mounted=[...document.querySelectorAll('#hand .tile,#hand svg,.river .tile,.river svg,[id^="melds-"] .tile,[id^="melds-"] svg')];
+    const probe=node=>node.nodeType===1 && node.tagName==='I' && node.style.position==='absolute' && node.style.width==='0px' && node.style.height==='0px' && node.style.pointerEvents==='none' && !node.childNodes.length;
     const observers = Object.entries(selectors).map(([kind, selector]) => {
-      const observer = new MutationObserver(records => records.forEach(record => { counters[kind].records++; counters[kind].added += record.addedNodes.length; counters[kind].removed += record.removedNodes.length; }));
+      const observer = new MutationObserver(records => records.forEach(record => {
+        const c=counters[kind],added=[...record.addedNodes],removed=[...record.removedNodes];
+        c.records++;c.added+=added.length;c.removed+=removed.length;
+        c.probesAdded+=added.filter(probe).length;c.probesRemoved+=removed.filter(probe).length;
+        if([...added,...removed].some(node=>!probe(node)))c.semanticRecords++;
+      }));
       document.querySelectorAll(selector).forEach(element => observer.observe(element, { childList: true, subtree: true }));
       return observer;
     });
@@ -180,10 +195,12 @@ async function unchangedRenders() {
     const durationMs = Number((performance.now() - started).toFixed(2));
     await Promise.resolve();
     observers.forEach(observer => observer.disconnect());
-    return { iterations: 20, durationMs, ...counters };
+    const after=[...document.querySelectorAll('#hand .tile,#hand svg,.river .tile,.river svg,[id^="melds-"] .tile,[id^="melds-"] svg')];
+    return { iterations: 20, durationMs, retainedTilesAndSVG:mounted.length===after.length&&mounted.every((node,i)=>node===after[i]), ...counters };
   });
   report.mutations.push(stats);
-  assert.equal(stats.hand.records + stats.rivers.records + stats.melds.records, 0, 'Twenty unchanged full renders preserve tile DOM children');
+  assert.equal(stats.hand.semanticRecords + stats.rivers.semanticRecords + stats.melds.semanticRecords, 0, 'Twenty unchanged full renders preserve tile DOM children (raw transient zero-size probes are reported separately)');
+  assert.equal(stats.retainedTilesAndSVG,true,'Every mounted tile and SVG retains its identity and order');
 }
 async function duplicateSnapshots(room) {
   const page = pages[0];
@@ -237,7 +254,7 @@ function filledFixture(names) {
 async function geometry(page, viewport) {
   await page.setViewportSize(viewport);
   await frames(page);
-  const measured = await page.evaluate(() => {
+  const measured = await page.evaluate(discardReview => {
     const box = element => { const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height }; };
     const visible = element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden';
     const overlap = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > .5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > .5;
@@ -257,15 +274,38 @@ async function geometry(page, viewport) {
     const avatarToolbarOverlaps = [...document.querySelectorAll('.top-tools>*')].filter(visible).map(element => ({ name: element.id || element.className, box: box(element) })).filter(element => overlap(element.box, avatar));
     const marker = document.querySelector('.river .last-discard');
     const markerStyle = marker && getComputedStyle(marker);
+    if (discardReview) {
+      window.__discardVisualState = [...document.querySelectorAll('#hand .tile,.river .tile,.opponent-rack .tile,.opponent-rack .back,#wall-tail .wall-piece:not(.is-empty)')].filter(visible).map(node => ({
+        region:node.closest('.river,.opponent-rack,.hand,.flat-wall-run')?.id || node.closest('.flat-wall-run')?.dataset.side,
+        box:box(node), glyph:node.querySelector('use')?.getAttribute('href') || node.querySelector('svg')?.innerHTML || null,
+        layers:['','::before','::after'].map(pseudo => { const s=getComputedStyle(node,pseudo || null);return [s.width,s.height,s.transform,s.borderRadius,s.background,s.boxShadow,s.getPropertyValue('--tile-model-light-x'),s.getPropertyValue('--tile-model-light-y')]; }),
+      }));
+    }
     return { stage: { width: document.querySelector('#game').clientWidth, height: document.querySelector('#game').clientHeight },  table, avatar, avatarFace, avatarOverlap, avatarToolbarOverlaps, hand, rivers, overlaps, marker: marker ? { box: box(marker), outlineWidth: markerStyle.outlineWidth, color: markerStyle.backgroundColor, width: markerStyle.width, height: markerStyle.height } : null, scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight };
-  });
+  }, discardReview);
   report.geometry.push({ viewport, ...measured });
+  if (discardReview) {
+    report.materials ||= [];
+    report.materials.push({viewport,tiles:await page.evaluate(() => window.__discardVisualState)});
+    if (!baseline) assert.equal(await page.evaluate(() => document.querySelector('.table').classList.contains('has-wall') === !document.querySelector('#wall-tail').hidden), true, 'Current wall visibility drives its layout class');
+  }
   await screenshot(page, `layout-${viewport.width}x${viewport.height}`);
   const inside = b => b.left >= -1.1 && b.top >= -1.1 && b.right <= viewport.width + 1.1 && b.bottom <= viewport.height + 1.1;
   assert.ok(measured.hand.length === 14 && measured.hand.every(item => inside(item.box) && item.hit), `Hand visibility and hit targets ${JSON.stringify({ viewport, measured })}`);
   assert.ok(inside(measured.avatar) && inside(measured.avatarFace), `Avatar face and ting are on screen ${JSON.stringify({ viewport, measured })}`);
   assert.deepEqual(measured.avatarOverlap, [], `Top avatar does not cover tiles ${JSON.stringify(viewport)}`);
-  assert.deepEqual(measured.avatarToolbarOverlaps, [], `Top avatar avoids toolbar ${JSON.stringify(viewport)}`);
+  if (discardReview && baseline) {
+    // Keep the legacy acceptance assertion below. This scoped review first
+    // records existing toolbar overlap rather than redesigning the start/table UI.
+    report.baselineLayoutIssues ||= [];
+    if (measured.avatarToolbarOverlaps.length) report.baselineLayoutIssues.push({viewport,avatarToolbarOverlaps:measured.avatarToolbarOverlaps});
+  } else if (discardReview && geometryBaseline) {
+    const before=geometryBaseline.geometry.find(row=>row.viewport.width===viewport.width&&row.viewport.height===viewport.height);
+    assert.ok(before,'Fixed baseline geometry exists for this viewport');
+    const {viewport:_,...prior}=before;
+    assert.deepEqual(measured,prior,'Performance change preserves exact baseline geometry and does not worsen an existing layout defect');
+    report.baselineLayoutIssues=geometryBaseline.baselineLayoutIssues;
+  } else assert.deepEqual(measured.avatarToolbarOverlaps, [], `Top avatar avoids toolbar ${JSON.stringify(viewport)}`);
   assert.deepEqual(measured.overlaps, [], `River clearances ${JSON.stringify({ viewport, overlaps: measured.overlaps })}`);
   assert.equal(measured.rivers.length, 36, 'All 36 physical discards in this fixture are displayed');
   assert.ok(measured.rivers.every(tile => inside(tile.box)));
@@ -381,7 +421,8 @@ async function fourthCopyClaimCheck(room, names) {
   report.fourthCopyClaim = { knownCopies: 4, serverHu: true, duringResponse: { claim: true, selfDraw: false }, afterResponseShown: false, conservation: 136 };
 }
 async function featureChecks(room, names) {
-  await diceChecks(room, names);
+  if (discardReview) await until(() => pages[0].evaluate(() => !window.mahjongRoom.room?.opening && !document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal')), 'Existing opening release completes', 20000);
+  else await diceChecks(room, names);
   await tingChecks(room, names);
   await latestChecks(room, names);
   await fourthCopyClaimCheck(room, names);
@@ -417,7 +458,7 @@ try {
   await until(() => !!room.game, 'real round start');
   await sync(room);
   const names = room.seats.map(seat => seat.name);
-  if (!baseline) await featureChecks(room, names);
+  if (!baseline || discardReview) await featureChecks(room, names);
   await actionTrials(room, names);
   await unchangedRenders();
   await duplicateSnapshots(room);

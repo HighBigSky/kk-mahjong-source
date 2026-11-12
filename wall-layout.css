@@ -100,24 +100,25 @@
 }
 
 /* Compact the table interior only once the full public wall is present. */
-.table:has(.wall-tail:not([hidden])) .backs-top { top:1.8cqw; height:2.65cqw; }
-.table:has(.wall-tail:not([hidden])) .backs-top .back {
+/* Repeated class preserves the previous :has() selector specificity (0,3,0). */
+.table.has-wall.has-wall .backs-top { top:1.8cqw; height:2.65cqw; }
+.table.has-wall.has-wall .backs-top .back {
   width:2cqw;
   height:2.65cqw;
   border-bottom-width:.25cqw;
 }
-.table:has(.wall-tail:not([hidden])) .backs-left { left:.65cqw; }
-.table:has(.wall-tail:not([hidden])) .backs-right { right:.65cqw; }
-.table:has(.wall-tail:not([hidden])) .backs-left,
-.table:has(.wall-tail:not([hidden])) .backs-right { width:3.1cqw; }
-.table:has(.wall-tail:not([hidden])) .backs-left .back,
-.table:has(.wall-tail:not([hidden])) .backs-right .back { width:3.1cqw; }
+.table.has-wall.has-wall .backs-left { left:.65cqw; }
+.table.has-wall.has-wall .backs-right { right:.65cqw; }
+.table.has-wall.has-wall .backs-left,
+.table.has-wall.has-wall .backs-right { width:3.1cqw; }
+.table.has-wall.has-wall .backs-left .back,
+.table.has-wall.has-wall .backs-right .back { width:3.1cqw; }
 
 
-.table:has(.wall-tail:not([hidden])) .table-center {
+.table.has-wall.has-wall .table-center {
   left:calc(50% - 9cqw);
   top:calc(50% - 9cqw);
   width:18cqw;
   height:18cqw;
 }
-.table:has(.wall-tail:not([hidden])) .bot-melds-top { left:-13.4cqw; top:2.5cqw; }
+.table.has-wall.has-wall .bot-melds-top { left:-13.4cqw; top:2.5cqw; }

@@ -6,6 +6,7 @@ import {execFileSync} from 'node:child_process';
 import {mkdirSync,writeFileSync,readFileSync} from 'node:fs';
 import path from 'node:path';
 import {performance} from 'node:perf_hooks';
+import {createHash} from 'node:crypto';
 import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
 import {actionFixture} from './pizi-fixtures.mjs';
@@ -18,6 +19,7 @@ const revision=option('--revision','e2397ec4ebe2b6a2b506a4f218e902127ab4a2f5');
 const count=Number(option('--samples','20'));
 const output=path.resolve(option('--output','output/discard-performance-20261112/baseline'));
 const selected=option('--cases','all');
+const reducedMotion=option('--motion','reduce');
 mkdirSync(output,{recursive:true});
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
 const service=new RoomService({botDelayMs:600000}),server=createServer({roomService:service});
@@ -50,10 +52,14 @@ const cases=[
   {name:'dense-proxy150',density:'dense',hintOpen:true,latency:0,proxyRTT:150,cpu:1}
 ].filter(row=>selected==='all'?!row.exploratory:selected.split(',').includes(row.name));
 const report={kind:revision==='working'?'working-source diagnostic':'fixed-revision baseline diagnostic',revision,sampleCountPerCase:count,environment:{browser:browser.version(),viewport:{width:844,height:390},dpr:1,headless:true,participants:'one human / three bots, bot scheduling held at 600000ms in this diagnostic service only',network:'loopback; proxyRTT delays action uplink and HTTP/SSE downlink by half each; latency is a CDP setting and not calibrated SSE RTT; neither is public Internet',reducedMotion:'reduce'},limitations:['C4 rAF and compositor trace are observations, not proof of a physical display or GPU presentation.','Fixtures allocate four physical copies and use authoritative actions, but are not claimed to be naturally played whole games.','Only the requesting player receives private state; no credentials or other players concealed tiles are written.','Instrumentation adds overhead; nested spans overlap and must not be summed.','httpComplete is response.json consumption completion on the browser main thread, not an independent wire timestamp.','--revision selects browser JS; the imported server is from this worktree, so use separate fixed worktrees if server code changes.'],cases:[],errors:[]};
-const redact=value=>JSON.parse(JSON.stringify(value).replace(/[a-f0-9]{48}/g,'[credential-redacted]'));
+const redact=value=>JSON.parse(JSON.stringify(value).replace(/\b[a-f0-9]{48}\b/g,'[credential-redacted]'));
 const sourceCache=new Map();
+report.sourceHashes={};
+report.environment.reducedMotion=reducedMotion;
+report.diagnosticWallSelector=args.includes('--diagnose-wall-selector');
+report.projectionDetail=args.includes('--detail');
 const sourceFor=file=>{
-  const key=revision+':'+file;if(!sourceCache.has(key))sourceCache.set(key,revision==='working'?readFileSync(path.resolve(file),'utf8'):execFileSync('git',['show',`${revision}:${file}`],{encoding:'utf8'}));return sourceCache.get(key);
+  const key=revision+':'+file;if(!sourceCache.has(key))sourceCache.set(key,revision==='working'?readFileSync(path.resolve(file),'utf8'):execFileSync('git',['show',`${revision}:${file}`],{encoding:'utf8'}));const source=sourceCache.get(key);report.sourceHashes[file]=createHash('sha256').update(source.replaceAll('\r\n','\n')).digest('hex');return source;
 };
 const duration=(s,from,to)=>s[from]==null||s[to]==null?null:s[to]-s[from];
 const stats=values=>{const sorted=values.filter(Number.isFinite).sort((a,b)=>a-b);return{n:sorted.length,median:sorted.length?sorted[Math.floor(sorted.length/2)]:null,p95:sorted.length?sorted[Math.ceil(sorted.length*.95)-1]:null,max:sorted.at(-1)??null};};
@@ -75,13 +81,19 @@ function fixture(density,names){
 }
 try{
   for(const scenario of cases){
-    const context=await browser.newContext({viewport:report.environment.viewport,deviceScaleFactor:1,reducedMotion:'reduce'});
+    const context=await browser.newContext({viewport:report.environment.viewport,deviceScaleFactor:1,reducedMotion});
     await context.addInitScript(installDiscardProbe);
     await context.addInitScript(()=>{localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));Object.defineProperty(Element.prototype,'requestFullscreen',{value:()=>Promise.reject(Error('diagnostic viewport'))});});
     await context.route('**/*.js',async route=>{
       const file=new URL(route.request().url()).pathname;
-      try{await route.fulfill({body:instrumentClientSource(file,sourceFor(file.slice(1))),contentType:'text/javascript'});}catch(error){report.errors.push(String(error));await route.abort();}
+      try{await route.fulfill({body:instrumentClientSource(file,sourceFor(file.slice(1)),{detail:args.includes('--detail')}),contentType:'text/javascript'});}catch(error){report.errors.push(String(error));await route.abort();}
     });
+    // CSS must use the same fixed revision now that the review changes a
+    // selector. The server remains shared only while its code is unchanged.
+    await context.route('**/*.css',route=>route.fulfill({contentType:'text/css',body:sourceFor(new URL(route.request().url()).pathname.slice(1))}));
+    // Opt-in hypothesis isolation only, never an acceptance/performance result:
+    // all measured fixture tables have a visible wall, so hold that selector true.
+    if(args.includes('--diagnose-wall-selector'))await context.route('**/wall-layout.css',route=>route.fulfill({contentType:'text/css',body:sourceFor('wall-layout.css').replaceAll('.table:has(.wall-tail:not([hidden]))','.table')}));
     const page=await context.newPage();page.on('pageerror',error=>report.errors.push(error.message));
     const cdp=await context.newCDPSession(page);await cdp.send('Network.enable');await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});
     transport.setRTT(0);

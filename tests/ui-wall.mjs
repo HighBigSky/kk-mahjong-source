@@ -23,7 +23,7 @@ const baseURL = `http://127.0.0.1:${server.address().port}`;
 const edge = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const browser = await playwright.chromium.launch({headless:true, ...(existsSync(edge) ? {executablePath:edge} : {})});
 const contexts = [];
-const output = path.resolve('output');
+const output = path.resolve(process.env.KK_UI_OUTPUT || 'output');
 mkdirSync(output, {recursive:true});
 const report = {baseURL, passed:false, checks:[], viewports:[], maximumMeldViewports:[], screenshots:[], errors:[], fixtures:{}, actualGang:null, actualDiscard:null, observers:[], endBoundary:[]};
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -117,12 +117,12 @@ function liveSlots(game) {
 let observerRoom;
 async function assertFourObserverSnapshots(game, label) {
   if (!observerRoom) {
-    const create = await fetch(`${baseURL}/api/rooms`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:'观察者一', laizi:true})});
+    const create = await fetch(`${baseURL}/api/rooms`, {method:'POST', headers:{'Content-Type':'application/json','X-KK-Opening':'1'}, body:JSON.stringify({name:'观察者一', laizi:true})});
     assert.equal(create.status, 201);
     const envelope = await create.json();
     observerRoom = {room:service.rooms.get(envelope.room.code), tokens:[envelope.token]};
     for (const name of ['观察者二', '观察者三', '观察者四']) {
-      const join = await fetch(`${baseURL}/api/rooms/${observerRoom.room.code}/join`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+      const join = await fetch(`${baseURL}/api/rooms/${observerRoom.room.code}/join`, {method:'POST', headers:{'Content-Type':'application/json','X-KK-Opening':'1'}, body:JSON.stringify({name})});
       assert.equal(join.status, 201);
       observerRoom.tokens.push((await join.json()).token);
     }
@@ -261,6 +261,20 @@ function maximumMeldFixture(seed) {
 
 try {
   const {page, room} = await createPlayingRoom('牌墙验收', true);
+  const visibility = await page.evaluate(async () => {
+    const {renderWall} = await import('/src/network/wall-view.js');
+    // Detached display host exercises the public renderer, never the game state.
+    const table = document.createElement('div'); table.className = 'table';
+    const wall = document.createElement('div'); table.append(wall);
+    const read = () => ({hidden:wall.hidden, gate:table.classList.contains('has-wall')});
+    renderWall(wall, window.mahjongGame); const first=read(), stack=wall.querySelector('.wall-stack');
+    renderWall(wall, {...window.mahjongGame,wallInfo:null}); const hidden=read();
+    renderWall(wall, window.mahjongGame); const restored=read();
+    renderWall(wall, {...window.mahjongGame,wallInfo:{...window.mahjongGame.wallInfo,dice:[0,7]}}); const invalid=read();
+    return {first,hidden,restored,invalid,reused:stack===wall.querySelector('.wall-stack')};
+  });
+  assert.deepEqual(visibility,{first:{hidden:false,gate:true},hidden:{hidden:true,gate:false},restored:{hidden:false,gate:true},invalid:{hidden:true,gate:false},reused:true});
+  report.wallVisibility=visibility;
   const normal = findGame(game => game.wallInfo.indicatorPosition > 0 && game.getActions(0).redGang);
   await publish(page, room, normal.game);
   const initial = await wallState(page);

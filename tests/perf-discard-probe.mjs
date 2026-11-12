@@ -64,7 +64,7 @@ export function installDiscardProbe() {
   window.__discardProbe=probe;
 }
 
-export function instrumentClientSource(path,source) {
+export function instrumentClientSource(path,source,{detail=false}={}) {
   source=source.replaceAll('\r\n','\n');
   const wrap=(name,{async=false,after=''}={})=>{
     const prefix=async?'async ':'';
@@ -85,6 +85,10 @@ export function instrumentClientSource(path,source) {
     source=source.replace('const setBusy = value => {','const __probeSetBusy = value => {');
     source=source.replace('const storage = kind =>',"const setBusy=value=>window.__discardProbe.span('setBusy',()=>{const result=__probeSetBusy(value);window.__discardProbe.busy(value);return result;});\n  const storage = kind =>");
   }else if(path==='/src/ui/flat-opponents.js'){
+    if(detail) {
+      source=source.replace('const style=getComputedStyle(node),bx=parseFloat(style.borderLeftWidth),by=parseFloat(style.borderTopWidth);',"const [style,bx,by]=window.__discardProbe.span('projectionStyle',()=>{const s=getComputedStyle(node);return [s,parseFloat(s.borderLeftWidth),parseFloat(s.borderTopWidth)];});")
+        .replaceAll('probe.getBoundingClientRect()',"window.__discardProbe.span('projectionRect',()=>probe.getBoundingClientRect())");
+    }
     wrap('projection');
   }else if(path==='/src/ui/tile-material.js'){
     for(const name of ['syncTileMetric','paintHandSeams','paintContactShadows']){
