@@ -74,6 +74,7 @@ let voiceAnnouncing = false;
 let diceIntroKey = null;
 let diceIntroTimer = null;
 let diceIntroFrame = null;
+let diceIntroResizeObserver = null;
 let diceIntroPhase = 'idle';
 let diceIntroGeneration = 0;
 let openingReadyTask = null;
@@ -650,6 +651,8 @@ function scheduleDiceIntro(callback, delayMs) {
 
 function restoreIntroDice(values = game.wallInfo?.dice || []) {
   cancelAnimationFrame(diceIntroFrame); diceIntroFrame = null;
+  diceIntroResizeObserver?.disconnect();
+  diceIntroResizeObserver = null;
   $('#table-dice').classList.remove('is-rolling');
   // 正常落定前已显示真实点数并归正；此处只清理固定点位，不靠换节点修正朝向。
   renderedHTML.delete($('#table-dice'));
@@ -770,7 +773,8 @@ function createDiceOrbit(holder, dice) {
       const side = index === 0 ? 1 : -1;
       const dx = (centerX + side * x - restX[index]) * blend;
       const dy = (centerY + side * y - restY) * blend;
-      die.style.translate = `${dx}px ${dy}px`;
+      // 百分比位移先跟随骰子缩放，尺寸观察再校正盘缘与边框。
+      die.style.translate = `${dx / sizes[index].width * 100}% ${dy / sizes[index].height * 100}%`;
       die.style.scale = String(1 + (rollScale - 1) * blend);
     });
   };
@@ -813,7 +817,16 @@ function rollIntroDice(values) {
   diceIntroFrame = requestAnimationFrame(() => {
     if (generation !== diceIntroGeneration || diceIntroPhase !== 'rolling') return;
     diceIntroFrame = null;
-    const orbit = createDiceOrbit(holder, dice);
+    let orbit = createDiceOrbit(holder, dice);
+    let elapsedMs = 0;
+    let resultMarked = false;
+    // 窗口在摇动中改变尺寸时，重新拟合盘内半径，沿用原动画时钟和当前角度。
+    diceIntroResizeObserver = new ResizeObserver(() => {
+      if (generation !== diceIntroGeneration || diceIntroPhase !== 'rolling') return;
+      orbit = createDiceOrbit(holder, dice);
+      orbit(elapsedMs / DICE_INTRO_TIMING.rollMs);
+    });
+    diceIntroResizeObserver.observe(holder);
     holder.classList.add('is-rolling');
     // 繁忙帧的 rAF 时间戳可能早于 CSS 真正起播；以同一动画时钟换面和收尾，
     // 不能在 CSS 仍翻滚时按旧帧时间强行清理。无动画查询能力时按实时时间降级。
@@ -822,9 +835,14 @@ function rollIntroDice(values) {
     const advance = () => {
       if (generation !== diceIntroGeneration || diceIntroPhase !== 'rolling') return;
       diceIntroFrame = null;
-      const elapsedMs = Math.min(animations.length?Math.max(...animations.map(animation=>Number(animation.currentTime)||0)):performance.now()-startedAt, DICE_INTRO_TIMING.rollMs);
+      elapsedMs = Math.min(animations.length?Math.max(...animations.map(animation=>Number(animation.currentTime)||0)):performance.now()-startedAt, DICE_INTRO_TIMING.rollMs);
       orbit(elapsedMs / DICE_INTRO_TIMING.rollMs);
       tick(elapsedMs);
+      if (!resultMarked && elapsedMs >= DICE_INTRO_TIMING.rollMs * .94) {
+        const minimum = Math.min(...values);
+        dice.forEach((die, index) => die.classList.toggle('is-key', values[index] === minimum));
+        resultMarked = true;
+      }
       if (elapsedMs < DICE_INTRO_TIMING.rollMs) {
         diceIntroFrame = requestAnimationFrame(advance);
         return;

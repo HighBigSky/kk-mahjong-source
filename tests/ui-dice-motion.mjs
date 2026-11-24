@@ -6,6 +6,7 @@ import {createRequire} from 'node:module';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {createServer} from '../server.js';
 import {RoomService} from '../src/server/rooms.js';
+import {installVisualGeometry} from './browser-geometry.mjs';
 
 const {chromium}=createRequire('C:/Users/gk200/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')('playwright');
 const output=process.env.KK_UI_OUTPUT||'output/dice-review-20261106';mkdirSync(output,{recursive:true});
@@ -13,15 +14,129 @@ const service=new RoomService({botDelayMs:600000}),server=createServer({roomServ
 server.listen(0,'127.0.0.1');await once(server,'listening');
 const target=process.env.KK_UI_TARGET_URL||'http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'}),contexts=[];
-const baseline='fceddc011f6f33505a9160673639088cad164341';
-const prior=new Map(['app.js','landscape.css','src/ui/opening-deal.js','src/ui/flat-opponents.js'].map(f=>[f,execFileSync('git',['show',baseline+':'+f])]));
-const report={passed:false,baseline,target,timing:[],pairs:[],lifecycle:[],errors:[],resources:[],screenshots:[],note:'Real browser clocks and automatic completion. All 36 dice pairs use a controlled existing engine dice stream in isolated server rounds, not naturally sampled rounds. The frozen prior UI is explicitly released by the local controller to reproduce its former immediate-play contract.'};
+const baseline='5c755cb8af4a49b3ef6d1aeaefee7aca242505ed';
+const prior=new Map(['app.js','landscape.css'].map(f=>[f,execFileSync('git',['show',baseline+':'+f])]));
+const report={passed:false,baseline,target,timing:[],orbits:[],pairs:[],lifecycle:[],errors:[],resources:[],screenshots:[],note:'Real browser clocks and automatic completion. All 36 dice pairs use a controlled existing engine dice stream in isolated server rounds, not naturally sampled rounds. The comparison uses the formal pre-orbit client and the same opening gate as the delivery.'};
 const idle=page=>page.waitForFunction(()=>!document.querySelector('#game').matches('.is-dice-intro,.is-opening-deal')&&!window.mahjongRoom.room?.opening&&!window.mahjongRoom.busy);
 
-async function open(version,size,motion='no-preference'){
+// Measure projected points on the actual elements within the same browser frame.
+// A rotating die's axis-aligned bounding box is not its projected outline.
+function installOrbitSampling() {
+ document.addEventListener('DOMContentLoaded',()=>{
+  const holder=document.querySelector('#table-dice'),intro=document.querySelector('#dice-intro');
+  const makeProbe=()=>{
+   const node=document.createElement('span');
+   node.style.cssText='position:absolute;width:0;height:0;pointer-events:none;visibility:hidden';
+   return node;
+  };
+  const probes=Array.from({length:15},makeProbe);
+  const read=(probe)=>{const {x,y}=probe.getBoundingClientRect();return{x,y};};
+  const px=(value,size)=>parseFloat(value)*(value.endsWith('%')?size/100:1);
+  const position=(probe,x,y)=>{probe.style.left=x+'px';probe.style.top=y+'px';};
+  const sample=(dice,includeWell)=>{
+   const placements=[],styles=dice.map(die=>getComputedStyle(die));
+   const prior=dice.map(die=>die.style.position);
+   if(includeWell){
+    const {width,height}=getComputedStyle(holder),w=parseFloat(width),h=parseFloat(height);
+    const s=getComputedStyle(holder.parentElement,'::before');
+    const left=px(s.left,w)+parseFloat(s.borderLeftWidth),right=w-px(s.right,w)-parseFloat(s.borderRightWidth);
+    const top=px(s.top,h)+parseFloat(s.borderTopWidth),bottom=h-px(s.bottom,h)-parseFloat(s.borderBottomWidth);
+    const cx=(left+right)/2,cy=(top+bottom)/2,rx=(right-left)/2,ry=(bottom-top)/2;
+    [[cx-rx,cy-ry],[cx+rx,cy-ry],[cx+rx,cy+ry],[cx-rx,cy+ry],[cx,cy]].forEach(([x,y],i)=>{
+     position(probes[i+10],x,y);placements.push([holder,probes[i+10]]);
+    });
+   }
+   dice.forEach((die,index)=>{
+    const s=styles[index],w=parseFloat(s.width),h=parseFloat(s.height);
+    const left=parseFloat(s.borderLeftWidth),top=parseFloat(s.borderTopWidth);
+    if(s.position==='static')die.style.position='relative';
+    [[0,0],[w,0],[w,h],[0,h],[w/2,h/2]].forEach(([x,y],i)=>{
+     const probe=probes[index*5+i];position(probe,x-left,y-top);placements.push([die,probe]);
+    });
+   });
+   try{
+    for(const [element,probe] of placements)element.append(probe);
+    const bodies=dice.map((n,i)=>({center:read(probes[i*5+4]),quad:probes.slice(i*5,i*5+4).map(read),
+     value:Number(n.dataset.value)||n.querySelectorAll('i').length,key:n.classList.contains('is-key')}));
+    if(!includeWell)return {dice:bodies};
+    const well=probes.slice(10,14).map(read),{tablePlane,intersects}=window.visualGeometry;
+    const corners=tablePlane(well)(bodies.flatMap(die=>die.quad));
+    return {dice:bodies,well,center:read(probes[14]),
+     rimRatio:Math.max(...corners.map(({x,y})=>2*Math.hypot(x-.5,y-.5))),
+     overlap:intersects(bodies[0].quad,bodies[1].quad,0)};
+   }finally{
+    for(const [,probe] of placements)probe.remove();
+    dice.forEach((die,i)=>{if(die.style.position!==prior[i])die.style.position=prior[i];});
+   }
+  };
+  let captured=false;
+  new MutationObserver(()=>{
+   const phase=intro.dataset.phase;
+   if(phase==='settled'&&captured&&!window.__diceOrbit.rest)window.__diceOrbit.rest=sample([...holder.children],false);
+   if(phase!=='rolling'||captured)return;
+   captured=true;
+   const dice=[...holder.children],frames=[];
+   window.__diceOrbit={frames,timeOrigin:performance.timeOrigin};
+   const frame=()=>{
+    if(intro.dataset.phase!=='rolling')return;
+    const measurements=sample(dice,true);
+    const time=Math.max(0,...dice.flatMap(die=>die.getAnimations().map(a=>Number(a.currentTime)||0)));
+    frames.push({time,at:performance.now(),viewWidth:innerWidth,...measurements,sameDice:dice.every((die,i)=>holder.children[i]===die)});
+    requestAnimationFrame(frame);
+   };
+   requestAnimationFrame(frame);
+  }).observe(intro,{attributes:true,attributeFilter:['data-phase']});
+ });
+}
+
+const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function assertOrbit({frames,rest},size,resizeTo){
+ assert.ok(frames.length>=18&&frames[0].time<100&&frames.at(-1).time>=960,'sample the full roll, including the settled tail');
+ assert.ok(frames.every(frame=>frame.sameDice),'keep the same A/B identities even after their sides switch');
+ const rimRatio=Math.max(...frames.map(frame=>frame.rimRatio));
+ assert.ok(rimRatio<=1.015,'physical corners stay inside the recess, including during resize; max ratio '+rimRatio);
+ assert.ok(frames.every(frame=>!frame.overlap),'projected die outlines never intersect');
+ const tail=frames.at(-1).dice;
+ const drift=Math.max(...tail.map((die,i)=>distance(die.center,rest.dice[i].center)));
+ assert.ok(drift<1,'last moving centers align with the static centers');
+ assert.deepEqual(tail.map(die=>[die.value,die.key]),rest.dice.map(die=>[die.value,die.key]),'final values and their gold outlines are present before settling');
+ if(resizeTo){
+  const after=frames.filter(frame=>frame.viewWidth===resizeTo.width);
+  assert.ok(after.length>=8&&after[0].time<800,'sample the resized tray before the roll settles');
+  return {size,resizeTo,samples:frames.length,resizedSamples:after.length,rimRatio,drift};
+ }
+ // Use the projected common tray center, not the angle of each die's own rotation.
+ const turns=[0,1].map(i=>{
+  const angles=frames.map(frame=>{const point=frame.dice[i].center;return Math.atan2(point.y-frame.center.y,point.x-frame.center.x);});
+  const delta=angles.slice(1).map((angle,j)=>Math.atan2(Math.sin(angle-angles[j]),Math.cos(angle-angles[j])));
+  return {delta,total:delta.reduce((sum,step)=>sum+step,0)};
+ });
+ const direction=Math.sign(turns[0].total);
+ for(const turn of turns){
+  assert.ok(turn.total*direction>1.95*Math.PI&&turn.total*direction<2.05*Math.PI,'both centers complete one turn in the same direction');
+  assert.ok(turn.delta.every(step=>step*direction>=-.035&&Math.abs(step)<1),'turn advances continuously, without reversals or a teleport');
+ }
+ const sides=frame=>Math.sign(frame.dice[0].center.x-frame.dice[1].center.x);
+ assert.ok(frames.some(frame=>frame.time>450&&frame.time<550&&sides(frame)===-sides(frames[0])),'half a turn swaps left and right');
+ assert.equal(sides(frames.at(-1)),sides(frames[0]),'both dice return to their own side');
+ const crossings=frames.filter(frame=>{
+  const [a,b]=frame.dice;
+  const width=distance(frame.well[0],frame.well[1]),height=distance(frame.well[0],frame.well[3]);
+  return Math.abs(a.center.x-b.center.x)<width*.16&&Math.abs(a.center.y-b.center.y)>height*.37;
+ });
+ const fronts=new Set(crossings.map(frame=>Math.sign(frame.dice[0].center.y-frame.dice[1].center.y)));
+ assert.ok(fronts.has(1)&&fronts.has(-1),'both front/back crossings remain visible on the projected tray');
+ return {size,samples:frames.length,turnsDeg:turns.map(turn=>turn.total*180/Math.PI),rimRatio,drift,
+  minimumCenterGap:Math.min(...frames.map(frame=>distance(frame.dice[0].center,frame.dice[1].center)))};
+}
+
+async function open(version,size,motion='no-preference',resizeTo=null){
  const context=await browser.newContext({viewport:size,reducedMotion:motion});contexts.push(context);
- if(version==='before')await context.setExtraHTTPHeaders({'X-KK-Opening':'1'});
  if(version==='before')await context.route('**/*',route=>{const f=new URL(route.request().url()).pathname.slice(1),body=prior.get(f);return body?route.fulfill({body,contentType:f.endsWith('.css')?'text/css':'text/javascript'}):route.continue();});
+ if(version==='after'&&motion!=='reduce'){
+  await context.addInitScript(installVisualGeometry);
+  await context.addInitScript(installOrbitSampling);
+ }
  await context.addInitScript(()=>{
   localStorage.setItem('queqi-settings',JSON.stringify({sound:false}));
   Object.defineProperty(Element.prototype,'requestFullscreen',{configurable:true,value:()=>Promise.reject(Error('fixed review viewport'))});
@@ -50,20 +165,52 @@ async function open(version,size,motion='no-preference'){
  page.on('requestfailed',r=>{if(r.failure()?.errorText!=='net::ERR_ABORTED')report.resources.push({url:r.url(),error:r.failure()?.errorText});});
  await page.goto(target,{waitUntil:'networkidle'});await page.locator('#room-name').fill('骰子运动审核');await page.locator('#room-create').click();await page.locator('#room-waiting:not([hidden])').waitFor();
  const code=(await page.locator('#room-current-code').textContent()).trim();
- for(const seat of[1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await ensureReady(page);await page.locator('#room-start').click();
+ for(const seat of[1,2,3])await page.locator('.room-bot-add[data-seat="'+seat+'"]').click();await ensureReady(page);
+ const capture=process.env.KK_DICE_CAPTURE==='1'&&version==='after'&&motion!=='reduce'&&!resizeTo&&!report.orbits.some(row=>row.size.width===size.width);
+ const images=[];
+ const cdp=capture?await context.newCDPSession(page):null;
+ if(cdp){
+  cdp.on('Page.screencastFrame',frame=>{
+   if(frame.metadata.timestamp)images.push({at:frame.metadata.timestamp*1000,data:frame.data});
+   void cdp.send('Page.screencastFrameAck',{sessionId:frame.sessionId}).catch(()=>{});
+  });
+  await cdp.send('Page.startScreencast',{format:'jpeg',quality:90,everyNthFrame:1});
+ }
+ await page.locator('#room-start').click();
  await page.waitForFunction(()=>window.__motion.phases.length>0);
- const room=service.rooms.get(code);if(version==='before'&&room?.opening)service.openingComplete(code,room.seats[0].token,{id:room.opening.id});
+ if(resizeTo){
+  await page.waitForFunction(()=>window.__diceOrbit?.frames.at(-1)?.time>=350);
+  await page.setViewportSize(resizeTo);
+ }
  await idle(page);
+ if(cdp){await cdp.send('Page.stopScreencast');await cdp.detach();}
  const data=await page.evaluate(()=>window.__motion),phases=data.phases;
  assert.deepEqual(phases.map(p=>p.phase),motion==='reduce'?['showing','idle']:['rolling','settled','enlarging','showing','idle']);
  assert.ok(phases.filter(p=>p.phase!=='idle').every(p=>p.enabled===0));
  const at=name=>phases.find(p=>p.phase===name)?.time;
  const measured={version,size,motion,roll:motion==='reduce'?0:at('settled')-at('rolling'),settled:motion==='reduce'?0:at('enlarging')-at('settled'),enlarge:motion==='reduce'?0:at('showing')-at('enlarging'),holdTimer:data.dismissAt-at('showing'),hold:at('idle')-at('showing'),total:at('idle')-phases[0].time,dealPreparation:motion==='reduce'?0:data.deals[0]-data.dismissAt,dealGap:motion==='reduce'?null:data.deals[0]-at('idle'),frames:data.frames.length};
  if(motion!=='reduce'){assert.equal(data.deals.length,1);assert.ok(measured.dealGap>=0&&measured.dealGap<500,'no second wait before dealing');}
- report.timing.push(measured);writeFileSync(output+'/motion-'+version+'-'+size.width+'-'+motion+'.json',JSON.stringify(data,null,2));
+ const runSuffix=resizeTo?'-resize-'+resizeTo.width:report.orbits.some(row=>row.size.width===size.width)?'-repeat':'';
+ report.timing.push({...measured,resizeTo});writeFileSync(output+'/motion-'+version+'-'+size.width+'-'+motion+runSuffix+'.json',JSON.stringify(data,null,2));
  if(version==='after'){
-  assert.ok(measured.hold>=750&&measured.hold<1400,'readable 800ms hold');
+  assert.ok(measured.holdTimer>=750&&measured.holdTimer<1175&&measured.hold<1400,'readable 800ms hold');
   if(motion!=='reduce'){
+   assert.ok(measured.roll>=985&&measured.roll<1500&&measured.settled>=110&&measured.settled<260&&measured.enlarge>=285&&measured.enlarge<470,'preserve the 1000/120/300ms opening stages');
+   const orbit=await page.evaluate(()=>window.__diceOrbit);
+   writeFileSync(output+'/orbit-'+size.width+runSuffix+'.json',JSON.stringify(orbit,null,2));
+   report.orbits.push(assertOrbit(orbit,size,resizeTo));
+   if(cdp&&images.length){
+    const nearest=(rows,time,getTime)=>rows.reduce((a,b)=>Math.abs(getTime(b)-time)<Math.abs(getTime(a)-time)?b:a);
+    const moments=[['front',350],['half',500],['back',650],['roll-tail',980]].map(([name,time])=>[
+     name,nearest(orbit.frames,time,frame=>frame.time).at
+    ]);
+    moments.push(['settled',at('settled')+70],['showing',at('showing')+80],['dealing',data.deals[0]+160]);
+    for(const [name,at] of moments){
+     const shot=nearest(images,orbit.timeOrigin+at,image=>image.at),file=output+'/opening-'+size.width+'-'+name+'.jpg';
+     writeFileSync(file,Buffer.from(shot.data,'base64'));
+     report.screenshots.push({file,msFromRequestedFrame:shot.at-orbit.timeOrigin-at});
+    }
+   }
    assert.ok(data.frames.length>10);assert.ok(data.frames.some(f=>f.dice[0].transform!==f.dice[1].transform),'dice use distinct motion tracks');
    const end=data.frames.at(-1);for(const die of end.dice){const values=die.transform.slice(die.transform.indexOf('(')+1).match(/-?[\d.]+(?:e[+-]?\d+)?/gi)?.map(Number)||[],diagonal=values.length===16?[0,5,10,15]:[0,3];assert.ok(die.transform==='none'||values.every((v,i)=>Math.abs(v-(diagonal.includes(i)?1:0))<.05),'last observed roll frame approaches its stable pose');}
   }
@@ -82,6 +229,10 @@ try{
  for(const size of sizes){
   if(!process.env.KK_UI_TARGET_URL){const old=await open('before',size);await old.page.evaluate(()=>window.mahjongRoom.leave());await old.context.close();}
   const current=await open('after',size);await current.page.evaluate(()=>window.mahjongRoom.leave());await current.context.close();
+ }
+ if(!process.env.KK_UI_TARGET_URL){
+  const resized=await open('after',sizes[1],'no-preference',sizes[0]);
+  await resized.page.evaluate(()=>window.mahjongRoom.leave());await resized.context.close();
  }
  if(!process.env.KK_UI_TARGET_URL){
   const old=await open('before',sizes[0],'reduce');await old.page.evaluate(()=>window.mahjongRoom.leave());await old.context.close();
