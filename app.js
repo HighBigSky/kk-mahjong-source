@@ -648,12 +648,12 @@ function scheduleDiceIntro(callback, delayMs) {
   }, delayMs);
 }
 
-function restoreIntroDice() {
+function restoreIntroDice(values = game.wallInfo?.dice || []) {
   cancelAnimationFrame(diceIntroFrame); diceIntroFrame = null;
   $('#table-dice').classList.remove('is-rolling');
   // 正常落定前已显示真实点数并归正；此处只清理固定点位，不靠换节点修正朝向。
   renderedHTML.delete($('#table-dice'));
-  setHTMLIfChanged($('#table-dice'), diceHTML(game.wallInfo?.dice || []));
+  setHTMLIfChanged($('#table-dice'), diceHTML(values));
 }
 
 function dismissDiceIntro() {
@@ -728,6 +728,54 @@ function showDiceIntro() {
   interactionChanged();
 }
 
+function createDiceOrbit(holder, dice) {
+  // 用桌面局部坐标计算凹槽内缘和静止位置，避免把投影后的屏幕像素当作 translate。
+  const holderStyle = getComputedStyle(holder);
+  const width = parseFloat(holderStyle.width);
+  const height = parseFloat(holderStyle.height);
+  const wellStyle = getComputedStyle(holder.parentElement, '::before');
+  const inset = (value, size) => parseFloat(value) * (value.endsWith('%') ? size / 100 : 1);
+  const left = inset(wellStyle.left, width) + parseFloat(wellStyle.borderLeftWidth);
+  const right = width - inset(wellStyle.right, width) - parseFloat(wellStyle.borderRightWidth);
+  const top = inset(wellStyle.top, height) + parseFloat(wellStyle.borderTopWidth);
+  const bottom = height - inset(wellStyle.bottom, height) - parseFloat(wellStyle.borderBottomWidth);
+  const centerX = (left + right) / 2;
+  const centerY = (top + bottom) / 2;
+  const wellRadius = Math.min(right - left, bottom - top) / 2;
+  const sizes = dice.map(die => {
+    const style = getComputedStyle(die);
+    return {width:parseFloat(style.width), height:parseFloat(style.height)};
+  });
+  const cornerRadius = Math.max(...sizes.map(size => Math.hypot(size.width, size.height) / 2));
+  const gap = parseFloat(holderStyle.columnGap) || 0;
+  const restX = [(width - sizes[1].width - gap) / 2, (width + sizes[0].width + gap) / 2];
+  const restY = height / 2;
+  const radius = wellRadius * .52;
+  if (!(radius > 0 && cornerRadius > 0)) return () => {};
+
+  // 给翻滚后的对角线留余量。剩余空间小于轨道半径，两颗反相骰子的外轮廓也不会相交。
+  const rollScale = Math.min(1, (wellRadius - radius) * .97 / cornerRadius);
+  const ramp = .08; // 头尾各 80ms 贴着静止方位进出轨道。
+  const smoothStep = value => {
+    const t = Math.max(0, Math.min(1, value));
+    return t * t * (3 - 2 * t);
+  };
+  return progress => {
+    const blend = smoothStep(Math.min(progress, 1 - progress) / ramp);
+    const turn = smoothStep((progress - ramp) / (1 - 2 * ramp));
+    const angle = Math.PI + 2 * Math.PI * turn;
+    const x = radius * Math.cos(angle);
+    const y = radius * Math.sin(angle);
+    dice.forEach((die, index) => {
+      const side = index === 0 ? 1 : -1;
+      const dx = (centerX + side * x - restX[index]) * blend;
+      const dy = (centerY + side * y - restY) * blend;
+      die.style.translate = `${dx}px ${dy}px`;
+      die.style.scale = String(1 + (rollScale - 1) * blend);
+    });
+  };
+}
+
 function rollIntroDice(values) {
   const holder = $('#table-dice');
   setHTMLIfChanged(holder, diceHTML([6,6]));
@@ -756,7 +804,6 @@ function rollIntroDice(values) {
       const visible = new Set(DIE_PIPS[value].map(([row,column]) => row + ' / ' + column));
       for (const pip of die.children) pip.style.opacity = visible.has(pip.style.gridArea) ? '1' : '0';
       die.dataset.value = String(value);
-      die.classList.toggle('is-key', face === finalFace && value === Math.min(...values));
     });
   };
   tick(0);
@@ -766,6 +813,7 @@ function rollIntroDice(values) {
   diceIntroFrame = requestAnimationFrame(() => {
     if (generation !== diceIntroGeneration || diceIntroPhase !== 'rolling') return;
     diceIntroFrame = null;
+    const orbit = createDiceOrbit(holder, dice);
     holder.classList.add('is-rolling');
     // 繁忙帧的 rAF 时间戳可能早于 CSS 真正起播；以同一动画时钟换面和收尾，
     // 不能在 CSS 仍翻滚时按旧帧时间强行清理。无动画查询能力时按实时时间降级。
@@ -775,12 +823,13 @@ function rollIntroDice(values) {
       if (generation !== diceIntroGeneration || diceIntroPhase !== 'rolling') return;
       diceIntroFrame = null;
       const elapsedMs = Math.min(animations.length?Math.max(...animations.map(animation=>Number(animation.currentTime)||0)):performance.now()-startedAt, DICE_INTRO_TIMING.rollMs);
+      orbit(elapsedMs / DICE_INTRO_TIMING.rollMs);
       tick(elapsedMs);
       if (elapsedMs < DICE_INTRO_TIMING.rollMs) {
         diceIntroFrame = requestAnimationFrame(advance);
         return;
       }
-      restoreIntroDice();
+      restoreIntroDice(values);
       setDiceIntroPhase('settled');
       scheduleDiceIntro(showDiceIntro, DICE_INTRO_TIMING.settledMs);
     };
